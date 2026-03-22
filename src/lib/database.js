@@ -1,8 +1,8 @@
 import initSqlJs from "sql.js";
 import mizarData from "@/fixtures/mizar_data.json";
 
-/** URL WASM z katalogu public (Vite serwuje /sql-wasm.wasm lokalnie). */
-const SQL_WASM_URL = "/sql-wasm.wasm";
+/** URL WASM z `public/` — musi uwzględniać Vite `base` (np. GitHub Pages /crm/). */
+const SQL_WASM_URL = `${import.meta.env.BASE_URL}sql-wasm.wasm`;
 
 let db = null;
 let initPromise = null;
