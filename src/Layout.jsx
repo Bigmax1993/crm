@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
+import { createPageUrl, createAbsolutePageHref } from '@/utils';
 import {
   LayoutDashboard,
   Upload,
@@ -42,7 +42,7 @@ export default function Layout({ children, currentPageName }) {
   React.useEffect(() => {
     const homePage = localStorage.getItem('app_home_page');
     if (homePage && currentPageName === 'Home' && homePage !== 'Home') {
-      window.location.href = createPageUrl(homePage);
+      window.location.href = createAbsolutePageHref(homePage);
     }
   }, [currentPageName]);
 

@@ -39,6 +39,10 @@ jobs:
           # Ścieżka pod którą GitHub Pages serwuje projekt (nie user.github.io root)
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
 
+      # GitHub Pages zwraca 404 przy odświeżeniu /crm/Strona — kopia index jako 404 ładuje SPA
+      - name: SPA fallback (404.html)
+        run: cp dist/index.html dist/404.html
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

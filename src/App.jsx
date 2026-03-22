@@ -17,6 +17,8 @@ const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
 const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
 
+const routerBasename = (import.meta.env.BASE_URL || "/").replace(/\/$/, "") || undefined;
+
 const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   <Layout currentPageName={currentPageName}>{children}</Layout>
   : <>{children}</>;
@@ -113,7 +115,7 @@ function App() {
       <AuthProvider>
         <QueryClientProvider client={queryClientInstance}>
           <CurrencyDisplayProvider>
-            <Router>
+            <Router basename={routerBasename}>
               <NavigationTracker />
               <AuthenticatedApp />
             </Router>
