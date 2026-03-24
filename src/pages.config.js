@@ -67,6 +67,7 @@ import ProjectCostMonitoring from './pages/ProjectCostMonitoring';
 import ProjectsMap from './pages/ProjectsMap';
 import Reports from './pages/Reports';
 import Roadmap from './pages/Roadmap';
+import Security from './pages/Security';
 import Settings from './pages/Settings';
 import SettingsAI from './pages/SettingsAI';
 import Suppliers from './pages/Suppliers';
@@ -97,6 +98,7 @@ export const PAGES = {
     "ProjectsMap": ProjectsMap,
     "Reports": Reports,
     "Roadmap": Roadmap,
+    "Security": Security,
     "Settings": Settings,
     "SettingsAI": SettingsAI,
     "Suppliers": Suppliers,

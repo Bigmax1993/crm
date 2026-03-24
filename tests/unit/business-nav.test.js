@@ -44,4 +44,10 @@ describe("business-nav — NAV_GROUP_ORDER", () => {
     const system = NAV_GROUP_ORDER.find((g) => g.id === "system");
     expect(system?.pages).toContain("Roadmap");
   });
+
+  it("strona Security jest w grupie System z tytułem", () => {
+    expect(PAGE_TITLES.Security).toBe("Bezpieczeństwo");
+    const system = NAV_GROUP_ORDER.find((g) => g.id === "system");
+    expect(system?.pages).toContain("Security");
+  });
 });

@@ -6,12 +6,19 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import NavigationTracker from '@/lib/NavigationTracker'
 import { pagesConfig } from './pages.config'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import { CurrencyDisplayProvider } from '@/contexts/CurrencyDisplayContext';
 import { appParams } from '@/lib/app-params';
+import Login from '@/pages/Login';
+import Register from '@/pages/Register';
+import ForgotPassword from '@/pages/ForgotPassword';
+import ResetPassword from '@/pages/ResetPassword';
+import ConfirmEmail from '@/pages/ConfirmEmail';
+import MfaChallenge from '@/pages/MfaChallenge';
+import { RoleGuard } from '@/components/RoleGuard';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -63,7 +70,17 @@ function AuthRequiredScreen({ navigateToLogin }) {
 }
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const {
+    isLoadingAuth,
+    isLoadingPublicSettings,
+    authError,
+    navigateToLogin,
+    isAuthenticated,
+    authMode,
+    pendingMfaVerification,
+    passwordRecoveryMode,
+    needsEmailConfirmation,
+  } = useAuth();
 
   // Show loading spinner while checking app public settings or auth
   if (isLoadingPublicSettings || isLoadingAuth) {
@@ -74,8 +91,8 @@ const AuthenticatedApp = () => {
     );
   }
 
-  // Handle authentication errors
-  if (authError) {
+  // Handle authentication errors (tryb Base44 — nie ekran logowania Supabase)
+  if (authMode !== "supabase" && authError) {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
@@ -83,12 +100,63 @@ const AuthenticatedApp = () => {
     }
   }
 
+  // Logowanie Supabase — brak sesji: Login, rejestracja, reset hasła
+  if (authMode === "supabase" && !isAuthenticated) {
+    return (
+      <Routes>
+        <Route path="/Login" element={<Login />} />
+        <Route path="/Register" element={<Register />} />
+        <Route path="/ForgotPassword" element={<ForgotPassword />} />
+        <Route path="/ResetPassword" element={<ResetPassword />} />
+        <Route path="*" element={<Navigate to="/Login" replace />} />
+      </Routes>
+    );
+  }
+
+  // Reset hasła — sesja recovery (link z e-maila)
+  if (authMode === "supabase" && isAuthenticated && passwordRecoveryMode) {
+    return (
+      <Routes>
+        <Route path="/ResetPassword" element={<ResetPassword />} />
+        <Route path="*" element={<Navigate to="/ResetPassword" replace />} />
+      </Routes>
+    );
+  }
+
+  // MFA (TOTP) — drugi krok po haśle
+  if (authMode === "supabase" && isAuthenticated && pendingMfaVerification) {
+    return (
+      <Routes>
+        <Route path="/MfaChallenge" element={<MfaChallenge />} />
+        <Route path="*" element={<Navigate to="/MfaChallenge" replace />} />
+      </Routes>
+    );
+  }
+
+  // Potwierdzenie adresu e-mail (wymagane w projekcie Supabase)
+  if (authMode === "supabase" && isAuthenticated && needsEmailConfirmation) {
+    return (
+      <Routes>
+        <Route path="/ConfirmEmail" element={<ConfirmEmail />} />
+        <Route path="*" element={<Navigate to="/ConfirmEmail" replace />} />
+      </Routes>
+    );
+  }
+
   // Render the main app
   return (
     <Routes>
+      <Route path="/Login" element={<Navigate to="/" replace />} />
+      <Route path="/Register" element={<Navigate to="/" replace />} />
+      <Route path="/ForgotPassword" element={<Navigate to="/" replace />} />
+      <Route path="/ResetPassword" element={<Navigate to="/" replace />} />
+      <Route path="/MfaChallenge" element={<Navigate to="/" replace />} />
+      <Route path="/ConfirmEmail" element={<Navigate to="/" replace />} />
       <Route path="/" element={
         <LayoutWrapper currentPageName={mainPageKey}>
-          <MainPage />
+          <RoleGuard pageName={mainPageKey}>
+            <MainPage />
+          </RoleGuard>
         </LayoutWrapper>
       } />
       {Object.entries(Pages).map(([path, Page]) => (
@@ -97,7 +165,9 @@ const AuthenticatedApp = () => {
           path={`/${path}`}
           element={
             <LayoutWrapper currentPageName={path}>
-              <Page />
+              <RoleGuard pageName={path}>
+                <Page />
+              </RoleGuard>
             </LayoutWrapper>
           }
         />

@@ -38,6 +38,9 @@ jobs:
         env:
           # Ścieżka pod którą GitHub Pages serwuje projekt (nie user.github.io root)
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
+          # Opcjonalnie: logowanie Supabase (Repository → Settings → Secrets and variables → Actions)
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       # GitHub Pages zwraca 404 przy odświeżeniu /crm/Strona — kopia index jako 404 ładuje SPA
       - name: SPA fallback (404.html)

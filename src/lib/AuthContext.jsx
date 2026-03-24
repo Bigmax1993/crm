@@ -1,9 +1,17 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
-import { appParams } from '@/lib/app-params';
-import { createAxiosClient } from '@base44/sdk/dist/utils/axios-client';
+import React, { createContext, useState, useContext, useEffect, useCallback, useMemo } from "react";
+import { base44 } from "@/api/base44Client";
+import { appParams } from "@/lib/app-params";
+import { createAxiosClient } from "@base44/sdk/dist/utils/axios-client";
+import { createAbsolutePageHref } from "@/utils";
+import { getAuthRedirectToPath } from "@/lib/authRedirect";
+import { isSupabaseAuthEnabled, isDevSkipAuth as devSkipAuth } from "@/lib/authConfig";
+import { getSupabase, resetSupabaseClient, setRememberMePreference } from "@/lib/supabaseClient";
+import { roleFromUser } from "@/lib/auth-roles";
+import { needsMfaStepUp } from "@/lib/authMfa";
 
 const AuthContext = createContext();
+
+const supabaseAuthEnabled = isSupabaseAuthEnabled();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -11,40 +19,131 @@ export const AuthProvider = ({ children }) => {
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(true);
   const [authError, setAuthError] = useState(null);
-  const [appPublicSettings, setAppPublicSettings] = useState(null); // Contains only { id, public_settings }
+  const [appPublicSettings, setAppPublicSettings] = useState(null);
+  /** Po zalogowaniu hasłem — wymagany kod TOTP (MFA). */
+  const [pendingMfaVerification, setPendingMfaVerification] = useState(false);
+  /** Link resetu hasła — wymuś ekran nowego hasła zamiast CRM. */
+  const [passwordRecoveryMode, setPasswordRecoveryMode] = useState(false);
+
+  const authMode = useMemo(() => {
+    if (devSkipAuth()) return "dev-skip";
+    if (supabaseAuthEnabled) return "supabase";
+    return "base44";
+  }, []);
+
+  const role = useMemo(() => {
+    if (authMode !== "supabase") return null;
+    return roleFromUser(user);
+  }, [authMode, user]);
+
+  const needsEmailConfirmation = useMemo(() => {
+    if (authMode !== "supabase" || !user) return false;
+    return user.email_confirmed_at == null;
+  }, [authMode, user]);
 
   useEffect(() => {
     checkAppState();
   }, []);
+
+  const applySupabaseUser = useCallback((sessionUser) => {
+    if (sessionUser) {
+      setUser(sessionUser);
+      setIsAuthenticated(true);
+      setAppPublicSettings({ id: "supabase" });
+      setAuthError(null);
+    } else {
+      setUser(null);
+      setIsAuthenticated(false);
+    }
+  }, []);
+
+  const refreshMfaPending = useCallback(async () => {
+    if (!supabaseAuthEnabled || devSkipAuth()) {
+      setPendingMfaVerification(false);
+      return;
+    }
+    const step = await needsMfaStepUp();
+    setPendingMfaVerification(step);
+  }, []);
+
+  useEffect(() => {
+    if (!supabaseAuthEnabled || devSkipAuth()) return undefined;
+
+    const sb = getSupabase();
+    if (!sb) {
+      setIsLoadingAuth(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const init = async () => {
+      const {
+        data: { session },
+      } = await sb.auth.getSession();
+      if (cancelled) return;
+      applySupabaseUser(session?.user ?? null);
+      setIsLoadingAuth(false);
+      if (session?.user) {
+        await refreshMfaPending();
+      }
+    };
+
+    init();
+
+    const {
+      data: { subscription },
+    } = sb.auth.onAuthStateChange(async (event, session) => {
+      if (cancelled) return;
+      if (event === "PASSWORD_RECOVERY") {
+        setPasswordRecoveryMode(true);
+      }
+      applySupabaseUser(session?.user ?? null);
+      if (session?.user) {
+        await refreshMfaPending();
+      } else {
+        setPendingMfaVerification(false);
+        setPasswordRecoveryMode(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, [applySupabaseUser, refreshMfaPending]);
 
   const checkAppState = async () => {
     try {
       setIsLoadingPublicSettings(true);
       setAuthError(null);
 
-      if (import.meta.env.DEV && import.meta.env.VITE_DEV_SKIP_AUTH === 'true') {
-        setAppPublicSettings({ id: appParams.appId || 'dev' });
+      if (devSkipAuth()) {
+        setAppPublicSettings({ id: appParams.appId || "dev" });
         setIsLoadingPublicSettings(false);
         setIsLoadingAuth(false);
         return;
       }
 
-      // First, check app public settings (with token if available)
-      // This will tell us if auth is required, user not registered, etc.
+      if (supabaseAuthEnabled) {
+        setIsLoadingPublicSettings(false);
+        setAuthError(null);
+        return;
+      }
+
       const appClient = createAxiosClient({
         baseURL: `/api/apps/public`,
         headers: {
-          'X-App-Id': appParams.appId
+          "X-App-Id": appParams.appId,
         },
-        token: appParams.token, // Include token if available
-        interceptResponses: true
+        token: appParams.token,
+        interceptResponses: true,
       });
-      
+
       try {
         const publicSettings = await appClient.get(`/prod/public-settings/by-id/${appParams.appId}`);
         setAppPublicSettings(publicSettings);
-        
-        // If we got the app public settings successfully, check if user is authenticated
+
         if (appParams.token) {
           await checkUserAuth();
         } else {
@@ -53,41 +152,40 @@ export const AuthProvider = ({ children }) => {
         }
         setIsLoadingPublicSettings(false);
       } catch (appError) {
-        console.error('App state check failed:', appError);
-        
-        // Handle app-level errors
+        console.error("App state check failed:", appError);
+
         if (appError.status === 403 && appError.data?.extra_data?.reason) {
           const reason = appError.data.extra_data.reason;
-          if (reason === 'auth_required') {
+          if (reason === "auth_required") {
             setAuthError({
-              type: 'auth_required',
-              message: 'Authentication required'
+              type: "auth_required",
+              message: "Authentication required",
             });
-          } else if (reason === 'user_not_registered') {
+          } else if (reason === "user_not_registered") {
             setAuthError({
-              type: 'user_not_registered',
-              message: 'User not registered for this app'
+              type: "user_not_registered",
+              message: "User not registered for this app",
             });
           } else {
             setAuthError({
               type: reason,
-              message: appError.message
+              message: appError.message,
             });
           }
         } else {
           setAuthError({
-            type: 'unknown',
-            message: appError.message || 'Failed to load app'
+            type: "unknown",
+            message: appError.message || "Failed to load app",
           });
         }
         setIsLoadingPublicSettings(false);
         setIsLoadingAuth(false);
       }
     } catch (error) {
-      console.error('Unexpected error:', error);
+      console.error("Unexpected error:", error);
       setAuthError({
-        type: 'unknown',
-        message: error.message || 'An unexpected error occurred'
+        type: "unknown",
+        message: error.message || "An unexpected error occurred",
       });
       setIsLoadingPublicSettings(false);
       setIsLoadingAuth(false);
@@ -96,57 +194,185 @@ export const AuthProvider = ({ children }) => {
 
   const checkUserAuth = async () => {
     try {
-      // Now check if the user is authenticated
       setIsLoadingAuth(true);
       const currentUser = await base44.auth.me();
       setUser(currentUser);
       setIsAuthenticated(true);
       setIsLoadingAuth(false);
     } catch (error) {
-      console.error('User auth check failed:', error);
+      console.error("User auth check failed:", error);
       setIsLoadingAuth(false);
       setIsAuthenticated(false);
-      
-      // If user auth fails, it might be an expired token
+
       if (error.status === 401 || error.status === 403) {
         setAuthError({
-          type: 'auth_required',
-          message: 'Authentication required'
+          type: "auth_required",
+          message: "Authentication required",
         });
       }
     }
   };
 
-  const logout = (shouldRedirect = true) => {
-    setUser(null);
-    setIsAuthenticated(false);
-    
-    if (shouldRedirect) {
-      // Use the SDK's logout method which handles token cleanup and redirect
-      base44.auth.logout(window.location.href);
-    } else {
-      // Just remove the token without redirect
-      base44.auth.logout();
+  const signInWithPassword = useCallback(async (email, password, options = {}) => {
+    const { rememberMe = true } = options;
+    setRememberMePreference(rememberMe);
+    resetSupabaseClient();
+    const sb = getSupabase();
+    if (!sb) {
+      return { error: new Error("Brak konfiguracji Supabase.") };
     }
-  };
+    const result = await sb.auth.signInWithPassword({ email, password });
+    if (!result.error) {
+      setPasswordRecoveryMode(false);
+      await refreshMfaPending();
+    }
+    return result;
+  }, [refreshMfaPending]);
 
-  const navigateToLogin = () => {
-    // Use the SDK's redirectToLogin method
+  const signUp = useCallback(async (email, password) => {
+    const sb = getSupabase();
+    if (!sb) {
+      return { error: new Error("Brak konfiguracji Supabase.") };
+    }
+    return sb.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { role: "user" },
+        emailRedirectTo: getAuthRedirectToPath("Login"),
+      },
+    });
+  }, []);
+
+  const signInWithOAuth = useCallback(
+    async (provider) => {
+      const sb = getSupabase();
+      if (!sb) {
+        return { error: new Error("Brak konfiguracji Supabase.") };
+      }
+      return sb.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: getAuthRedirectToPath("Login"),
+          skipBrowserRedirect: false,
+        },
+      });
+    },
+    []
+  );
+
+  const signInWithMagicLink = useCallback(async (email) => {
+    const sb = getSupabase();
+    if (!sb) {
+      return { error: new Error("Brak konfiguracji Supabase.") };
+    }
+    return sb.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: getAuthRedirectToPath("Login"),
+        shouldCreateUser: true,
+      },
+    });
+  }, []);
+
+  const resetPasswordForEmail = useCallback(async (email) => {
+    const sb = getSupabase();
+    if (!sb) {
+      return { error: new Error("Brak konfiguracji Supabase.") };
+    }
+    return sb.auth.resetPasswordForEmail(email, {
+      redirectTo: getAuthRedirectToPath("ResetPassword"),
+    });
+  }, []);
+
+  const updatePassword = useCallback(async (newPassword) => {
+    const sb = getSupabase();
+    if (!sb) {
+      return { error: new Error("Brak konfiguracji Supabase.") };
+    }
+    const result = await sb.auth.updateUser({ password: newPassword });
+    if (!result.error) {
+      setPasswordRecoveryMode(false);
+    }
+    return result;
+  }, []);
+
+  const resendSignupEmail = useCallback(async (email) => {
+    const sb = getSupabase();
+    if (!sb) {
+      return { error: new Error("Brak konfiguracji Supabase.") };
+    }
+    return sb.auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo: getAuthRedirectToPath("Login"),
+      },
+    });
+  }, []);
+
+  const logout = useCallback(
+    async (shouldRedirect = true) => {
+      if (supabaseAuthEnabled) {
+        const sb = getSupabase();
+        if (sb) await sb.auth.signOut();
+        setUser(null);
+        setIsAuthenticated(false);
+        setPendingMfaVerification(false);
+        setPasswordRecoveryMode(false);
+        if (shouldRedirect) {
+          window.location.assign(createAbsolutePageHref("Login"));
+        }
+        return;
+      }
+
+      setUser(null);
+      setIsAuthenticated(false);
+
+      if (shouldRedirect) {
+        base44.auth.logout(window.location.href);
+      } else {
+        base44.auth.logout();
+      }
+    },
+    []
+  );
+
+  const navigateToLogin = useCallback(() => {
+    if (supabaseAuthEnabled) {
+      window.location.assign(createAbsolutePageHref("Login"));
+      return;
+    }
     base44.auth.redirectToLogin(window.location.href);
-  };
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      isAuthenticated, 
-      isLoadingAuth,
-      isLoadingPublicSettings,
-      authError,
-      appPublicSettings,
-      logout,
-      navigateToLogin,
-      checkAppState
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        role,
+        isAuthenticated,
+        isLoadingAuth,
+        isLoadingPublicSettings,
+        authError,
+        appPublicSettings,
+        authMode,
+        pendingMfaVerification,
+        passwordRecoveryMode,
+        needsEmailConfirmation,
+        logout,
+        navigateToLogin,
+        checkAppState,
+        signInWithPassword,
+        signUp,
+        signInWithOAuth,
+        signInWithMagicLink,
+        resetPasswordForEmail,
+        updatePassword,
+        resendSignupEmail,
+        refreshMfaPending,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -155,7 +381,7 @@ export const AuthProvider = ({ children }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };

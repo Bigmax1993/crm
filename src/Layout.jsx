@@ -1,5 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "@/lib/AuthContext";
+import { canAccessPage } from "@/lib/auth-roles";
 import { createPageUrl, createAbsolutePageHref } from "@/utils";
 import {
   LayoutDashboard,
@@ -29,6 +31,7 @@ import {
   Truck,
   PanelLeft,
   ListChecks,
+  Shield,
 } from "lucide-react";
 import { AppLogo } from "@/components/brand/AppLogo";
 import { EXPORT_ADDRESS, EXPORT_WEB } from "@/lib/brand-brief";
@@ -66,6 +69,7 @@ const PAGE_ICONS = {
   ProjectsMap: MapPinned,
   SettingsAI: Sparkles,
   Roadmap: ListChecks,
+  Security: Shield,
   Settings: SettingsIcon,
 };
 
@@ -152,9 +156,18 @@ function MobileNavList({ currentPageName, onItemClick }) {
 
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
+  const { logout, authMode, user, role } = useAuth();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   /** Desktop: zwinięty rail (ikony); klik w sidebar rozwija; opuszczenie myszą zwija. */
   const [railExpanded, setRailExpanded] = React.useState(false);
+
+  const visibleNavGroups = React.useMemo(() => {
+    if (authMode !== "supabase") return NAV_GROUPS;
+    return NAV_GROUPS.map((g) => ({
+      ...g,
+      items: g.items.filter((item) => canAccessPage(item.page, role)),
+    })).filter((g) => g.items.length > 0);
+  }, [authMode, role]);
 
   React.useEffect(() => {
     const homePage = localStorage.getItem("app_home_page");
@@ -170,8 +183,7 @@ export default function Layout({ children, currentPageName }) {
 
 
   const handleLogout = async () => {
-    const { base44 } = await import("@/api/base44Client");
-    await base44.auth.logout();
+    await logout();
   };
 
   const pageTitle = titleForPage(currentPageName);
@@ -218,7 +230,7 @@ export default function Layout({ children, currentPageName }) {
               </div>
             </div>
             <div className="px-3 py-4">
-              <MobileNavList currentPageName={currentPageName} onItemClick={closeMobile} />
+              <MobileNavList currentPageName={currentPageName} onItemClick={closeMobile} groups={visibleNavGroups} />
               <div className="mt-4 border-t border-border pt-4">
                 <Button
                   onClick={() => {
@@ -270,7 +282,7 @@ export default function Layout({ children, currentPageName }) {
               ) : null}
             </div>
             <nav className="flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden px-2.5 py-3">
-              {NAV_GROUPS.map((group, gi) => (
+              {visibleNavGroups.map((group, gi) => (
                 <div key={group.id} className="flex flex-col gap-1">
                   {gi > 0 ? (
                     railExpanded ? (
@@ -303,6 +315,11 @@ export default function Layout({ children, currentPageName }) {
                 railExpanded ? "flex flex-col gap-1 px-2" : "flex flex-col items-center gap-2 px-2"
               )}
             >
+              {railExpanded && authMode === "supabase" && user?.email ? (
+                <p className="truncate px-2 pb-1 text-xs text-slate-500" title={user.email}>
+                  {user.email}
+                </p>
+              ) : null}
               {railExpanded ? (
                 <>
                   <div className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-slate-400 hover:bg-slate-800/50">
