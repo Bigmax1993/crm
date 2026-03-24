@@ -64,6 +64,11 @@ src/
 
 Moduły AI: `src/lib/openai-crm.js`, `src/lib/ai-crm-context.js`, `src/components/ai/`.
 
+## Plan rozwoju (roadmap)
+
+- **W aplikacji:** menu **System → Plan rozwoju** (`/Roadmap`) — lista faz i funkcji.
+- **W repozytorium:** [`docs/PRODUCT_ROADMAP.md`](docs/PRODUCT_ROADMAP.md) oraz źródło danych [`src/lib/product-roadmap-data.js`](src/lib/product-roadmap-data.js).
+
 ## Licencja
 
 Projekt prywatny (`"private": true` w `package.json`).

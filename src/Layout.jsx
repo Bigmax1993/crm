@@ -1,6 +1,6 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { createPageUrl, createAbsolutePageHref } from '@/utils';
+import React from "react";
+import { Link, useLocation } from "react-router-dom";
+import { createPageUrl, createAbsolutePageHref } from "@/utils";
 import {
   LayoutDashboard,
   Upload,
@@ -11,9 +11,7 @@ import {
   Hotel,
   Users,
   HardHat,
-  Truck,
   Menu,
-  X,
   LogOut,
   Settings as SettingsIcon,
   Scale,
@@ -28,142 +26,375 @@ import {
   Inbox,
   Package,
   Images,
-} from 'lucide-react';
-import { AppLogo } from '@/components/brand/AppLogo';
-import { EXPORT_ADDRESS, EXPORT_WEB } from '@/lib/brand-brief';
-import { Button } from '@/components/ui/button';
-import { ModeToggle } from '@/components/mode-toggle';
-import { CurrencySwitcher } from '@/components/currency/CurrencySwitcher';
-import { FinancialAiChat } from '@/components/ai/FinancialAiChat';
+  Truck,
+  PanelLeft,
+  ListChecks,
+} from "lucide-react";
+import { AppLogo } from "@/components/brand/AppLogo";
+import { EXPORT_ADDRESS, EXPORT_WEB } from "@/lib/brand-brief";
+import { Button } from "@/components/ui/button";
+import { ModeToggle } from "@/components/mode-toggle";
+import { CurrencySwitcher } from "@/components/currency/CurrencySwitcher";
+import { FinancialAiChat } from "@/components/ai/FinancialAiChat";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
+import { NAV_GROUP_ORDER, PAGE_TITLES, titleForPage } from "@/lib/business-nav";
+
+const PAGE_ICONS = {
+  MultiCurrencyDashboard: Banknote,
+  CEODashboard: LayoutDashboard,
+  Dashboard: BarChart3,
+  Reports: BarChart3,
+  CashFlow: Waves,
+  IncomeStatement: LineChart,
+  ProjectBalance: Scale,
+  ProjectCostMonitoring: Radar,
+  FinancialForecasts: TrendingUp,
+  ExportReports: FileSpreadsheet,
+  Leads: Inbox,
+  Suppliers: Package,
+  Portfolio: Images,
+  Contractors: Building2,
+  Employees: Users,
+  Construction: HardHat,
+  Upload: Upload,
+  Invoices: FileText,
+  Transfers: CreditCard,
+  Transport: Truck,
+  Hotels: Hotel,
+  ProjectsMap: MapPinned,
+  SettingsAI: Sparkles,
+  Roadmap: ListChecks,
+  Settings: SettingsIcon,
+};
+
+const NAV_GROUPS = NAV_GROUP_ORDER.map((g) => ({
+  ...g,
+  items: g.pages
+    .map((page) => ({
+      page,
+      name: PAGE_TITLES[page],
+      icon: PAGE_ICONS[page],
+    }))
+    .filter((x) => x.icon && x.name),
+}));
+
+function NavRailLink({ item, isActive, expanded }) {
+  const Icon = item.icon;
+  const link = (
+    <Link
+      to={createPageUrl(item.page)}
+      aria-label={item.name}
+      aria-current={isActive ? "page" : undefined}
+      className={cn(
+        "flex shrink-0 items-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400",
+        expanded
+          ? "min-h-10 w-full gap-3 px-3 py-2 text-sm font-medium"
+          : "h-11 w-11 justify-center",
+        isActive
+          ? "bg-slate-800 text-white shadow-sm ring-1 ring-slate-600/80"
+          : "text-slate-400 hover:bg-slate-800/80 hover:text-slate-100"
+      )}
+    >
+      <Icon className="h-5 w-5 shrink-0" />
+      {expanded ? <span className="min-w-0 truncate">{item.name}</span> : null}
+    </Link>
+  );
+
+  if (expanded) return link;
+
+  return (
+    <Tooltip delayDuration={200}>
+      <TooltipTrigger asChild>{link}</TooltipTrigger>
+      <TooltipContent side="right" className="max-w-xs border-slate-700 bg-slate-900 text-slate-100">
+        <p className="text-xs font-medium">{item.name}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function MobileNavList({ currentPageName, onItemClick }) {
+  return (
+    <nav className="flex flex-col gap-6 pb-8 pt-2">
+      {NAV_GROUPS.map((group) => (
+        <div key={group.id}>
+          <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {group.label}
+          </p>
+          <div className="flex flex-col gap-0.5">
+            {group.items.map((item) => {
+              const isActive = currentPageName === item.page;
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.page}
+                  to={createPageUrl(item.page)}
+                  onClick={onItemClick}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "text-foreground hover:bg-muted"
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0 opacity-90" />
+                  <span>{item.name}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </nav>
+  );
+}
 
 export default function Layout({ children, currentPageName }) {
-  const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const location = useLocation();
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+  /** Desktop: zwinięty rail (ikony); klik w sidebar rozwija; opuszczenie myszą zwija. */
+  const [railExpanded, setRailExpanded] = React.useState(false);
 
   React.useEffect(() => {
-    const homePage = localStorage.getItem('app_home_page');
-    if (homePage && currentPageName === 'Home' && homePage !== 'Home') {
+    const homePage = localStorage.getItem("app_home_page");
+    if (homePage && currentPageName === "Home" && homePage !== "Home") {
       window.location.href = createAbsolutePageHref(homePage);
     }
   }, [currentPageName]);
 
+  /** Po przejściu w menu (inna strona) — widok od góry, żeby nie zostawać w połowie scrolla. */
+  React.useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
+
   const handleLogout = async () => {
-    const { base44 } = await import('@/api/base44Client');
+    const { base44 } = await import("@/api/base44Client");
     await base44.auth.logout();
   };
 
-  const navigation = [
-    { name: 'Waluty / NBP', page: 'MultiCurrencyDashboard', icon: Banknote },
-    { name: 'Dashboard CEO', page: 'CEODashboard', icon: LayoutDashboard },
-    { name: 'Dashboard (operacyjny)', page: 'Dashboard', icon: BarChart3 },
-    { name: 'Bilans projektowy', page: 'ProjectBalance', icon: Scale },
-    { name: 'Cash flow', page: 'CashFlow', icon: Waves },
-    { name: 'Rachunek wyników', page: 'IncomeStatement', icon: LineChart },
-    { name: 'Monitoring kosztów', page: 'ProjectCostMonitoring', icon: Radar },
-    { name: 'Prognozy', page: 'FinancialForecasts', icon: TrendingUp },
-    { name: 'Mapa obiektów', page: 'ProjectsMap', icon: MapPinned },
-    { name: 'Eksport Excel/PDF', page: 'ExportReports', icon: FileSpreadsheet },
-    { name: 'Leady', page: 'Leads', icon: Inbox },
-    { name: 'Dostawcy', page: 'Suppliers', icon: Package },
-    { name: 'Realizacje (portfolio)', page: 'Portfolio', icon: Images },
-    { name: 'Kontrahenci', page: 'Contractors', icon: Building2 },
-    { name: 'Pracownicy', page: 'Employees', icon: Users },
-    { name: 'Projekty / budowa', page: 'Construction', icon: HardHat },
-    { name: 'Upload faktur', page: 'Upload', icon: Upload },
-    { name: 'Faktury', page: 'Invoices', icon: FileText },
-    { name: 'Przelewy', page: 'Transfers', icon: CreditCard },
-    { name: 'Transport', page: 'Transport', icon: Truck },
-    { name: 'Hotele', page: 'Hotels', icon: Hotel },
-    { name: 'Raporty', page: 'Reports', icon: BarChart3 },
-    { name: 'Ustawienia AI', page: 'SettingsAI', icon: Sparkles },
-    { name: 'Ustawienia', page: 'Settings', icon: SettingsIcon },
-  ];
+  const pageTitle = titleForPage(currentPageName);
+  const closeMobile = () => setMobileOpen(false);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-3 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <AppLogo size="sm" />
-          <h1 className="font-bold text-lg text-foreground truncate">Fakturowo CRM</h1>
-        </div>
-        <div className="flex items-center gap-1">
-          <CurrencySwitcher />
-          <ModeToggle className="text-foreground" />
-          <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
+    <TooltipProvider delayDuration={200}>
+      <div className="min-h-screen bg-[hsl(40_7%_93%)] text-foreground dark:bg-background">
+        {/* Mobile top bar */}
+        <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between gap-2 border-b border-border bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:hidden">
+          <div className="flex min-w-0 items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="shrink-0"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Menu nawigacji"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold leading-tight">{pageTitle}</p>
+              <p className="truncate text-[11px] text-muted-foreground">Fakturowo</p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <CurrencySwitcher />
+            <ModeToggle />
+          </div>
+        </header>
+
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetContent side="left" className="w-[min(100%,20rem)] overflow-y-auto p-0 sm:max-w-md">
+            <div className="border-b border-border px-4 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
+                  FW
+                </div>
+                <div>
+                  <p className="font-semibold leading-tight">Fakturowo CRM</p>
+                  <p className="text-xs text-muted-foreground">Analiza i operacje</p>
+                </div>
+              </div>
+            </div>
+            <div className="px-3 py-4">
+              <MobileNavList currentPageName={currentPageName} onItemClick={closeMobile} />
+              <div className="mt-4 border-t border-border pt-4">
+                <Button
+                  onClick={() => {
+                    closeMobile();
+                    handleLogout();
+                  }}
+                  variant="ghost"
+                  className="w-full justify-start gap-3"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Wyloguj się
+                </Button>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        <div className="flex min-h-screen">
+          {/* Desktop: rail — klik rozwija, mouseleave zwija */}
+          <aside
+            role="navigation"
+            aria-label="Menu główne"
+            data-rail-expanded={railExpanded ? "true" : "false"}
+            onClick={() => setRailExpanded(true)}
+            onMouseLeave={() => setRailExpanded(false)}
+            className={cn(
+              "relative z-30 hidden shrink-0 flex-col overflow-hidden border-r border-slate-800/90 bg-slate-950 text-slate-200 transition-[width] duration-200 ease-out lg:flex",
+              railExpanded ? "w-[min(100vw,17.5rem)]" : "w-[72px]"
+            )}
+          >
+            <div
+              className={cn(
+                "border-b border-slate-800/90 py-4",
+                railExpanded ? "flex flex-row items-center gap-2 px-3" : "flex flex-col items-center px-2"
+              )}
+            >
+              <Link
+                to={createPageUrl("CEODashboard")}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-sm font-bold text-white ring-1 ring-slate-700 transition hover:bg-slate-700"
+                title="Start — Dashboard CEO"
+              >
+                FW
+              </Link>
+              {railExpanded ? (
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold leading-tight text-slate-100">Fakturowo</p>
+                  <p className="truncate text-[11px] text-slate-500">CRM</p>
+                </div>
+              ) : null}
+            </div>
+            <nav className="flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden px-2.5 py-3">
+              {NAV_GROUPS.map((group, gi) => (
+                <div key={group.id} className="flex flex-col gap-1">
+                  {gi > 0 ? (
+                    railExpanded ? (
+                      <div className="px-2 pt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                        {group.label}
+                      </div>
+                    ) : (
+                      <div className="mx-auto my-1 h-px w-8 bg-slate-800" aria-hidden />
+                    )
+                  ) : null}
+                  {gi === 0 && railExpanded ? (
+                    <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                      {group.label}
+                    </div>
+                  ) : null}
+                  {group.items.map((item) => (
+                    <NavRailLink
+                      key={item.page}
+                      item={item}
+                      isActive={currentPageName === item.page}
+                      expanded={railExpanded}
+                    />
+                  ))}
+                </div>
+              ))}
+            </nav>
+            <div
+              className={cn(
+                "border-t border-slate-800/90 py-3",
+                railExpanded ? "flex flex-col gap-1 px-2" : "flex flex-col items-center gap-2 px-2"
+              )}
+            >
+              {railExpanded ? (
+                <>
+                  <div className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-slate-400 hover:bg-slate-800/50">
+                    <span className="text-xs text-slate-500">Motyw</span>
+                    <ModeToggle className="text-slate-300 hover:text-white [&_svg]:h-5 [&_svg]:w-5" />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-auto w-full justify-start gap-2 px-2 py-2 text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="h-5 w-5 shrink-0" />
+                    <span className="text-sm">Wyloguj się</span>
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Tooltip delayDuration={200}>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <ModeToggle className="text-slate-400 hover:text-white [&_svg]:h-5 [&_svg]:w-5" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="border-slate-700 bg-slate-900 text-slate-100">
+                      Motyw jasny / ciemny
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip delayDuration={200}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-11 w-11 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                        onClick={handleLogout}
+                        aria-label="Wyloguj się"
+                      >
+                        <LogOut className="h-5 w-5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="border-slate-700 bg-slate-900 text-slate-100">
+                      Wyloguj się
+                    </TooltipContent>
+                  </Tooltip>
+                </>
+              )}
+            </div>
+          </aside>
+
+          {/* Canvas + toolbar */}
+          <div className="flex min-w-0 flex-1 flex-col">
+            <header className="sticky top-0 z-20 hidden border-b border-border/80 bg-background/90 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/75 lg:flex lg:h-14 lg:items-center lg:justify-between lg:px-6">
+              <div className="flex min-w-0 items-baseline gap-3">
+                <div className="hidden text-muted-foreground lg:block" aria-hidden>
+                  <PanelLeft className="h-4 w-4 opacity-50" />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="truncate text-lg font-semibold tracking-tight text-foreground">{pageTitle}</h1>
+                  <p className="text-xs text-muted-foreground">Fakturowo · workspace</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <AppLogo size="sm" className="hidden opacity-80 xl:flex" />
+                <CurrencySwitcher />
+              </div>
+            </header>
+
+            {/* Toolbar mobile: placeholder spacing — real bar is fixed above */}
+            <div className="h-14 shrink-0 lg:hidden" aria-hidden />
+
+            <main className="flex-1">
+              <div className="mx-auto w-full max-w-[1600px] px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
+                {children}
+              </div>
+            </main>
+
+            <footer className="border-t border-border/80 bg-background/80 px-4 py-3 text-center text-xs text-muted-foreground">
+              {EXPORT_ADDRESS ? <p className="font-medium text-foreground/80">{EXPORT_ADDRESS}</p> : null}
+              {EXPORT_WEB ? (
+                <p>
+                  <a href={EXPORT_WEB} className="text-primary hover:underline" target="_blank" rel="noreferrer">
+                    {EXPORT_WEB}
+                  </a>
+                </p>
+              ) : null}
+            </footer>
+
+            <FinancialAiChat />
+          </div>
         </div>
       </div>
-
-      <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border transform transition-transform duration-200 ease-in-out lg:translate-x-0 flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
-      >
-        <div className="p-6">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sm font-bold text-sidebar-primary-foreground">
-            FW
-          </div>
-          <h1 className="text-xl font-bold text-sidebar-foreground mb-1">Fakturowo CRM</h1>
-          <p className="text-sidebar-foreground/55 text-sm">Faktury, budowa, finanse</p>
-        </div>
-        <nav className="px-3 space-y-0.5 flex-1 overflow-y-auto pb-4">
-          {navigation.map((item) => {
-            const isActive = currentPageName === item.page;
-            return (
-              <Link
-                key={item.page}
-                to={createPageUrl(item.page)}
-                onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-[0.9375rem] font-medium leading-snug ${
-                  isActive
-                    ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm'
-                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-                }`}
-              >
-                <item.icon className="h-4 w-4 shrink-0 opacity-90" />
-                <span>{item.name}</span>
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="px-3 pb-4 space-y-2 border-t border-sidebar-border pt-3">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-sm text-sidebar-foreground/65 font-medium">Motyw</span>
-            <ModeToggle className="text-sidebar-foreground/80 hover:text-sidebar-foreground" />
-          </div>
-          <Button
-            onClick={handleLogout}
-            variant="ghost"
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground/85 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          >
-            <LogOut className="h-5 w-5" />
-            Wyloguj się
-          </Button>
-        </div>
-      </aside>
-
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      <main className="lg:pl-64 pt-16 lg:pt-0 flex flex-col min-h-screen">
-        <div className="hidden lg:flex justify-end items-center gap-2 px-4 py-2 border-b border-border bg-background/90 backdrop-blur-sm sticky top-0 z-20">
-          <CurrencySwitcher />
-        </div>
-        <div className="flex-1">{children}</div>
-        <footer className="border-t bg-background px-4 py-4 text-center text-xs text-muted-foreground space-y-1">
-          {EXPORT_ADDRESS ? <p className="font-medium text-foreground/80">{EXPORT_ADDRESS}</p> : null}
-          {EXPORT_WEB ? (
-            <p>
-              <a href={EXPORT_WEB} className="text-primary hover:underline" target="_blank" rel="noreferrer">
-                {EXPORT_WEB}
-              </a>
-            </p>
-          ) : null}
-        </footer>
-        <FinancialAiChat />
-      </main>
-    </div>
+    </TooltipProvider>
   );
 }

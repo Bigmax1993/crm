@@ -2,7 +2,7 @@
   "name": "Fakturowo CRM",
   "short_name": "Fakturowo",
   "description": "CRM — faktury, budowa, finanse",
-  "start_url": ".",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#6c3460"

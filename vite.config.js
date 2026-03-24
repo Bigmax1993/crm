@@ -27,7 +27,8 @@ export default defineConfig({
     sourcemap: false,
   },
   optimizeDeps: {
-    exclude: ["sql.js"],
+    // sql.js to CJS — pre-bundle (esbuild) dodaje interop `default`; exclude powodował surowy plik bez default → biały ekran w przeglądarce.
+    include: ["sql.js"],
   },
   server: {
     host: "127.0.0.1",
@@ -50,6 +51,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // sql.js: eksport "browser" (sql-wasm-browser.js) nie ma poprawnego default w ESM → biały ekran w Vite.
+      // Build sql-wasm.js + locateFile → public/sql-wasm.wasm (patrz database.js, scripts/copy-sql-wasm.mjs).
+      "sql.js": path.resolve(__dirname, "node_modules/sql.js/dist/sql-wasm.js"),
     },
   },
   test: {

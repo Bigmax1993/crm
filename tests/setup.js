@@ -14,6 +14,9 @@ if (typeof window !== "undefined") {
     removeEventListener: vi.fn(),
     dispatchEvent: vi.fn(),
   }));
+
+  /** jsdom: domyślne scrollTo loguje „Not implemented” — Layout przewija po zmianie trasy */
+  window.scrollTo = vi.fn();
 }
 
 /**
