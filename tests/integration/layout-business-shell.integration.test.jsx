@@ -44,9 +44,8 @@ describe("Layout — powłoka biznesowa (Power BI)", () => {
   const origConsoleError = console.error.bind(console);
 
   beforeEach(() => {
-    vi.stubEnv("VITE_DEV_SKIP_AUTH", "true");
     layoutShellMocks.publicGet.mockReset();
-    layoutShellMocks.publicGet.mockRejectedValue(new Error("public-settings nie wołane w DEV_SKIP_AUTH"));
+    layoutShellMocks.publicGet.mockRejectedValue(new Error("public-settings nieużywane przez App"));
     vi.spyOn(console, "error").mockImplementation((first, ...rest) => {
       if (typeof first === "string" && first.includes("App state check failed")) return;
       origConsoleError(first, ...rest);
@@ -55,7 +54,6 @@ describe("Layout — powłoka biznesowa (Power BI)", () => {
 
   afterEach(() => {
     vi.mocked(console.error).mockRestore();
-    vi.unstubAllEnvs();
   });
 
   it("renderuje podtytuł workspace na pasku (desktop) i linki ikonowej szyny", async () => {
@@ -75,6 +73,13 @@ describe("Layout — powłoka biznesowa (Power BI)", () => {
     render(<App />);
     await screen.findByText(/Fakturowo · workspace/i);
     expect(screen.getByRole("button", { name: /menu nawigacji/i })).toBeInTheDocument();
+  });
+
+  it("mobile menu: brak przycisku „Wyloguj się” (logowanie usunięte)", async () => {
+    render(<App />);
+    await screen.findByText(/Fakturowo · workspace/i);
+    fireEvent.click(screen.getByRole("button", { name: /menu nawigacji/i }));
+    expect(screen.queryByRole("button", { name: /wyloguj/i })).not.toBeInTheDocument();
   });
 
   it("desktop rail: klik rozwija, mouseLeave zwija", async () => {

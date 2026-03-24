@@ -1,18 +1,11 @@
 import React from "react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { RoleGuard } from "@/components/RoleGuard";
 
-vi.mock("@/lib/AuthContext", () => ({
-  useAuth: vi.fn(),
-}));
-
-import { useAuth } from "@/lib/AuthContext";
-
 describe("RoleGuard", () => {
-  it("renderuje dzieci gdy użytkownik ma dostęp (admin → Settings)", () => {
-    vi.mocked(useAuth).mockReturnValue({ role: "admin" });
+  it("zawsze renderuje dzieci (logowanie wyłączone)", () => {
     render(
       <MemoryRouter initialEntries={["/Settings"]}>
         <Routes>
@@ -30,8 +23,7 @@ describe("RoleGuard", () => {
     expect(screen.getByText("Zawartość ustawień")).toBeInTheDocument();
   });
 
-  it("przekierowuje gdy user bez roli admin próbuje Settings", async () => {
-    vi.mocked(useAuth).mockReturnValue({ role: "user" });
+  it("nie przekierowuje z Settings — pełny dostęp bez roli", () => {
     render(
       <MemoryRouter initialEntries={["/Settings"]}>
         <Routes>
@@ -39,7 +31,7 @@ describe("RoleGuard", () => {
             path="/Settings"
             element={
               <RoleGuard pageName="Settings">
-                <p>Nie powinno</p>
+                <p>Strona ustawień</p>
               </RoleGuard>
             }
           />
@@ -47,6 +39,7 @@ describe("RoleGuard", () => {
         </Routes>
       </MemoryRouter>
     );
-    expect(await screen.findByText("CEO")).toBeInTheDocument();
+    expect(screen.getByText("Strona ustawień")).toBeInTheDocument();
+    expect(screen.queryByText("CEO")).not.toBeInTheDocument();
   });
 });

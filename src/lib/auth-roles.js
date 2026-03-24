@@ -9,8 +9,8 @@ export const ROLE = {
 export const ADMIN_ONLY_PAGES = new Set(["Settings", "SettingsAI"]);
 
 /**
- * @param {import('@supabase/supabase-js').User | null | undefined} user
- * @returns {AppRole | null} null = brak metadanych (np. Base44) — traktuj jak pełny dostęp w UI.
+ * @param {{ user_metadata?: object, app_metadata?: object } | null | undefined} user
+ * @returns {AppRole | null} null = brak metadanych — traktuj jak pełny dostęp w UI.
  */
 export function roleFromUser(user) {
   if (!user) return null;

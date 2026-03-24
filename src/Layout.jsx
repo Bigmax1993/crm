@@ -1,7 +1,5 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { useAuth } from "@/lib/AuthContext";
-import { canAccessPage } from "@/lib/auth-roles";
 import { createPageUrl, createAbsolutePageHref } from "@/utils";
 import {
   LayoutDashboard,
@@ -118,10 +116,10 @@ function NavRailLink({ item, isActive, expanded }) {
   );
 }
 
-function MobileNavList({ currentPageName, onItemClick }) {
+function MobileNavList({ currentPageName, onItemClick, groups = NAV_GROUPS }) {
   return (
     <nav className="flex flex-col gap-6 pb-8 pt-2">
-      {NAV_GROUPS.map((group) => (
+      {groups.map((group) => (
         <div key={group.id}>
           <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             {group.label}
@@ -156,18 +154,9 @@ function MobileNavList({ currentPageName, onItemClick }) {
 
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
-  const { logout, authMode, user, role } = useAuth();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   /** Desktop: zwinięty rail (ikony); klik w sidebar rozwija; opuszczenie myszą zwija. */
   const [railExpanded, setRailExpanded] = React.useState(false);
-
-  const visibleNavGroups = React.useMemo(() => {
-    if (authMode !== "supabase") return NAV_GROUPS;
-    return NAV_GROUPS.map((g) => ({
-      ...g,
-      items: g.items.filter((item) => canAccessPage(item.page, role)),
-    })).filter((g) => g.items.length > 0);
-  }, [authMode, role]);
 
   React.useEffect(() => {
     const homePage = localStorage.getItem("app_home_page");
@@ -181,10 +170,6 @@ export default function Layout({ children, currentPageName }) {
     window.scrollTo(0, 0);
   }, [location.pathname]);
 
-
-  const handleLogout = async () => {
-    await logout();
-  };
 
   const pageTitle = titleForPage(currentPageName);
   const closeMobile = () => setMobileOpen(false);
@@ -230,20 +215,7 @@ export default function Layout({ children, currentPageName }) {
               </div>
             </div>
             <div className="px-3 py-4">
-              <MobileNavList currentPageName={currentPageName} onItemClick={closeMobile} groups={visibleNavGroups} />
-              <div className="mt-4 border-t border-border pt-4">
-                <Button
-                  onClick={() => {
-                    closeMobile();
-                    handleLogout();
-                  }}
-                  variant="ghost"
-                  className="w-full justify-start gap-3"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Wyloguj się
-                </Button>
-              </div>
+              <MobileNavList currentPageName={currentPageName} onItemClick={closeMobile} groups={NAV_GROUPS} />
             </div>
           </SheetContent>
         </Sheet>
@@ -282,7 +254,7 @@ export default function Layout({ children, currentPageName }) {
               ) : null}
             </div>
             <nav className="flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden px-2.5 py-3">
-              {visibleNavGroups.map((group, gi) => (
+              {NAV_GROUPS.map((group, gi) => (
                 <div key={group.id} className="flex flex-col gap-1">
                   {gi > 0 ? (
                     railExpanded ? (
@@ -315,57 +287,22 @@ export default function Layout({ children, currentPageName }) {
                 railExpanded ? "flex flex-col gap-1 px-2" : "flex flex-col items-center gap-2 px-2"
               )}
             >
-              {railExpanded && authMode === "supabase" && user?.email ? (
-                <p className="truncate px-2 pb-1 text-xs text-slate-500" title={user.email}>
-                  {user.email}
-                </p>
-              ) : null}
               {railExpanded ? (
-                <>
-                  <div className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-slate-400 hover:bg-slate-800/50">
-                    <span className="text-xs text-slate-500">Motyw</span>
-                    <ModeToggle className="text-slate-300 hover:text-white [&_svg]:h-5 [&_svg]:w-5" />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="h-auto w-full justify-start gap-2 px-2 py-2 text-slate-300 hover:bg-slate-800 hover:text-slate-100"
-                    onClick={handleLogout}
-                  >
-                    <LogOut className="h-5 w-5 shrink-0" />
-                    <span className="text-sm">Wyloguj się</span>
-                  </Button>
-                </>
+                <div className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-slate-400 hover:bg-slate-800/50">
+                  <span className="text-xs text-slate-500">Motyw</span>
+                  <ModeToggle className="text-slate-300 hover:text-white [&_svg]:h-5 [&_svg]:w-5" />
+                </div>
               ) : (
-                <>
-                  <Tooltip delayDuration={200}>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <ModeToggle className="text-slate-400 hover:text-white [&_svg]:h-5 [&_svg]:w-5" />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="border-slate-700 bg-slate-900 text-slate-100">
-                      Motyw jasny / ciemny
-                    </TooltipContent>
-                  </Tooltip>
-                  <Tooltip delayDuration={200}>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-11 w-11 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
-                        onClick={handleLogout}
-                        aria-label="Wyloguj się"
-                      >
-                        <LogOut className="h-5 w-5" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="border-slate-700 bg-slate-900 text-slate-100">
-                      Wyloguj się
-                    </TooltipContent>
-                  </Tooltip>
-                </>
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <ModeToggle className="text-slate-400 hover:text-white [&_svg]:h-5 [&_svg]:w-5" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="border-slate-700 bg-slate-900 text-slate-100">
+                    Motyw jasny / ciemny
+                  </TooltipContent>
+                </Tooltip>
               )}
             </div>
           </aside>

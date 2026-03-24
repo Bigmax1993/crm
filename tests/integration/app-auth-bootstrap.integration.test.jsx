@@ -1,8 +1,8 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 
-const authBootstrap = vi.hoisted(() => ({
+const appSmokeMocks = vi.hoisted(() => ({
   appParamsSnapshot: {
     appId: "test-app",
     token: null,
@@ -11,16 +11,15 @@ const authBootstrap = vi.hoisted(() => ({
     appBaseUrl: "https://demo.base44.app",
   },
   publicGet: vi.fn(),
-  redirectToLogin: vi.fn(),
 }));
 
 vi.mock("@/lib/app-params", () => ({
-  appParams: authBootstrap.appParamsSnapshot,
+  appParams: appSmokeMocks.appParamsSnapshot,
 }));
 
 vi.mock("@base44/sdk/dist/utils/axios-client", () => ({
   createAxiosClient: vi.fn(() => ({
-    get: authBootstrap.publicGet,
+    get: appSmokeMocks.publicGet,
   })),
 }));
 
@@ -31,7 +30,7 @@ vi.mock("@/api/base44Client", () => ({
       ConstructionSite: { list: vi.fn().mockResolvedValue([]) },
     },
     auth: {
-      redirectToLogin: authBootstrap.redirectToLogin,
+      redirectToLogin: vi.fn(),
       me: vi.fn(),
       logout: vi.fn(),
     },
@@ -40,22 +39,14 @@ vi.mock("@/api/base44Client", () => ({
 }));
 
 import App from "@/App.jsx";
+import { base44 } from "@/api/base44Client";
 
-function authRequiredError() {
-  const err = new Error("Forbidden");
-  err.status = 403;
-  err.data = { extra_data: { reason: "auth_required" } };
-  return Promise.reject(err);
-}
-
-describe("App — bootstrap auth (integracja)", () => {
+describe("App — bootstrap (bez logowania)", () => {
   const origConsoleError = console.error.bind(console);
 
   beforeEach(() => {
-    authBootstrap.appParamsSnapshot.appBaseUrl = "https://demo.base44.app";
-    authBootstrap.publicGet.mockReset();
-    authBootstrap.redirectToLogin.mockReset();
-    authBootstrap.publicGet.mockImplementation(authRequiredError);
+    appSmokeMocks.publicGet.mockReset();
+    appSmokeMocks.publicGet.mockRejectedValue(new Error("public-settings nie jest używane"));
     vi.spyOn(console, "error").mockImplementation((first, ...rest) => {
       if (typeof first === "string" && first.includes("App state check failed")) return;
       origConsoleError(first, ...rest);
@@ -67,42 +58,29 @@ describe("App — bootstrap auth (integracja)", () => {
     vi.unstubAllEnvs();
   });
 
-  it("przy auth_required renderuje ekran z instrukcją (nie pusty root)", async () => {
+  it("od razu renderuje Dashboard CEO (brak ekranów auth / public-settings)", async () => {
     render(<App />);
 
-    expect(
-      await screen.findByRole("heading", { name: /wymagane logowanie base44/i })
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /otwórz logowanie/i })).toBeInTheDocument();
-    expect(screen.getByText(/przekierowywanie do logowania/i)).toBeInTheDocument();
-    expect(screen.getByText(/vite_dev_skip_auth/i)).toBeInTheDocument();
-
-    await waitFor(() => expect(authBootstrap.redirectToLogin).toHaveBeenCalled());
+    await waitFor(() => expect(appSmokeMocks.publicGet).not.toHaveBeenCalled());
+    await waitFor(() => {
+      expect(screen.getAllByRole("heading", { name: /dashboard ceo/i }).length).toBeGreaterThanOrEqual(1);
+    });
   });
 
-  it("bez appBaseUrl nie wywołuje redirectToLogin; przycisk używa przeładowania SPA (bez /api Base44)", async () => {
-    authBootstrap.appParamsSnapshot.appBaseUrl = "";
+  it("NavigationTracker zgłasza aktywność dla strony głównej (CEODashboard)", async () => {
+    vi.mocked(base44.appLogs.logUserInApp).mockClear();
     render(<App />);
-
-    await screen.findByRole("heading", { name: /wymagane logowanie base44/i });
-    expect(screen.getByText(/brak adresu aplikacji/i)).toBeInTheDocument();
-
-    await waitFor(() => expect(authBootstrap.publicGet).toHaveBeenCalled());
-    expect(authBootstrap.redirectToLogin).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByRole("button", { name: /otwórz logowanie/i }));
-    expect(authBootstrap.redirectToLogin).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(base44.appLogs.logUserInApp).toHaveBeenCalledWith("CEODashboard");
+    });
   });
 
-  it("VITE_DEV_SKIP_AUTH=true omija public-settings i renderuje stronę główną", async () => {
-    vi.stubEnv("VITE_DEV_SKIP_AUTH", "true");
-    authBootstrap.publicGet.mockRejectedValue(new Error("public-settings nie powinno być wołane"));
-
+  it("nie renderuje formularza logowania ani komunikatu „Wymagane logowanie”", async () => {
     render(<App />);
-
-    await waitFor(() => expect(authBootstrap.publicGet).not.toHaveBeenCalled());
-    expect(
-      await screen.findByRole("heading", { name: /dashboard ceo/i })
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(base44.appLogs.logUserInApp).toHaveBeenCalled();
+    });
+    expect(screen.queryByRole("heading", { name: /wybierz sposób logowania/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/wymagane logowanie base44/i)).not.toBeInTheDocument();
   });
 });
