@@ -1,4 +1,13 @@
-import React, { createContext, useState, useContext, useEffect, useCallback, useMemo } from "react";
+import React, {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useMemo,
+} from "react";
+import { flushSync } from "react-dom";
 import { base44 } from "@/api/base44Client";
 import { appParams } from "@/lib/app-params";
 import { createAxiosClient } from "@base44/sdk/dist/utils/axios-client";
@@ -29,6 +38,12 @@ export const AuthProvider = ({ children }) => {
   const [pendingMfaVerification, setPendingMfaVerification] = useState(false);
   /** Link resetu hasła — wymuś ekran nowego hasła zamiast CRM. */
   const [passwordRecoveryMode, setPasswordRecoveryMode] = useState(false);
+  /**
+   * Po `resetSupabaseClient()` (np. zmiana localStorage vs sessionStorage przy „Zapamiętaj mnie”)
+   * trzeba odpiąć `onAuthStateChange` od starego klienta i podpiąć pod nowy — inaczej logowanie
+   * nie aktualizuje `user` / `isAuthenticated`.
+   */
+  const [supabaseAuthSubscriptionKey, setSupabaseAuthSubscriptionKey] = useState(0);
 
   const authMode = useMemo(() => {
     if (devSkipAuth()) return "dev-skip";
@@ -71,7 +86,7 @@ export const AuthProvider = ({ children }) => {
     setPendingMfaVerification(step);
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!supabaseAuthEnabled || devSkipAuth()) return undefined;
 
     const sb = getSupabase();
@@ -116,7 +131,7 @@ export const AuthProvider = ({ children }) => {
       cancelled = true;
       subscription.unsubscribe();
     };
-  }, [applySupabaseUser, refreshMfaPending]);
+  }, [applySupabaseUser, refreshMfaPending, supabaseAuthSubscriptionKey]);
 
   const checkAppState = async () => {
     try {
@@ -218,21 +233,30 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const signInWithPassword = useCallback(async (email, password, options = {}) => {
-    const { rememberMe = true } = options;
-    setRememberMePreference(rememberMe);
-    resetSupabaseClient();
-    const sb = getSupabase();
-    if (!sb) {
-      return { error: new Error("Brak konfiguracji Supabase.") };
-    }
-    const result = await sb.auth.signInWithPassword({ email, password });
-    if (!result.error) {
-      setPasswordRecoveryMode(false);
-      await refreshMfaPending();
-    }
-    return result;
-  }, [refreshMfaPending]);
+  const signInWithPassword = useCallback(
+    async (email, password, options = {}) => {
+      const { rememberMe = true } = options;
+      setRememberMePreference(rememberMe);
+      resetSupabaseClient();
+      flushSync(() => {
+        setSupabaseAuthSubscriptionKey((k) => k + 1);
+      });
+      const sb = getSupabase();
+      if (!sb) {
+        return { error: new Error("Brak konfiguracji Supabase.") };
+      }
+      const result = await sb.auth.signInWithPassword({ email, password });
+      if (!result.error && result.data?.session?.user) {
+        applySupabaseUser(result.data.session.user);
+      }
+      if (!result.error) {
+        setPasswordRecoveryMode(false);
+        await refreshMfaPending();
+      }
+      return result;
+    },
+    [applySupabaseUser, refreshMfaPending]
+  );
 
   const signUp = useCallback(async (email, password) => {
     const sb = getSupabase();
@@ -320,7 +344,13 @@ export const AuthProvider = ({ children }) => {
     async (shouldRedirect = true) => {
       if (supabaseAuthEnabled) {
         const sb = getSupabase();
-        if (sb) await sb.auth.signOut();
+        if (sb) {
+          try {
+            await sb.auth.signOut();
+          } catch (e) {
+            console.error("Supabase signOut failed:", e);
+          }
+        }
         setUser(null);
         setIsAuthenticated(false);
         setPendingMfaVerification(false);

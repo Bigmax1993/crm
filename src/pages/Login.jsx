@@ -25,6 +25,7 @@ export default function Login() {
     signInWithOAuth,
     signInWithMagicLink,
     authMode,
+    navigateToLogin,
   } = useAuth();
 
   const [step, setStep] = useState("choose");
@@ -115,11 +116,24 @@ export default function Login() {
 
   if (authMode !== "supabase") {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-background">
-        <p className="text-muted-foreground text-sm">
-          Logowanie Supabase jest wyłączone. Ustaw <code className="text-foreground">VITE_SUPABASE_URL</code> oraz{" "}
-          <code className="text-foreground">VITE_SUPABASE_ANON_KEY</code>.
-        </p>
+      <div className="min-h-screen flex items-center justify-center p-6 bg-[hsl(40_7%_93%)] dark:bg-background">
+        <Card className="w-full max-w-md shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-xl">Logowanie</CardTitle>
+            <CardDescription>
+              Tryb Base44 — zaloguj się przez serwer aplikacji. Aby użyć konta e-mail / Google przez Supabase, ustaw zmienne środowiskowe przy buildzie.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Brak <code className="text-foreground">VITE_SUPABASE_URL</code> i{" "}
+              <code className="text-foreground">VITE_SUPABASE_ANON_KEY</code> — logowanie hasłem w tej aplikacji jest niedostępne.
+            </p>
+            <Button type="button" className="w-full" onClick={() => navigateToLogin()}>
+              Otwórz logowanie Base44
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
