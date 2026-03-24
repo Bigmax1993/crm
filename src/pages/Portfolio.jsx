@@ -9,8 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2, Images } from "lucide-react";
-import { getPortfolio, setPortfolio, newLocalId } from "@/lib/mizar-crm-local-store";
-import { OFFER_SEGMENT_OPTIONS, offerSegmentLabel } from "@/lib/mizar-offer-segments";
+import { getPortfolio, setPortfolio, newLocalId } from "@/lib/crm-local-store";
+import { OFFER_SEGMENT_OPTIONS, offerSegmentLabel } from "@/lib/offer-segments";
 
 const emptyForm = {
   title: "",

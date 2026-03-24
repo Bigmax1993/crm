@@ -9,26 +9,26 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Sparkles } from "lucide-react";
-import mizarData from "@/fixtures/mizar_data.json";
+import crmFixtureData from "@/fixtures/crm_fixture_data.json";
 import { stringifyCrmContext } from "@/lib/ai-crm-context";
 import {
   openaiChatCompletions,
   isOpenAiConfigured,
   extractJsonObject,
-} from "@/lib/openai-mizar";
+} from "@/lib/openai-crm";
 import { toast } from "sonner";
-import { getMizarBrandBriefForPrompt } from "@/lib/mizar-brand-brief";
-import { getSiteExtension } from "@/lib/mizar-crm-local-store";
-import { offerSegmentLabel } from "@/lib/mizar-offer-segments";
+import { getBrandBriefForPrompt } from "@/lib/brand-brief";
+import { getSiteExtension } from "@/lib/crm-local-store";
+import { offerSegmentLabel } from "@/lib/offer-segments";
 
-function mizarOferty() {
-  return (mizarData.projekty || []).filter((p) =>
+function fixtureOferty() {
+  return (crmFixtureData.projekty || []).filter((p) =>
     String(p.status || "").toLowerCase().includes("oferta")
   );
 }
 
-function matchMizarForSite(site) {
-  const mo = mizarOferty();
+function matchFixtureOfferForSite(site) {
+  const mo = fixtureOferty();
   return (
     mo.find(
       (p) =>
@@ -48,7 +48,7 @@ function matchMizarForSite(site) {
 }
 
 function historySnippet() {
-  const done = (mizarData.projekty || []).filter((p) =>
+  const done = (crmFixtureData.projekty || []).filter((p) =>
     String(p.status || "").toLowerCase().includes("zakończ")
   );
   const byType = {};
@@ -67,7 +67,7 @@ function historySnippet() {
   return { zakonczone_projekty: done.length, srednia_marza_rzeczywista_per_typ: avg };
 }
 
-const cacheKey = (id) => `mizar_ai_offer_${id}`;
+const cacheKey = (id) => `fakturowo_ai_offer_${id}`;
 
 export function ConstructionOffersAi({ sites = [] }) {
   const oferty = sites.filter((s) => s.workflow_status === "oferta");
@@ -98,13 +98,13 @@ export function ConstructionOffersAi({ sites = [] }) {
       toast.error("Brak klucza OpenAI");
       return;
     }
-    const m = matchMizarForSite(site);
+    const m = matchFixtureOfferForSite(site);
     const hist = historySnippet();
     const ext = getSiteExtension(site.id);
-    const prompt = `Jesteś ekspertem od budownictwa sportowego (Mizar Sport / MIZAR).
+    const prompt = `Jesteś ekspertem od budownictwa sportowego i infrastruktury obiektów sportowych.
 
-Kontekst marki:
-${getMizarBrandBriefForPrompt()}
+Kontekst firmy / aplikacji:
+${getBrandBriefForPrompt()}
 
 Oceń szansę wygrania tej oferty przez firmę na podstawie historycznych danych.
 Zwróć TYLKO JSON:
@@ -129,10 +129,10 @@ ${stringifyCrmContext({
           certyfikaty: (ext.certifications || []).slice(0, 8),
         })}
 
-OFERTA (mizar_data dopasowanie):
+OFERTA (dopasowanie do fixture):
 ${JSON.stringify(m || {})}
 
-HISTORIA MIZAR:
+HISTORIA REALIZACJI (fixture):
 ${JSON.stringify(hist)}`;
 
     const { text } = await openaiChatCompletions({
@@ -170,7 +170,7 @@ ${JSON.stringify(hist)}`;
   };
 
   return (
-    <Card className="bg-white shadow-lg mb-6">
+    <Card className="bg-background shadow-lg mb-6">
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
         <CardTitle className="text-lg flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-amber-500" />
@@ -192,7 +192,7 @@ ${JSON.stringify(hist)}`;
         {oferty.map((site) => {
           const r = results[site.id];
           const pct = Math.min(100, Math.max(0, Number(r?.prawdopodobienstwo_procent) || 0));
-          const m = matchMizarForSite(site);
+          const m = matchFixtureOfferForSite(site);
           return (
             <div key={site.id} className="rounded-lg border border-slate-200 p-4 space-y-2">
               <div className="flex flex-wrap justify-between gap-2">

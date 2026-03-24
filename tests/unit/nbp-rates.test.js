@@ -30,7 +30,7 @@ describe("nbp-rates (jednostkowe)", () => {
 
   it("getLastKnownMid czyta z localStorage", () => {
     localStorage.setItem(
-      "mizar_nbp_last_mids_v1",
+      "fakturowo_nbp_last_mids_v1",
       JSON.stringify({ EUR: 4.1, USD: 4.0 })
     );
     expect(getLastKnownMid("EUR")).toBe(4.1);
@@ -102,7 +102,7 @@ describe("nbp-rates (jednostkowe)", () => {
     const r = await getNbpTableAForBusinessDay("2024-08-01");
     expect(r.source).toBe("nbp");
     expect(r.rates.NOK).toBe(0.37);
-    const cached = localStorage.getItem("mizar_nbp_v1_A_2024-08-01");
+    const cached = localStorage.getItem("fakturowo_nbp_v1_A_2024-08-01");
     expect(cached).toBeTruthy();
   });
 });

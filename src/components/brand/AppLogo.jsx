@@ -1,8 +1,8 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 
-/** Kompaktowe logo — fiolet (primary) + akcent zielony boisk. */
-export function MizarSportLogo({ className, size = "md" }) {
+/** Kompaktowe logo — fiolet (primary) + akcent zielony. */
+export function AppLogo({ className, size = "md" }) {
   const h = size === "sm" ? 28 : size === "lg" ? 40 : 32;
   return (
     <svg
@@ -18,9 +18,9 @@ export function MizarSportLogo({ className, size = "md" }) {
         y="21"
         textAnchor="middle"
         className="fill-primary"
-        style={{ fontSize: 13, fontFamily: "system-ui,Segoe UI,sans-serif", fontWeight: 700 }}
+        style={{ fontSize: 12, fontFamily: "system-ui,Segoe UI,sans-serif", fontWeight: 700 }}
       >
-        MIZAR
+        Fakturowo
       </text>
       <circle cx="102" cy="16" r="5" fill="hsl(124 54% 38%)" />
     </svg>

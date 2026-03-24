@@ -2,7 +2,7 @@ import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { patchSiteExtension } from "@/lib/mizar-crm-local-store";
+import { patchSiteExtension } from "@/lib/crm-local-store";
 
 vi.mock("@/components/ai/ConstructionOffersAi", () => ({
   ConstructionOffersAi: () => null,

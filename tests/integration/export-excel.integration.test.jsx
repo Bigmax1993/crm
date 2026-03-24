@@ -80,7 +80,7 @@ vi.mock("@/api/base44Client", () => ({
   },
 }));
 
-import MizarExport from "@/pages/MizarExport";
+import ExportReports from "@/pages/ExportReports";
 
 function renderPage() {
   const invoiceRow = {
@@ -107,12 +107,12 @@ function renderPage() {
 
   return render(
     <QueryClientProvider client={client}>
-      <MizarExport />
+      <ExportReports />
     </QueryClientProvider>
   );
 }
 
-describe("MizarExport — eksport Excel (mock ExcelJS / NBP)", () => {
+describe("ExportReports — eksport Excel (mock ExcelJS / NBP)", () => {
   beforeEach(() => {
     exportMocks.saveAs.mockClear();
     exportMocks.writeBuffer.mockClear();
@@ -142,10 +142,10 @@ describe("MizarExport — eksport Excel (mock ExcelJS / NBP)", () => {
     exportMocks.listProjects.mockResolvedValue([{ id: "p1", object_name: "Projekt A", budget_planned: 5000, city: "X" }]);
   });
 
-  it("generuje bufor XLSX i wywołuje saveAs z prefiksem MIZAR_Raport", async () => {
+  it("generuje bufor XLSX i wywołuje saveAs z prefiksem Fakturowo_Raport", async () => {
     renderPage();
 
-    const btn = await screen.findByRole("button", { name: /pobierz mizar_raport/i });
+    const btn = await screen.findByRole("button", { name: /pobierz fakturowo_raport/i });
     fireEvent.click(btn);
 
     await waitFor(() => expect(exportMocks.writeBuffer).toHaveBeenCalled());
@@ -153,6 +153,6 @@ describe("MizarExport — eksport Excel (mock ExcelJS / NBP)", () => {
     const blobArg = exportMocks.saveAs.mock.calls[0][0];
     const nameArg = exportMocks.saveAs.mock.calls[0][1];
     expect(blobArg).toBeInstanceOf(Blob);
-    expect(nameArg).toMatch(/^MIZAR_Raport_\d{4}-\d{2}-\d{2}\.xlsx$/);
+    expect(nameArg).toMatch(/^Fakturowo_Raport_\d{4}-\d{2}-\d{2}\.xlsx$/);
   });
 });

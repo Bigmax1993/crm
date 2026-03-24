@@ -1,4 +1,4 @@
-const KEY = "mizar_fx_config_v1";
+const KEY = "fakturowo_fx_config_v1";
 
 const DEFAULT = {
   baseCurrency: "PLN",
@@ -21,7 +21,7 @@ export function loadFxConfig() {
 export function saveFxConfig(config) {
   localStorage.setItem(KEY, JSON.stringify(config));
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event("mizar-fx-config"));
+    window.dispatchEvent(new Event("fakturowo-fx-config"));
   }
 }
 

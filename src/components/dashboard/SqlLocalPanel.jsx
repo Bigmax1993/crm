@@ -11,7 +11,7 @@ function fmtPln(n) {
   return `${x.toLocaleString("pl-PL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })} PLN`;
 }
 
-export function MizarSqlLocalPanel() {
+export function SqlLocalPanel() {
   const { ready, error } = useDatabase();
   const [kpi, setKpi] = useState(null);
   const [cashFlow, setCashFlow] = useState([]);
@@ -32,7 +32,7 @@ export function MizarSqlLocalPanel() {
 
   if (error) {
     return (
-      <Card className="bg-white shadow-lg mb-8 border-red-200">
+      <Card className="bg-background shadow-lg mb-8 border-red-200">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2 text-red-800">
             <AlertCircle className="h-5 w-5" />
@@ -46,14 +46,14 @@ export function MizarSqlLocalPanel() {
 
   if (!ready || !kpi) {
     return (
-      <Card className="bg-white shadow-lg mb-8 border-emerald-200/60">
+      <Card className="bg-background shadow-lg mb-8 border-emerald-200/60">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Database className="h-5 w-5 text-emerald-600" />
             Lokalna baza SQL.js
           </CardTitle>
-          <p className="text-xs text-muted-foreground font-normal">
-            SQLite w przeglądarce — dane w localStorage, seed z mizar_data.json
+          <p className="text-sm text-muted-foreground font-normal leading-relaxed">
+            SQLite w przeglądarce — dane w localStorage, seed z crm_fixture_data.json
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -69,20 +69,20 @@ export function MizarSqlLocalPanel() {
   }
 
   return (
-    <Card className="bg-white shadow-lg mb-8 border-emerald-200/60">
+    <Card className="bg-background shadow-lg mb-8 border-emerald-200/60">
       <CardHeader>
         <CardTitle className="text-base flex items-center gap-2">
           <Database className="h-5 w-5 text-emerald-600" />
           Lokalna baza SQL.js
         </CardTitle>
-        <p className="text-xs text-muted-foreground font-normal">
-          KPI i cash flow z zapytań w <code className="text-[10px] bg-slate-100 px-1 rounded">queries.js</code> — bez
-          zewnętrznej bazy
+        <p className="text-sm text-muted-foreground font-normal leading-relaxed">
+          KPI i cash flow z zapytań w <code className="text-xs bg-foreground/5 px-1.5 py-0.5 rounded border border-border/60">queries.js</code> —
+          bez zewnętrznej bazy
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 text-sm">
-          <div className="rounded-lg border border-border p-3 bg-muted/30">
+          <div className="rounded-lg border border-border p-3 bg-background">
             <p className="text-xs text-muted-foreground">Aktywne projekty</p>
             <p className="text-xl font-bold">{kpi.aktywne_projekty ?? 0}</p>
           </div>
@@ -107,12 +107,14 @@ export function MizarSqlLocalPanel() {
 
         {cashFlow.length > 0 && (
           <div className="h-56">
-            <p className="text-xs text-muted-foreground mb-2">Saldo miesięczne (zapłacone FV) — narastająco w danych</p>
+            <p className="text-sm font-medium text-foreground/85 mb-2 leading-snug">
+              Saldo miesięczne (zapłacone FV) — narastająco w danych
+            </p>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={cashFlow} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="miesiac" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+              <LineChart data={cashFlow} margin={{ top: 8, right: 8, left: 4, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+                <XAxis dataKey="miesiac" tick={{ fontSize: 12, fill: "#475569" }} />
+                <YAxis tick={{ fontSize: 12, fill: "#475569" }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                 <Tooltip
                   formatter={(v) => [`${Number(v).toLocaleString("pl-PL")} PLN`, ""]}
                   labelFormatter={(l) => `Miesiąc: ${l}`}

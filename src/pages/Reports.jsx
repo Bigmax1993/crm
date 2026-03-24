@@ -593,7 +593,7 @@ export default function Reports() {
           </Dialog>
 
           <Tabs defaultValue="contractors" className="space-y-6" onValueChange={setActiveTab}>
-          <TabsList className="bg-white">
+          <TabsList className="bg-background">
             <TabsTrigger value="contractors">Kontrahenci</TabsTrigger>
             <TabsTrigger value="sales">Faktury sprzedażowe</TabsTrigger>
             <TabsTrigger value="sales-monthly">Sprzedaż - Miesięczne</TabsTrigger>
@@ -608,7 +608,7 @@ export default function Reports() {
           </TabsList>
 
           <TabsContent value="contractors" className="space-y-6">
-            <Card className="bg-white shadow-lg">
+            <Card className="bg-background shadow-lg">
               <CardHeader>
                 <CardTitle>Podsumowanie według kontrahentów</CardTitle>
               </CardHeader>
@@ -640,7 +640,7 @@ export default function Reports() {
           </TabsContent>
 
           <TabsContent value="sales" className="space-y-6">
-            <Card className="bg-white shadow-lg mb-6">
+            <Card className="bg-background shadow-lg mb-6">
               <CardHeader>
                 <CardTitle>Filtry</CardTitle>
               </CardHeader>
@@ -661,7 +661,7 @@ export default function Reports() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-white shadow-lg">
+            <Card className="bg-background shadow-lg">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Faktury sprzedażowe</CardTitle>
                 {selectedInvoices.length > 0 && (
@@ -735,7 +735,7 @@ export default function Reports() {
                 </div>
                 </CardContent>
                 </Card>
-                <Card className="bg-white shadow-lg">
+                <Card className="bg-background shadow-lg">
                 <CardHeader>
                 <CardTitle>Przychody sprzedażowe miesięczne {salesMonthlyChartDataPLN.length > 0 && salesMonthlyChartDataEUR.length > 0 ? '(PLN i EUR)' : salesMonthlyChartDataPLN.length > 0 ? '(PLN)' : '(EUR)'}</CardTitle>
                 </CardHeader>
@@ -753,7 +753,7 @@ export default function Reports() {
                         if (active && payload && payload.length) {
                           const data = payload[0].payload;
                           return (
-                            <div className="bg-white p-2 border rounded shadow-lg text-xs">
+                            <div className="bg-background p-2 border rounded shadow-lg text-xs">
                               <p className="font-semibold">{data.month}</p>
                               <p>{payload[0].name}: {formatNumber(data.total)}</p>
                             </div>
@@ -772,7 +772,7 @@ export default function Reports() {
           </TabsContent>
 
           <TabsContent value="sales-monthly" className="space-y-6">
-            <Card className="bg-white shadow-lg">
+            <Card className="bg-background shadow-lg">
               <CardHeader>
                 <CardTitle>Przychody sprzedażowe miesięczne {salesMonthlyChartDataPLN.length > 0 && salesMonthlyChartDataEUR.length > 0 ? '(PLN i EUR)' : salesMonthlyChartDataPLN.length > 0 ? '(PLN)' : '(EUR)'}</CardTitle>
               </CardHeader>
@@ -792,7 +792,7 @@ export default function Reports() {
                           const pln = salesMonthlyChartDataPLN.find(d => d.month === month);
                           const eur = salesMonthlyChartDataEUR.find(d => d.month === month);
                           return (
-                            <div className="bg-white p-3 border rounded shadow-lg text-xs">
+                            <div className="bg-background p-3 border rounded shadow-lg text-xs">
                               <p className="font-semibold mb-2">{month}</p>
                               {pln && <p>PLN: {formatNumber(pln.total)}</p>}
                               {eur && <p>EUR: {formatNumber(eur.total)}</p>}
@@ -829,7 +829,7 @@ export default function Reports() {
             });
 
             return (
-              <Card className="bg-white shadow-lg">
+              <Card className="bg-background shadow-lg">
                 <CardHeader>
                   <CardTitle>Wydatki miesięczne {monthlyPLN.length > 0 && monthlyEUR.length > 0 ? '(PLN i EUR)' : monthlyPLN.length > 0 ? '(PLN)' : monthlyEUR.length > 0 ? '(EUR)' : ''}</CardTitle>
                 </CardHeader>
@@ -846,7 +846,7 @@ export default function Reports() {
                         <Tooltip content={({ active, payload }) => {
                           if (active && payload && payload.length) {
                             return (
-                              <div className="bg-white p-3 border rounded shadow-lg text-xs">
+                              <div className="bg-background p-3 border rounded shadow-lg text-xs">
                                 <p className="font-semibold mb-2">{payload[0]?.payload?.month}</p>
                                 {payload.map((entry, idx) => (
                                   <p key={idx}>{entry.name}: {entry.value ? formatNumber(entry.value) : 'Brak danych'}</p>
@@ -869,7 +869,7 @@ export default function Reports() {
           </TabsContent>
 
             <TabsContent value="sales-yearly" className="space-y-6">
-            <Card className="bg-white shadow-lg">
+            <Card className="bg-background shadow-lg">
               <CardHeader>
                 <CardTitle>Przychody sprzedażowe roczne {salesYearlyChartDataPLN.length > 0 && salesYearlyChartDataEUR.length > 0 ? '(PLN i EUR)' : salesYearlyChartDataPLN.length > 0 ? '(PLN)' : '(EUR)'}</CardTitle>
               </CardHeader>
@@ -889,7 +889,7 @@ export default function Reports() {
                           const pln = salesYearlyChartDataPLN.find(d => d.year === year);
                           const eur = salesYearlyChartDataEUR.find(d => d.year === year);
                           return (
-                            <div className="bg-white p-3 border rounded shadow-lg text-xs">
+                            <div className="bg-background p-3 border rounded shadow-lg text-xs">
                               <p className="font-semibold mb-2">{year}</p>
                               {pln && <p>PLN: {formatNumber(pln.total)}</p>}
                               {eur && <p>EUR: {formatNumber(eur.total)}</p>}
@@ -914,7 +914,7 @@ export default function Reports() {
               const quarterlyEUR = quarterlyChartData.filter(d => d.currency === 'EUR');
               return (
                 <>
-                  <Card className="bg-white shadow-lg">
+                  <Card className="bg-background shadow-lg">
                     <CardHeader>
                       <CardTitle>Wydatki kwartalne (PLN)</CardTitle>
                     </CardHeader>
@@ -931,7 +931,7 @@ export default function Reports() {
                               if (active && payload && payload.length) {
                                 const data = payload[0].payload;
                                 return (
-                                  <div className="bg-white p-3 border rounded shadow-lg text-xs">
+                                  <div className="bg-background p-3 border rounded shadow-lg text-xs">
                                     <p className="font-semibold mb-2">{data.period}</p>
                                     <p>PLN: {formatNumber(data.total)}</p>
                                   </div>
@@ -946,7 +946,7 @@ export default function Reports() {
                       )}
                     </CardContent>
                   </Card>
-                  <Card className="bg-white shadow-lg">
+                  <Card className="bg-background shadow-lg">
                     <CardHeader>
                       <CardTitle>Wydatki kwartalne (EUR)</CardTitle>
                     </CardHeader>
@@ -963,7 +963,7 @@ export default function Reports() {
                               if (active && payload && payload.length) {
                                 const data = payload[0].payload;
                                 return (
-                                  <div className="bg-white p-3 border rounded shadow-lg text-xs">
+                                  <div className="bg-background p-3 border rounded shadow-lg text-xs">
                                     <p className="font-semibold mb-2">{data.period}</p>
                                     <p>EUR: {formatNumber(data.total)}</p>
                                   </div>
@@ -982,7 +982,7 @@ export default function Reports() {
               );
             })()}
 
-            <Card className="bg-white shadow-lg">
+            <Card className="bg-background shadow-lg">
               <CardHeader>
                 <CardTitle>Szczegóły kwartalne</CardTitle>
               </CardHeader>
@@ -1032,7 +1032,7 @@ export default function Reports() {
               });
               
               return (
-                <Card className="bg-white shadow-lg">
+                <Card className="bg-background shadow-lg">
                   <CardHeader>
                     <CardTitle>Przychody sprzedażowe kwartalne {salesQuarterlyChartDataPLN.length > 0 && salesQuarterlyChartDataEUR.length > 0 ? '(PLN i EUR)' : salesQuarterlyChartDataPLN.length > 0 ? '(PLN)' : '(EUR)'}</CardTitle>
                   </CardHeader>
@@ -1049,7 +1049,7 @@ export default function Reports() {
                           <Tooltip content={({ active, payload }) => {
                             if (active && payload && payload.length) {
                               return (
-                                <div className="bg-white p-3 border rounded shadow-lg text-xs">
+                                <div className="bg-background p-3 border rounded shadow-lg text-xs">
                                   <p className="font-semibold mb-2">{payload[0]?.payload?.period}</p>
                                   {payload.map((entry, idx) => (
                                     <p key={idx}>{entry.name}: {entry.value ? formatNumber(entry.value) : 'Brak danych'}</p>
@@ -1077,7 +1077,7 @@ export default function Reports() {
               const yearlyEUR = yearlyChartData.filter(d => d.currency === 'EUR');
               return (
                 <>
-                  <Card className="bg-white shadow-lg">
+                  <Card className="bg-background shadow-lg">
                     <CardHeader>
                       <CardTitle>Wydatki roczne (PLN)</CardTitle>
                     </CardHeader>
@@ -1094,7 +1094,7 @@ export default function Reports() {
                               if (active && payload && payload.length) {
                                 const data = payload[0].payload;
                                 return (
-                                  <div className="bg-white p-3 border rounded shadow-lg text-xs">
+                                  <div className="bg-background p-3 border rounded shadow-lg text-xs">
                                     <p className="font-semibold mb-2">{data.year}</p>
                                     <p>PLN: {formatNumber(data.total)}</p>
                                   </div>
@@ -1109,7 +1109,7 @@ export default function Reports() {
                       )}
                     </CardContent>
                   </Card>
-                  <Card className="bg-white shadow-lg">
+                  <Card className="bg-background shadow-lg">
                     <CardHeader>
                       <CardTitle>Wydatki roczne (EUR)</CardTitle>
                     </CardHeader>
@@ -1126,7 +1126,7 @@ export default function Reports() {
                               if (active && payload && payload.length) {
                                 const data = payload[0].payload;
                                 return (
-                                  <div className="bg-white p-3 border rounded shadow-lg text-xs">
+                                  <div className="bg-background p-3 border rounded shadow-lg text-xs">
                                     <p className="font-semibold mb-2">{data.year}</p>
                                     <p>EUR: {formatNumber(data.total)}</p>
                                   </div>
@@ -1145,7 +1145,7 @@ export default function Reports() {
               );
             })()}
 
-            <Card className="bg-white shadow-lg">
+            <Card className="bg-background shadow-lg">
               <CardHeader>
                 <CardTitle>Szczegóły roczne</CardTitle>
               </CardHeader>
@@ -1181,7 +1181,7 @@ export default function Reports() {
           </TabsContent>
 
           <TabsContent value="hotels" className="space-y-6">
-            <Card className="bg-white shadow-lg">
+            <Card className="bg-background shadow-lg">
               <CardHeader>
                 <CardTitle>Wydatki hotelowe miesięczne</CardTitle>
               </CardHeader>
@@ -1199,7 +1199,7 @@ export default function Reports() {
               </CardContent>
             </Card>
 
-            <Card className="bg-white shadow-lg">
+            <Card className="bg-background shadow-lg">
               <CardHeader>
                 <CardTitle>Podsumowanie według hoteli</CardTitle>
               </CardHeader>
@@ -1261,7 +1261,7 @@ export default function Reports() {
 
               return (
                 <>
-                  <Card className="bg-white shadow-lg">
+                  <Card className="bg-background shadow-lg">
                     <CardHeader>
                       <CardTitle>Prognoza wydatków miesięcznych (PLN)</CardTitle>
                     </CardHeader>
@@ -1288,7 +1288,7 @@ export default function Reports() {
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-white shadow-lg">
+                  <Card className="bg-background shadow-lg">
                     <CardHeader>
                       <CardTitle>Prognoza wydatków miesięcznych (EUR)</CardTitle>
                     </CardHeader>
@@ -1315,7 +1315,7 @@ export default function Reports() {
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-white shadow-lg">
+                  <Card className="bg-background shadow-lg">
                     <CardHeader>
                       <CardTitle>Prognoza wydatków kwartalnych (PLN)</CardTitle>
                     </CardHeader>
@@ -1342,7 +1342,7 @@ export default function Reports() {
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-white shadow-lg">
+                  <Card className="bg-background shadow-lg">
                     <CardHeader>
                       <CardTitle>Prognoza wydatków kwartalnych (EUR)</CardTitle>
                     </CardHeader>
@@ -1369,7 +1369,7 @@ export default function Reports() {
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-white shadow-lg">
+                  <Card className="bg-background shadow-lg">
                     <CardHeader>
                       <CardTitle>Prognoza wydatków rocznych (PLN)</CardTitle>
                     </CardHeader>
@@ -1396,7 +1396,7 @@ export default function Reports() {
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-white shadow-lg">
+                  <Card className="bg-background shadow-lg">
                     <CardHeader>
                       <CardTitle>Prognoza wydatków rocznych (EUR)</CardTitle>
                     </CardHeader>
@@ -1428,7 +1428,7 @@ export default function Reports() {
           </TabsContent>
 
           <TabsContent value="status" className="space-y-6">
-            <Card className="bg-white shadow-lg">
+            <Card className="bg-background shadow-lg">
               <CardHeader>
                 <CardTitle>Status płatności</CardTitle>
               </CardHeader>

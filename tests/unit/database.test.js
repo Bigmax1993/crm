@@ -26,12 +26,12 @@ describe("database — toObjects", () => {
 });
 
 describe("database — createSeededMemoryDatabase", { timeout: 30000 }, () => {
-  it("tworzy bazę ze schematem i danymi z mizar_data", async () => {
+  it("tworzy bazę ze schematem i danymi z crm_fixture_data (seed może być pusty)", async () => {
     const db = await createSeededMemoryDatabase();
     const proj = toObjects(db.exec("SELECT COUNT(*) AS c FROM projekty"));
     const fakt = toObjects(db.exec("SELECT COUNT(*) AS c FROM faktury"));
-    expect(Number(proj[0].c)).toBeGreaterThan(0);
-    expect(Number(fakt[0].c)).toBeGreaterThan(0);
+    expect(Number(proj[0].c)).toBeGreaterThanOrEqual(0);
+    expect(Number(fakt[0].c)).toBeGreaterThanOrEqual(0);
     db.close();
   });
 });

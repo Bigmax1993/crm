@@ -10,7 +10,7 @@ vi.mock("sonner", () => ({
   toast: { message: vi.fn(), success: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock("@/lib/openai-mizar", async (importOriginal) => {
+vi.mock("@/lib/openai-crm", async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
@@ -36,17 +36,17 @@ describe("AiDashboardAlerts — prompt z briefem marki", () => {
     hoisted.openaiChatCompletions.mockResolvedValue({
       text: JSON.stringify({ alerty: [], rekomendacje: [], podsumowanie: "Test" }),
     });
-    localStorage.removeItem("mizar_ai_alerts_v1");
-    localStorage.setItem("mizar_ai_settings_v1", JSON.stringify({ apiKeyOverride: "sk-test", alertIntervalHours: 0 }));
+    localStorage.removeItem("fakturowo_ai_alerts_v1");
+    localStorage.setItem("fakturowo_ai_settings_v1", JSON.stringify({ apiKeyOverride: "sk-test", alertIntervalHours: 0 }));
   });
 
-  it("wysyła do OpenAI treść user zawierającą Mizar Sport i dane CRM", async () => {
+  it("wysyła do OpenAI treść user zawierającą Fakturowo i dane CRM", async () => {
     render(<AiDashboardAlerts />);
 
     await waitFor(() => expect(hoisted.openaiChatCompletions).toHaveBeenCalled());
     const payload = hoisted.openaiChatCompletions.mock.calls[0][0];
     const userMsg = payload.messages.find((m) => m.role === "user");
-    expect(userMsg.content).toContain("Mizar Sport");
+    expect(userMsg.content).toContain("Fakturowo");
     expect(userMsg.content).toMatch(/DANE:\s*\{/);
     expect(userMsg.content).toContain("invoices");
   });

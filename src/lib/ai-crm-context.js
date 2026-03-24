@@ -1,20 +1,20 @@
-import mizarData from "@/fixtures/mizar_data.json";
-import { computeMizarDashboardStats } from "@/lib/mizar-dashboard-stats";
+import crmFixtureData from "@/fixtures/crm_fixture_data.json";
+import { computeDashboardStats } from "@/lib/dashboard-stats";
 import { buildEurExposure } from "@/lib/prognozy";
-import { getMizarBrandBriefForPrompt } from "@/lib/mizar-brand-brief";
+import { getBrandBriefForPrompt } from "@/lib/brand-brief";
 import {
   loadCrmLocalState,
   getSiteExtension,
   getExpiringCertifications,
-} from "@/lib/mizar-crm-local-store";
-import { offerSegmentLabel } from "@/lib/mizar-offer-segments";
+} from "@/lib/crm-local-store";
+import { offerSegmentLabel } from "@/lib/offer-segments";
 
 /**
  * Zbiera snapshot CRM (fixture + live Base44) pod prompty AI.
  */
 export async function buildCrmContextForAi(base44) {
-  const dash = computeMizarDashboardStats(mizarData);
-  const eur = buildEurExposure(mizarData);
+  const dash = computeDashboardStats(crmFixtureData);
+  const eur = buildEurExposure(crmFixtureData);
   const local = loadCrmLocalState();
 
   let invoices = [];
@@ -48,7 +48,7 @@ export async function buildCrmContextForAi(base44) {
 
   return {
     generated_at: new Date().toISOString(),
-    marka_mizar_sport: getMizarBrandBriefForPrompt(),
+    firma_brief_pl: getBrandBriefForPrompt(),
     leady_lokalne: {
       liczba: (local.leads || []).length,
       probka: (local.leads || []).slice(0, 25).map((l) => ({
@@ -77,12 +77,12 @@ export async function buildCrmContextForAi(base44) {
       })),
     },
     certyfikaty_wygasajace_90d: getExpiringCertifications(90).slice(0, 20),
-    mizar_fixture: {
-      projekty: (mizarData.projekty || []).length,
-      faktury: (mizarData.faktury || []).length,
-      saldo_konto_pln: mizarData.konto_bankowe?.saldo_pln,
+    fixture_snapshot: {
+      projekty: (crmFixtureData.projekty || []).length,
+      faktury: (crmFixtureData.faktury || []).length,
+      saldo_konto_pln: crmFixtureData.konto_bankowe?.saldo_pln,
     },
-    kpi_z_mizar_data_json: dash,
+    kpi_z_fixture_json: dash,
     ekspozycja_eur_niezapłacone: eur.exposureEur,
     faktury_live: {
       liczba: invoices.length,

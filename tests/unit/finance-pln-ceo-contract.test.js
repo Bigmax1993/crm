@@ -7,7 +7,7 @@ import {
   monthlyRevenueVsCostPln,
   projectProfitabilityPln,
   budgetAlertsPln,
-} from "@/lib/mizar-finance-pln";
+} from "@/lib/finance-pln";
 
 /**
  * Stały zestaw danych — „kontrakt” dla dashboardów (CEO / eksport):
@@ -54,7 +54,7 @@ const CEO_FIXTURE_INVOICES = [
 
 const CEO_FIXTURE_PROJECTS = [{ id: "p1", object_name: "Arena test", budget_planned: 10000 }];
 
-describe("mizar-finance-pln — kontrakt CEO / dashboard", () => {
+describe("finance-pln — kontrakt CEO / dashboard", () => {
   it("KPI: należności, zobowiązania, wynik netto (FV zapłacone)", () => {
     expect(sumReceivablesPln(CEO_FIXTURE_INVOICES)).toBe(3000);
     expect(sumPayablesPln(CEO_FIXTURE_INVOICES)).toBe(500);

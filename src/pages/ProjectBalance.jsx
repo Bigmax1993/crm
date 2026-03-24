@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { sumReceivables, sumPayables } from "@/lib/mizar-finance";
-import { loadManualBalance, saveManualBalance } from "@/lib/mizar-manual-store";
+import { sumReceivables, sumPayables } from "@/lib/finance";
+import { loadManualBalance, saveManualBalance } from "@/lib/manual-store";
 import { toast } from "sonner";
 import { Scale } from "lucide-react";
 

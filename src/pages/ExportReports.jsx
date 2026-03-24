@@ -1,10 +1,12 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 import { format } from "date-fns";
+import { pl } from "date-fns/locale";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,20 +18,15 @@ import {
   globalPLPln,
   projectProfitabilityPln,
   getInvoicePlnAtIssue,
-} from "@/lib/mizar-finance-pln";
+} from "@/lib/finance-pln";
 import { getNbpTableAForBusinessDay, getMidFromTable } from "@/lib/nbp-rates";
 import { FileSpreadsheet, FileType, Loader2 } from "lucide-react";
-import {
-  MIZAR_BRAND_EXCEL_ARGB,
-  MIZAR_BRAND_RGB,
-  getExportReportTitle,
-  MIZAR_EXPORT_ADDRESS,
-  MIZAR_EXPORT_WEB,
-} from "@/lib/mizar-brand-brief";
+import { EXPORT_BRAND_EXCEL_ARGB, getExportReportTitle, EXPORT_ADDRESS, EXPORT_WEB } from "@/lib/brand-brief";
+import ExecutivePdfSurface from "@/components/export/ExecutivePdfSurface";
 
 function styleHeader(row) {
   row.eachCell((cell) => {
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: MIZAR_BRAND_EXCEL_ARGB } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: EXPORT_BRAND_EXCEL_ARGB } };
     cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
     cell.alignment = { vertical: "middle", horizontal: "center" };
   });
@@ -41,8 +38,9 @@ function statusFill(status) {
   return { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFFE0" } };
 }
 
-export default function MizarExport() {
+export default function ExportReports() {
   const [busy, setBusy] = useState(null);
+  const pdfSurfaceRef = useRef(null);
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["invoices"],
     queryFn: () => base44.entities.Invoice.list(),
@@ -97,7 +95,7 @@ export default function MizarExport() {
         };
       };
 
-      const titleLine = `${getExportReportTitle("eksport Excel")} · ${MIZAR_EXPORT_ADDRESS} · ${MIZAR_EXPORT_WEB}`;
+      const titleLine = [getExportReportTitle("eksport Excel"), EXPORT_ADDRESS, EXPORT_WEB].filter(Boolean).join(" · ");
       const s1 = wb.addWorksheet("Faktury");
       s1.columns = [
         { header: "Numer", key: "nr", width: 18 },
@@ -283,7 +281,7 @@ export default function MizarExport() {
         });
 
       const buf = await wb.xlsx.writeBuffer();
-      saveAs(new Blob([buf]), `MIZAR_Raport_${dateStr}.xlsx`);
+      saveAs(new Blob([buf]), `Fakturowo_Raport_${dateStr}.xlsx`);
       toast.success("Wygenerowano plik Excel");
     } catch (e) {
       console.error(e);
@@ -293,67 +291,46 @@ export default function MizarExport() {
     }
   };
 
-  const exportPdf = () => {
+  const exportPdf = async () => {
     setBusy("pdf");
     try {
-      const doc = new jsPDF({ unit: "mm", format: "a4" });
-      let y = 16;
-      doc.setFillColor(MIZAR_BRAND_RGB.r, MIZAR_BRAND_RGB.g, MIZAR_BRAND_RGB.b);
-      doc.rect(0, 0, 210, 26, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(15);
-      doc.text(getExportReportTitle(), 14, 12);
-      doc.setFontSize(9);
-      doc.text(MIZAR_EXPORT_ADDRESS, 14, 18);
-      doc.text(MIZAR_EXPORT_WEB.replace("https://", ""), 14, 23);
-      doc.setFontSize(10);
-      doc.text("Raport zarządu", 14, 29);
-      doc.setTextColor(0, 0, 0);
-      y = 36;
-      doc.setFontSize(12);
-      doc.text("KPI", 14, y);
-      y += 8;
-      doc.setFontSize(10);
-      doc.text(`Należności: ${kpi.naleznosci.toLocaleString("pl-PL")} PLN`, 14, y);
-      y += 6;
-      doc.text(`Zobowiązania: ${kpi.zobowiazania.toLocaleString("pl-PL")} PLN`, 14, y);
-      y += 6;
-      doc.text(`Wynik netto (FV zapłacone): ${kpi.wynik.toLocaleString("pl-PL")} PLN`, 14, y);
-      y += 10;
-      doc.setFontSize(12);
-      doc.text("Cash flow (skrót)", 14, y);
-      y += 6;
-      doc.setFontSize(9);
-      cashRows.slice(-6).forEach((r) => {
-        doc.text(
-          `${r.month}: wpływy ${r.wplywy.toLocaleString("pl-PL")} | wydatki ${r.wydatki.toLocaleString("pl-PL")} | narast. ${r.saldoNarastajace.toLocaleString("pl-PL")}`,
-          14,
-          y
-        );
-        y += 5;
-        if (y > 270) {
-          doc.addPage();
-          y = 16;
-        }
+      const node = pdfSurfaceRef.current;
+      if (!node) {
+        toast.error("Nie można przygotować warstwy PDF");
+        return;
+      }
+      if (typeof document !== "undefined" && document.fonts?.ready) {
+        await document.fonts.ready;
+      }
+      const canvas = await html2canvas(node, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "hsl(40 7% 96%)",
+        windowWidth: node.scrollWidth,
+        windowHeight: node.scrollHeight,
       });
-      y += 6;
-      doc.setFontSize(12);
-      doc.text("Top projekty wg rentowności", 14, y);
-      y += 6;
-      doc.setFontSize(10);
-      topProjects.forEach((t, i) => {
-        doc.text(
-          `${i + 1}. ${t.project.object_name || t.project.city} — ${t.wynik.toLocaleString("pl-PL")} PLN`,
-          14,
-          y
-        );
-        y += 6;
-        if (y > 270) {
-          doc.addPage();
-          y = 16;
-        }
-      });
-      doc.save(`MIZAR_Raport_${format(new Date(), "yyyy-MM-dd")}.pdf`);
+      const imgData = canvas.toDataURL("image/png", 1.0);
+      const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "p" });
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      const margin = 10;
+      const imgW = pageW - margin * 2;
+      const imgH = (canvas.height * imgW) / canvas.width;
+      const pageInnerH = pageH - margin * 2;
+
+      doc.addImage(imgData, "PNG", margin, margin, imgW, imgH);
+      let heightLeft = imgH - pageInnerH;
+      let scroll = 0;
+
+      while (heightLeft > 0) {
+        scroll += pageInnerH;
+        doc.addPage();
+        doc.addImage(imgData, "PNG", margin, margin - scroll, imgW, imgH);
+        heightLeft -= pageInnerH;
+      }
+
+      doc.save(`Fakturowo_Raport_${format(new Date(), "yyyy-MM-dd")}.pdf`);
       toast.success("Wygenerowano PDF");
     } catch (e) {
       console.error(e);
@@ -377,7 +354,7 @@ export default function MizarExport() {
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-3xl md:text-4xl font-bold">Eksport Excel i PDF</h1>
           <p className="text-muted-foreground mt-1">
-            Raport zbiorczy dla zarządu, banku lub inwestora — ExcelJS + jsPDF
+            Raport zbiorczy dla zarządu, banku lub inwestora — ExcelJS; PDF z układem jak w Power BI (HTML + polskie znaki)
           </p>
         </motion.div>
 
@@ -397,7 +374,7 @@ export default function MizarExport() {
             </ul>
             <Button onClick={exportExcel} disabled={!!busy} className="gap-2">
               {busy === "xlsx" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
-              Pobierz MIZAR_Raport_YYYY-MM-DD.xlsx
+              Pobierz Fakturowo_Raport_YYYY-MM-DD.xlsx
             </Button>
           </CardContent>
         </Card>
@@ -408,7 +385,8 @@ export default function MizarExport() {
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Logo w nagłówku (pasek w kolorach MIZAR), KPI, skrót cash flow, top projekty.
+              Karty KPI, wykres słupkowy cash flow, tabela top projektów — render w przeglądarce (Segoe UI), potem zapis do PDF —
+              poprawne polskie litery.
             </p>
             <Button variant="secondary" onClick={exportPdf} disabled={!!busy} className="gap-2">
               {busy === "pdf" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileType className="h-4 w-4" />}
@@ -416,6 +394,20 @@ export default function MizarExport() {
             </Button>
           </CardContent>
         </Card>
+      </div>
+
+      <div
+        aria-hidden
+        className="pointer-events-none fixed left-[-12000px] top-0 z-0 overflow-visible"
+        style={{ width: 794 }}
+      >
+        <ExecutivePdfSurface
+          ref={pdfSurfaceRef}
+          kpi={kpi}
+          cashRows={cashRows}
+          topProjects={topProjects}
+          generatedLabel={format(new Date(), "d MMMM yyyy, HH:mm", { locale: pl })}
+        />
       </div>
     </div>
   );

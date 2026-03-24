@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { OFFER_SEGMENT_OPTIONS, offerSegmentLabel } from "@/lib/mizar-offer-segments";
+import { OFFER_SEGMENT_OPTIONS, offerSegmentLabel } from "@/lib/offer-segments";
 
-describe("mizar-offer-segments", () => {
+describe("offer-segments", () => {
   it("offerSegmentLabel zwraca etykietę dla znanego kodu", () => {
     expect(offerSegmentLabel("hale_sportowe")).toBe("Hale sportowe");
     expect(offerSegmentLabel("boiska_pilkarskie")).toBe("Boiska piłkarskie");
@@ -13,7 +13,7 @@ describe("mizar-offer-segments", () => {
     expect(offerSegmentLabel("custom_xyz")).toBe("custom_xyz");
   });
 
-  it("OFFER_SEGMENT_OPTIONS zawiera pustą opcję i segmenty ze strony", () => {
+  it("OFFER_SEGMENT_OPTIONS zawiera pustą opcję i segmenty", () => {
     const values = OFFER_SEGMENT_OPTIONS.map((o) => o.value);
     expect(values).toContain("");
     expect(values).toContain("renowacje");

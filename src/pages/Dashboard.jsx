@@ -19,11 +19,11 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { escapeCSV } from '@/components/utils/normalize';
-import mizarData from '@/fixtures/mizar_data.json';
-import { computeMizarDashboardStats } from '@/lib/mizar-dashboard-stats';
+import crmFixtureData from '@/fixtures/crm_fixture_data.json';
+import { computeDashboardStats } from '@/lib/dashboard-stats';
 import { Progress } from '@/components/ui/progress';
 import { AiDashboardAlerts } from '@/components/ai/AiDashboardAlerts';
-import { MizarSqlLocalPanel } from '@/components/dashboard/MizarSqlLocalPanel';
+import { SqlLocalPanel } from '@/components/dashboard/SqlLocalPanel';
 
 export default function Dashboard() {
   const [selectedYears, setSelectedYears] = useState([]);
@@ -72,7 +72,7 @@ export default function Dashboard() {
     });
   }, [hotelStays, invoices]);
 
-  const mizarDash = useMemo(() => computeMizarDashboardStats(mizarData), []);
+  const dashStats = useMemo(() => computeDashboardStats(crmFixtureData), []);
 
   const stats = useMemo(() => {
     const currencies = {};
@@ -649,8 +649,10 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto">
         <div className="mb-8 flex justify-between items-center">
           <div>
-            <h1 className="text-4xl font-bold text-foreground mb-2">Dashboard MIZAR</h1>
-            <p className="text-muted-foreground">Obiekty sportowe — KPI z danych testowych (mizar_data.json) oraz moduł faktur</p>
+            <h1 className="text-4xl font-bold tracking-tight text-foreground mb-2">Dashboard operacyjny</h1>
+            <p className="text-base text-muted-foreground leading-relaxed max-w-3xl">
+              Obiekty sportowe — KPI z danych lokalnych (JSON / SQL.js) oraz moduł faktur
+            </p>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -722,83 +724,87 @@ export default function Dashboard() {
 
         <AiDashboardAlerts />
 
-        <MizarSqlLocalPanel />
+        <SqlLocalPanel />
 
         <div className="dashboard-content">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-white shadow-lg">
+          <Card className="border-l-4 border-l-slate-400">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600">Aktywne projekty</CardTitle>
-              <Building2 className="h-5 w-5 text-blue-500" />
+              <CardTitle className="text-base font-semibold text-foreground">Aktywne projekty</CardTitle>
+              <Building2 className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-slate-900">{mizarDash.activeCount}</div>
-              <p className="text-xs text-slate-500 mt-1">Łączna wartość budżetów</p>
-              <p className="text-lg font-semibold text-slate-800 mt-1">
-                {mizarDash.activeValue.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} PLN
+              <div className="text-3xl font-bold tabular-nums text-foreground">{dashStats.activeCount}</div>
+              <p className="text-sm text-muted-foreground mt-2 leading-snug">Łączna wartość budżetów</p>
+              <p className="text-lg font-semibold tabular-nums text-foreground mt-1">
+                {dashStats.activeValue.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} PLN
               </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-white shadow-lg border-l-4 border-l-blue-600">
+          <Card className="border-l-4 border-l-primary">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-blue-800">Należności do odbioru</CardTitle>
-              <Wallet className="h-5 w-5 text-blue-600" />
+              <CardTitle className="text-base font-semibold text-foreground">Należności do odbioru</CardTitle>
+              <Wallet className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-700">
-                {mizarDash.naleznosciSum.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PLN
+              <div className="text-2xl font-bold tabular-nums text-primary">
+                {dashStats.naleznosciSum.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PLN
               </div>
-              <p className="text-xs text-blue-600/80 mt-1">{mizarDash.naleznosciCount} faktur wystawionych (nieopłaconych)</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600">Cash flow — bieżący miesiąc</CardTitle>
-              <Activity className={`h-5 w-5 ${mizarDash.cfMc >= 0 ? 'text-green-600' : 'text-red-600'}`} />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${mizarDash.cfMc >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {mizarDash.cfMc >= 0 ? '+' : ''}
-                {mizarDash.cfMc.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PLN
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Wpływy: {mizarDash.wplywyMc.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} · Wydatki:{' '}
-                {mizarDash.wydatkiMc.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} (wg dat zapłaty, mizar_data)
+              <p className="text-sm text-muted-foreground mt-2 leading-snug">
+                {dashStats.naleznosciCount} faktur wystawionych (nieopłaconych)
               </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-white shadow-lg border-l-4 border-l-red-600">
+          <Card className="border-l-4 border-l-slate-400">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-red-800">Faktury przeterminowane</CardTitle>
-              <AlertTriangle className="h-5 w-5 text-red-600" />
+              <CardTitle className="text-base font-semibold text-foreground">Cash flow — bieżący miesiąc</CardTitle>
+              <Activity className={`h-5 w-5 ${dashStats.cfMc >= 0 ? 'text-[#059669]' : 'text-destructive'}`} />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-red-600">{mizarDash.przeterminowaneCount}</div>
-              <p className="text-lg font-semibold text-red-700 mt-1">
-                {mizarDash.przeterminowaneSum.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PLN
+              <div className={`text-2xl font-bold tabular-nums ${dashStats.cfMc >= 0 ? 'text-[#059669]' : 'text-destructive'}`}>
+                {dashStats.cfMc >= 0 ? '+' : ''}
+                {dashStats.cfMc.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PLN
+              </div>
+              <p className="text-sm text-muted-foreground mt-2 leading-snug">
+                Wpływy: {dashStats.wplywyMc.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} · Wydatki:{' '}
+                {dashStats.wydatkiMc.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} (wg dat zapłaty, dane lokalne)
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-destructive">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-base font-semibold text-foreground">Faktury przeterminowane</CardTitle>
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold tabular-nums text-destructive">{dashStats.przeterminowaneCount}</div>
+              <p className="text-lg font-semibold tabular-nums text-destructive mt-2">
+                {dashStats.przeterminowaneSum.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PLN
               </p>
             </CardContent>
           </Card>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <Card className="bg-white shadow-lg">
+          <Card className="bg-background shadow-lg">
             <CardHeader>
-              <CardTitle>Cash flow — ostatnie 6 miesięcy</CardTitle>
-              <p className="text-xs text-slate-500">Netto wg dat zapłaty (wystawione − otrzymane), PLN — mizar_data.json</p>
+              <CardTitle className="text-lg font-semibold">Cash flow — ostatnie 6 miesięcy</CardTitle>
+              <p className="text-sm text-slate-600 leading-relaxed mt-1">
+                Netto wg dat zapłaty (wystawione − otrzymane), PLN — dane lokalne
+              </p>
             </CardHeader>
             <CardContent className="h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={mizarDash.last6Months} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                <LineChart data={dashStats.last6Months} margin={{ top: 8, right: 8, left: 4, bottom: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+                  <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#475569" }} />
+                  <YAxis tick={{ fontSize: 12, fill: "#475569" }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                   <Tooltip
                     formatter={(v) => [`${Number(v).toLocaleString('pl-PL', { maximumFractionDigits: 0 })} PLN`, 'Netto']}
-                    contentStyle={{ background: '#fff', border: '1px solid #e2e8f0' }}
+                    contentStyle={{ background: 'hsl(40 7% 96%)', border: '1px solid #e2e8f0' }}
                   />
                   <Legend />
                   <Line type="monotone" dataKey="netto" name="Cash flow netto" stroke="#2563eb" strokeWidth={2} dot />
@@ -807,20 +813,22 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-white shadow-lg">
+          <Card className="bg-background shadow-lg">
             <CardHeader>
-              <CardTitle>Top 5 projektów wg wartości (budżet)</CardTitle>
-              <p className="text-xs text-slate-500">Wykorzystanie = suma kosztów (FV otrzymanych) / budżet</p>
+              <CardTitle className="text-lg font-semibold">Top 5 projektów wg wartości (budżet)</CardTitle>
+              <p className="text-sm text-slate-600 leading-relaxed mt-1">
+                Wykorzystanie = suma kosztów (FV otrzymanych) / budżet
+              </p>
             </CardHeader>
             <CardContent className="space-y-4">
-              {mizarDash.top5ByValue.map((row) => (
+              {dashStats.top5ByValue.map((row) => (
                 <div key={row.id} className="space-y-1">
                   <div className="flex justify-between gap-2 text-sm">
                     <span className="font-medium text-slate-900 line-clamp-2">{row.nazwa}</span>
                     <span className="text-slate-600 shrink-0">{row.pctReal.toFixed(1)}%</span>
                   </div>
                   <Progress value={row.pctBar} className="h-2 bg-slate-200 [&>div]:bg-blue-600" />
-                  <div className="flex justify-between text-xs text-slate-500">
+                  <div className="flex justify-between text-sm text-slate-600 tabular-nums">
                     <span>
                       {row.spent.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} /{' '}
                       {row.budzet.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} PLN
@@ -833,19 +841,19 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        <Card className="bg-white shadow-lg border border-amber-200/80 mb-8">
+        <Card className="bg-background shadow-lg border border-amber-200/80 mb-8">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-amber-900">
               <AlertCircle className="h-5 w-5 text-amber-600" />
               Alerty budżetu (≥ 80% wykorzystania)
             </CardTitle>
-            <p className="text-xs text-slate-500">Koszty z faktur otrzymanych (mizar_data) vs budżet projektu</p>
+            <p className="text-xs text-slate-500">Koszty z faktur otrzymanych (dane lokalne) vs budżet projektu</p>
           </CardHeader>
           <CardContent className="space-y-3">
-            {mizarDash.budgetAlerts.length === 0 ? (
-              <p className="text-sm text-slate-500">Brak projektów przekraczających próg 80%.</p>
+            {dashStats.budgetAlerts.length === 0 ? (
+              <p className="text-base text-slate-600 leading-relaxed">Brak projektów przekraczających próg 80%.</p>
             ) : (
-              mizarDash.budgetAlerts.map((a) => (
+              dashStats.budgetAlerts.map((a) => (
                 <div
                   key={a.id}
                   className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-amber-100 bg-amber-50/80 px-4 py-3 text-sm"
@@ -862,14 +870,14 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white shadow-lg mb-8">
+        <Card className="bg-background shadow-lg mb-8">
           <CardHeader>
             <CardTitle>Miesięczne wydatki według kontrahentów</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="mb-6 space-y-2">
               <Collapsible open={expandedFilters.years} onOpenChange={(open) => setExpandedFilters({...expandedFilters, years: open})}>
-                <CollapsibleTrigger className="flex items-center gap-2 w-full p-3 hover:bg-slate-100 rounded-lg">
+                <CollapsibleTrigger className="flex items-center gap-2 w-full p-3 hover:bg-foreground/5 rounded-lg">
                   <ChevronDown className={`h-5 w-5 transition-transform ${expandedFilters.years ? 'rotate-180' : ''}`} />
                   <Label className="font-semibold cursor-pointer">Lata</Label>
                 </CollapsibleTrigger>
@@ -882,7 +890,7 @@ export default function Dashboard() {
                         className={`px-4 py-2 rounded-lg border-2 transition-all cursor-pointer ${
                           selectedYears.includes(year.toString())
                             ? 'border-blue-600 bg-blue-50 text-blue-900 font-medium'
-                            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                            : 'border-slate-200 bg-background text-slate-700 hover:border-slate-300'
                         }`}
                       >
                         <div className="flex items-center gap-2">
@@ -900,7 +908,7 @@ export default function Dashboard() {
               </Collapsible>
 
               <Collapsible open={expandedFilters.quarters} onOpenChange={(open) => setExpandedFilters({...expandedFilters, quarters: open})}>
-                <CollapsibleTrigger className="flex items-center gap-2 w-full p-3 hover:bg-slate-100 rounded-lg">
+                <CollapsibleTrigger className="flex items-center gap-2 w-full p-3 hover:bg-foreground/5 rounded-lg">
                   <ChevronDown className={`h-5 w-5 transition-transform ${expandedFilters.quarters ? 'rotate-180' : ''}`} />
                   <Label className="font-semibold cursor-pointer">Kwartały</Label>
                 </CollapsibleTrigger>
@@ -913,7 +921,7 @@ export default function Dashboard() {
                         className={`px-4 py-2 rounded-lg border-2 transition-all cursor-pointer ${
                           selectedQuarters.includes(q)
                             ? 'border-blue-600 bg-blue-50 text-blue-900 font-medium'
-                            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                            : 'border-slate-200 bg-background text-slate-700 hover:border-slate-300'
                         }`}
                       >
                         <div className="flex items-center gap-2">
@@ -931,7 +939,7 @@ export default function Dashboard() {
               </Collapsible>
 
               <Collapsible open={expandedFilters.months} onOpenChange={(open) => setExpandedFilters({...expandedFilters, months: open})}>
-                <CollapsibleTrigger className="flex items-center gap-2 w-full p-3 hover:bg-slate-100 rounded-lg">
+                <CollapsibleTrigger className="flex items-center gap-2 w-full p-3 hover:bg-foreground/5 rounded-lg">
                   <ChevronDown className={`h-5 w-5 transition-transform ${expandedFilters.months ? 'rotate-180' : ''}`} />
                   <Label className="font-semibold cursor-pointer">Miesiące</Label>
                 </CollapsibleTrigger>
@@ -944,7 +952,7 @@ export default function Dashboard() {
                         className={`px-4 py-2 rounded-lg border-2 transition-all text-sm cursor-pointer ${
                           selectedMonths.includes(m.value)
                             ? 'border-blue-600 bg-blue-50 text-blue-900 font-medium'
-                            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                            : 'border-slate-200 bg-background text-slate-700 hover:border-slate-300'
                         }`}
                       >
                         <div className="flex items-center gap-2">
@@ -962,7 +970,7 @@ export default function Dashboard() {
               </Collapsible>
 
               <Collapsible open={expandedFilters.payer} onOpenChange={(open) => setExpandedFilters({...expandedFilters, payer: open})}>
-                <CollapsibleTrigger className="flex items-center gap-2 w-full p-3 hover:bg-slate-100 rounded-lg">
+                <CollapsibleTrigger className="flex items-center gap-2 w-full p-3 hover:bg-foreground/5 rounded-lg">
                   <ChevronDown className={`h-5 w-5 transition-transform ${expandedFilters.payer ? 'rotate-180' : ''}`} />
                   <Label className="font-semibold cursor-pointer">Płatnik</Label>
                 </CollapsibleTrigger>
@@ -983,7 +991,7 @@ export default function Dashboard() {
             </div>
 
             <Collapsible open={expandedFilters.contractors} onOpenChange={(open) => setExpandedFilters({...expandedFilters, contractors: open})}>
-              <CollapsibleTrigger className="flex items-center gap-2 w-full p-3 hover:bg-slate-100 rounded-lg">
+              <CollapsibleTrigger className="flex items-center gap-2 w-full p-3 hover:bg-foreground/5 rounded-lg">
                 <ChevronDown className={`h-5 w-5 transition-transform ${expandedFilters.contractors ? 'rotate-180' : ''}`} />
                 <Label className="font-semibold cursor-pointer">Porównaj kontrahentów (wybierz do 8)</Label>
               </CollapsibleTrigger>
@@ -1014,7 +1022,7 @@ export default function Dashboard() {
                     </Button>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-48 overflow-y-auto p-2 border rounded-lg bg-slate-50">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-48 overflow-y-auto p-2 border rounded-lg bg-background">
                   {filteredDisplayContractors.map(contractor => (
                     <div key={contractor} className="flex items-center space-x-2">
                       <Checkbox
@@ -1076,7 +1084,7 @@ export default function Dashboard() {
           <div key={currency} className="mb-8">
             <h3 className="text-xl font-bold text-foreground mb-4">Przegląd płatności - {currency}</h3>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="bg-white shadow-lg">
+              <Card className="bg-background shadow-lg">
                 <CardHeader>
                   <CardTitle>Przegląd płatności ({currency})</CardTitle>
                 </CardHeader>
@@ -1101,7 +1109,7 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-white shadow-lg">
+              <Card className="bg-background shadow-lg">
                 <CardHeader>
                   <CardTitle>Podział płatności ({currency})</CardTitle>
                 </CardHeader>
@@ -1141,7 +1149,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {Object.entries(hotelStats).map(([currency, amounts]) => (
                 <div key={currency}>
-                  <Card className="bg-white shadow-lg">
+                  <Card className="bg-background shadow-lg">
                     <CardHeader>
                       <CardTitle>Przegląd płatności hoteli ({currency})</CardTitle>
                     </CardHeader>
@@ -1171,7 +1179,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        <Card className="bg-white shadow-lg mb-8">
+        <Card className="bg-background shadow-lg mb-8">
           <CardHeader>
             <CardTitle>Statystyki kontrahentów</CardTitle>
           </CardHeader>
@@ -1199,7 +1207,7 @@ export default function Dashboard() {
                   {contractorStats
                     .filter(stat => stat.name.toLowerCase().includes(contractorStatsSearch.toLowerCase()))
                     .map((stat, idx) => (
-                    <tr key={`${stat.name}_${stat.currency}_${idx}`} className="border-b hover:bg-slate-50">
+                    <tr key={`${stat.name}_${stat.currency}_${idx}`} className="border-b hover:bg-foreground/5">
                       <td className="py-3 px-2 font-medium text-slate-900">
                         {stat.name}
                         <span className="ml-2 text-xs text-slate-500">({stat.currency})</span>
@@ -1223,7 +1231,7 @@ export default function Dashboard() {
         </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <Card className="bg-white shadow-lg">
+          <Card className="bg-background shadow-lg">
             <CardHeader>
               <CardTitle>Szybkie akcje</CardTitle>
             </CardHeader>
@@ -1251,7 +1259,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-white shadow-lg">
+          <Card className="bg-background shadow-lg">
             <CardHeader>
               <CardTitle>Ostatnie faktury</CardTitle>
             </CardHeader>
@@ -1281,7 +1289,7 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        <Card className="bg-white shadow-lg mb-8">
+        <Card className="bg-background shadow-lg mb-8">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Ostatnie pobyty hotelowe</CardTitle>
             <Hotel className="h-5 w-5 text-pink-500" />

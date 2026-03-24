@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { setLeads, patchSiteExtension, setSuppliers, setPortfolio } from "@/lib/mizar-crm-local-store";
+import { setLeads, patchSiteExtension, setSuppliers, setPortfolio } from "@/lib/crm-local-store";
 import { buildCrmContextForAi, stringifyCrmContext } from "@/lib/ai-crm-context";
 
 describe("buildCrmContextForAi", () => {
@@ -51,7 +51,7 @@ describe("buildCrmContextForAi", () => {
 
     const ctx = await buildCrmContextForAi(base44);
 
-    expect(ctx.marka_mizar_sport).toContain("Mizar Sport");
+    expect(ctx.firma_brief_pl).toContain("Fakturowo");
     expect(ctx.leady_lokalne.liczba).toBe(1);
     expect(ctx.leady_lokalne.probka[0].firma).toBe("LeadCo");
     expect(ctx.dostawcy_lokalni.liczba).toBe(1);
@@ -60,7 +60,7 @@ describe("buildCrmContextForAi", () => {
     expect(ctx.obiekty_budowy_live).toHaveLength(1);
     expect(ctx.obiekty_budowy_live[0].segment_oferty).toContain("lekkoatletycz");
     expect(ctx.obiekty_budowy_live[0].dofinansowanie.program).toBe("LBS");
-    expect(ctx.mizar_fixture).toHaveProperty("projekty");
+    expect(ctx.fixture_snapshot).toHaveProperty("projekty");
     expect(base44.entities.Invoice.list).toHaveBeenCalledTimes(1);
     expect(base44.entities.ConstructionSite.list).toHaveBeenCalledTimes(1);
   });

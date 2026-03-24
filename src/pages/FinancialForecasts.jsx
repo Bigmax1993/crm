@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import mizarData from "@/fixtures/mizar_data.json";
+import fixtureData from "@/fixtures/crm_fixture_data.json";
 import { getNbpEurMidCached } from "@/lib/nbp-rates";
 import {
   buildCashFlowEtapowy,
@@ -43,8 +43,8 @@ import {
 } from "recharts";
 import { parseISO } from "date-fns";
 
-const BANK_TS = mizarData?.konto_bankowe?.data_aktualizacji
-  ? parseISO(`${mizarData.konto_bankowe.data_aktualizacji}T12:00:00`).getTime()
+const BANK_TS = fixtureData?.konto_bankowe?.data_aktualizacji
+  ? parseISO(`${fixtureData.konto_bankowe.data_aktualizacji}T12:00:00`).getTime()
   : Date.now();
 
 export default function FinancialForecasts() {
@@ -52,7 +52,7 @@ export default function FinancialForecasts() {
   const [horizon, setHorizon] = useState(90);
   const [pipelineProbs, setPipelineProbs] = useState(() => {
     const init = {};
-    for (const p of getOfertyProjects(mizarData)) {
+    for (const p of getOfertyProjects(fixtureData)) {
       init[p.id] = 50;
     }
     return init;
@@ -81,23 +81,23 @@ export default function FinancialForecasts() {
   const loadingNbp = eurLoading || eurFetching;
 
   const kontrahenciById = useMemo(
-    () => Object.fromEntries((mizarData.kontrahenci || []).map((k) => [k.id, k.nazwa])),
+    () => Object.fromEntries((fixtureData.kontrahenci || []).map((k) => [k.id, k.nazwa])),
     []
   );
 
-  const cash = useMemo(() => buildCashFlowEtapowy(mizarData, { horizonDays: horizon }), [horizon]);
-  const season = useMemo(() => buildSeasonalityAnalysis(mizarData), []);
-  const eurEx = useMemo(() => buildEurExposure(mizarData), []);
+  const cash = useMemo(() => buildCashFlowEtapowy(fixtureData, { horizonDays: horizon }), [horizon]);
+  const season = useMemo(() => buildSeasonalityAnalysis(fixtureData), []);
+  const eurEx = useMemo(() => buildEurExposure(fixtureData), []);
   const baseMid = eurData?.mid ?? 4.32;
   const sens = useMemo(
     () => eurSensitivityRows(eurEx.exposureEur, baseMid, [-0.5, -0.2, -0.1, 0, 0.1, 0.2, 0.5]),
     [eurEx.exposureEur, baseMid]
   );
   const pipeline = useMemo(
-    () => buildPipelineScenarios(mizarData, pipelineProbs, { referenceDate: new Date() }),
+    () => buildPipelineScenarios(fixtureData, pipelineProbs, { referenceDate: new Date() }),
     [pipelineProbs]
   );
-  const rent = useMemo(() => buildRentownoscTypy(mizarData), []);
+  const rent = useMemo(() => buildRentownoscTypy(fixtureData), []);
 
   const scenarioRate = baseMid + (eurSliderDelta[0] ?? 0);
   const scenarioCost = eurEx.exposureEur * scenarioRate;
@@ -116,13 +116,13 @@ export default function FinancialForecasts() {
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-3xl md:text-4xl font-bold text-foreground">Prognozy finansowe</h1>
           <p className="text-muted-foreground mt-1">
-            MIZAR Sp. z o.o. — pięć modułów analitycznych na danych testowych{" "}
-            <span className="font-mono text-xs">mizar_data.json</span> oraz kursie EUR (NBP, cache 24h).
+            Pięć modułów analitycznych na danych testowych{" "}
+            <span className="font-mono text-xs">crm_fixture_data.json</span> oraz kursie EUR (NBP, cache 24h).
           </p>
         </motion.div>
 
         <Tabs defaultValue="cashflow" className="w-full">
-          <TabsList className="flex h-auto min-h-9 w-full flex-wrap justify-start gap-1 bg-muted/80 p-1">
+          <TabsList className="flex h-auto min-h-9 w-full flex-wrap justify-start gap-1 bg-background p-1">
             <TabsTrigger value="cashflow" className="text-xs sm:text-sm">
               Cash flow
             </TabsTrigger>
@@ -150,7 +150,7 @@ export default function FinancialForecasts() {
                 onRefresh={refreshAll}
                 onExportPdf={() =>
                   exportPrognozyPdf(
-                    `MIZAR_prognoza_cf_${horizon}d.pdf`,
+                    `Fakturowo_prognoza_cf_${horizon}d.pdf`,
                     `Cash flow ${horizon} dni`,
                     ["Tydzień", "Wpływy", "Wydatki", "Saldo", "Status"],
                     cash.rows.map((r) => [r.weekStart, r.wplywy, r.wydatki, r.saldo, r.status])
@@ -158,7 +158,7 @@ export default function FinancialForecasts() {
                 }
                 onExportExcel={() =>
                   exportPrognozyExcel(
-                    `MIZAR_prognoza_cf_${horizon}d.xlsx`,
+                    `Fakturowo_prognoza_cf_${horizon}d.xlsx`,
                     "Cash flow",
                     ["Tydzień", "Wpływy", "Wydatki", "Saldo", "Status"],
                     cash.rows.map((r) => [r.weekStart, r.wplywy, r.wydatki, r.saldo, r.status])
@@ -291,7 +291,7 @@ export default function FinancialForecasts() {
                 onRefresh={refreshAll}
                 onExportPdf={() =>
                   exportPrognozyPdf(
-                    "MIZAR_prognoza_sezon.pdf",
+                    "Fakturowo_prognoza_sezon.pdf",
                     "Sezonowość",
                     ["Miesiąc", "Plan (śr.)", "Sezon", "Rzeczywistość", "Odchylenie %"],
                     season.deviationRows.map((r) => [
@@ -305,7 +305,7 @@ export default function FinancialForecasts() {
                 }
                 onExportExcel={() =>
                   exportPrognozyExcel(
-                    "MIZAR_prognoza_sezon.xlsx",
+                    "Fakturowo_prognoza_sezon.xlsx",
                     "Sezonowość",
                     ["Miesiąc", "Plan (śr.)", "Sezon", "Rzeczywistość", "Odchylenie %"],
                     season.deviationRows.map((r) => [
@@ -343,7 +343,7 @@ export default function FinancialForecasts() {
                     </ComposedChart>
                   </ResponsiveContainer>
                 </motion.div>
-                <Card className="bg-muted/40">
+                <Card className="bg-background">
                   <CardHeader className="py-3">
                     <CardTitle className="text-sm">Wnioski</CardTitle>
                   </CardHeader>
@@ -391,7 +391,7 @@ export default function FinancialForecasts() {
                 onRefresh={refreshAll}
                 onExportPdf={() =>
                   exportPrognozyPdf(
-                    "MIZAR_prognoza_fx.pdf",
+                    "Fakturowo_prognoza_fx.pdf",
                     "Ryzyko EUR",
                     ["Scenariusz kursu", "Kurs", "Koszt PLN", "Różnica vs bazowy"],
                     sens.map((s) => [s.deltaLabel, s.kurs, s.kosztPln, s.roznica])
@@ -399,7 +399,7 @@ export default function FinancialForecasts() {
                 }
                 onExportExcel={() =>
                   exportPrognozyExcel(
-                    "MIZAR_prognoza_fx.xlsx",
+                    "Fakturowo_prognoza_fx.xlsx",
                     "Ryzyko EUR",
                     ["Scenariusz", "Kurs", "Koszt PLN", "Różnica"],
                     sens.map((s) => [s.deltaLabel, s.kurs, s.kosztPln, s.roznica])
@@ -457,7 +457,7 @@ export default function FinancialForecasts() {
                       />
                       <Bar dataKey="roznica" name="Wpływ na koszt PLN" radius={[0, 4, 4, 0]}>
                         {sens.map((s, i) => (
-                          <Cell key={i} fill={s.worseForMizar ? "#dc2626" : "#16a34a"} />
+                          <Cell key={i} fill={s.worseForCompany ? "#dc2626" : "#16a34a"} />
                         ))}
                       </Bar>
                     </BarChart>
@@ -516,7 +516,7 @@ export default function FinancialForecasts() {
                 onRefresh={refreshAll}
                 onExportPdf={() =>
                   exportPrognozyPdf(
-                    "MIZAR_prognoza_pipeline.pdf",
+                    "Fakturowo_prognoza_pipeline.pdf",
                     "Pipeline",
                     ["Oferta", "P%", "Budżet", "Zysk"],
                     pipeline.items.map((i) => [i.nazwa, i.pwin * 100, i.budzet, i.zysk])
@@ -524,7 +524,7 @@ export default function FinancialForecasts() {
                 }
                 onExportExcel={() =>
                   exportPrognozyExcel(
-                    "MIZAR_prognoza_pipeline.xlsx",
+                    "Fakturowo_prognoza_pipeline.xlsx",
                     "Pipeline",
                     ["Oferta", "P%", "Budżet", "Zysk"],
                     pipeline.items.map((i) => [i.nazwa, i.pwin * 100, i.budzet, i.zysk])
@@ -612,13 +612,13 @@ export default function FinancialForecasts() {
             <ForecastErrorBoundary moduleName="Rentowność typów">
               <ForecastModuleChrome
                 title="MODUŁ 5 — Rentowność wg typu obiektu"
-                description="Agregacja projektów z mizar_data: marża planowana vs rzeczywista, regresja trendu, prognoza ±20%."
+                description="Agregacja projektów z fixture: marża planowana vs rzeczywista, regresja trendu, prognoza ±20%."
                 updatedAt={updatedAt}
                 loading={false}
                 onRefresh={refreshAll}
                 onExportPdf={() =>
                   exportPrognozyPdf(
-                    "MIZAR_prognoza_typy.pdf",
+                    "Fakturowo_prognoza_typy.pdf",
                     "Rentowność typów",
                     ["Typ", "Liczba", "Wartość", "Marża plan", "Marża rzecz.", "Odchylenie"],
                     rent.rows.map((r) => [
@@ -633,7 +633,7 @@ export default function FinancialForecasts() {
                 }
                 onExportExcel={() =>
                   exportPrognozyExcel(
-                    "MIZAR_prognoza_typy.xlsx",
+                    "Fakturowo_prognoza_typy.xlsx",
                     "Rentowność",
                     ["Typ", "Liczba", "Wartość", "Marża plan", "Marża rzecz.", "Odchylenie"],
                     rent.rows.map((r) => [
@@ -687,7 +687,7 @@ export default function FinancialForecasts() {
                     </ScatterChart>
                   </ResponsiveContainer>
                 </motion.div>
-                <Card className="bg-muted/40">
+                <Card className="bg-background">
                   <CardHeader className="py-3">
                     <CardTitle className="text-sm">Rekomendacja</CardTitle>
                   </CardHeader>

@@ -10,8 +10,8 @@ export function CurrencySwitcher() {
   const [fxRev, setFxRev] = useState(0);
   useEffect(() => {
     const up = () => setFxRev((x) => x + 1);
-    window.addEventListener("mizar-fx-config", up);
-    return () => window.removeEventListener("mizar-fx-config", up);
+    window.addEventListener("fakturowo-fx-config", up);
+    return () => window.removeEventListener("fakturowo-fx-config", up);
   }, []);
   const options = useMemo(() => {
     void fxRev;

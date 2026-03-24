@@ -10,9 +10,9 @@ import {
   foreignExposureRatio,
   budgetAlertsPln,
   isUnpaidStatus,
-} from "@/lib/mizar-finance-pln";
+} from "@/lib/finance-pln";
 
-describe("mizar-finance-pln (jednostkowe)", () => {
+describe("finance-pln (jednostkowe)", () => {
   it("getInvoicePlnAtIssue używa amount_pln gdy jest liczbą", () => {
     expect(
       getInvoicePlnAtIssue({

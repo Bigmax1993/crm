@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2, Package } from "lucide-react";
-import { getSuppliers, setSuppliers, newLocalId } from "@/lib/mizar-crm-local-store";
+import { getSuppliers, setSuppliers, newLocalId } from "@/lib/crm-local-store";
 
 const emptyForm = {
   name: "",

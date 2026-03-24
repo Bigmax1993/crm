@@ -19,7 +19,7 @@ import {
   getUsageToday,
   getAiHistory,
   getOpenAiApiKey,
-} from "@/lib/openai-mizar";
+} from "@/lib/openai-crm";
 
 export default function SettingsAI() {
   const envHint = (import.meta.env?.VITE_OPENAI_API_KEY || "").trim() ? "Ustawiony w .env (VITE_…)" : "Brak w .env";
@@ -34,8 +34,8 @@ export default function SettingsAI() {
       setUsage(getUsageToday());
       setHistory(getAiHistory());
     };
-    window.addEventListener("mizar-ai-settings", up);
-    return () => window.removeEventListener("mizar-ai-settings", up);
+    window.addEventListener("fakturowo-ai-settings", up);
+    return () => window.removeEventListener("fakturowo-ai-settings", up);
   }, []);
 
   const masked = () => {
@@ -52,7 +52,7 @@ export default function SettingsAI() {
   };
 
   const clearHistory = () => {
-    localStorage.removeItem("mizar_ai_history_v1");
+    localStorage.removeItem("fakturowo_ai_history_v1");
     setHistory([]);
     toast.success("Wyczyszczono historię");
   };

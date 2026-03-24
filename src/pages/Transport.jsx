@@ -109,7 +109,7 @@ export default function Transport() {
         </div>
 
         {showForm && (
-          <Card className="bg-white shadow-lg mb-6">
+          <Card className="bg-background shadow-lg mb-6">
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle>Nowa faktura transportowa</CardTitle>
@@ -210,7 +210,7 @@ export default function Transport() {
           </Card>
         )}
 
-        <Card className="bg-white shadow-lg mb-6">
+        <Card className="bg-background shadow-lg mb-6">
           <CardContent className="pt-6">
             <div className="relative max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -224,7 +224,7 @@ export default function Transport() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white shadow-lg mb-6">
+        <Card className="bg-background shadow-lg mb-6">
           <CardContent className="p-0">
             <Table>
               <TableHeader>

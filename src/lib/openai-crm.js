@@ -1,6 +1,6 @@
-const LS_SETTINGS = "mizar_ai_settings_v1";
-const LS_USAGE = "mizar_ai_usage_v1";
-const LS_HISTORY = "mizar_ai_history_v1";
+const LS_SETTINGS = "fakturowo_ai_settings_v1";
+const LS_USAGE = "fakturowo_ai_usage_v1";
+const LS_HISTORY = "fakturowo_ai_history_v1";
 
 const DEFAULT_SETTINGS = {
   apiKeyOverride: "",
@@ -24,7 +24,7 @@ export function getAiSettings() {
 export function saveAiSettings(partial) {
   const next = { ...getAiSettings(), ...partial };
   localStorage.setItem(LS_SETTINGS, JSON.stringify(next));
-  window.dispatchEvent(new Event("mizar-ai-settings"));
+  window.dispatchEvent(new Event("fakturowo-ai-settings"));
   return next;
 }
 
@@ -124,7 +124,7 @@ const CACHE_TTL = 24 * 60 * 60 * 1000;
 export function cacheGet(prefix, payload) {
   try {
     const k = cacheKey(prefix, payload);
-    const raw = localStorage.getItem(`mizar_ai_cache_${k}`);
+    const raw = localStorage.getItem(`fakturowo_ai_cache_${k}`);
     if (!raw) return null;
     const { ts, data } = JSON.parse(raw);
     if (Date.now() - ts > CACHE_TTL) return null;
@@ -137,7 +137,7 @@ export function cacheGet(prefix, payload) {
 export function cacheSet(prefix, payload, data) {
   try {
     const k = cacheKey(prefix, payload);
-    localStorage.setItem(`mizar_ai_cache_${k}`, JSON.stringify({ ts: Date.now(), data }));
+    localStorage.setItem(`fakturowo_ai_cache_${k}`, JSON.stringify({ ts: Date.now(), data }));
   } catch {
     /* quota */
   }
@@ -227,7 +227,7 @@ WYJŚCIE:
 KTO JEST KONTRAHENTEM (nazwa_kontrahenta, nip_kontrahenta):
 - Dla FAKTURY ZAKUPU (my jesteśmy nabywcą): kontrahent = SPRZEDAWCA / wystawca faktury (nie nabywca, nie nasza firma).
 - Dla FAKTURY SPRZEDAŻY (my wystawiamy): kontrahent = NABYWCA.
-- Jeśli na dokumencie widać wyraźnie MIZAR / KANBUD jako jedną ze stron — druga strona transakcji to kontrahent dla zakupu.
+- Jeśli na dokumencie widać wyraźnie własną firmę (nabywca ze stałej bazy) jako jedną ze stron — druga strona transakcji to kontrahent dla zakupu.
 
 KWOTY I WALUTA:
 - kwota_brutto = kwota z sekcji podsumowania / „Razem” / „Do zapłaty” (preferuj stopkę nad pojedynczą pozycją).

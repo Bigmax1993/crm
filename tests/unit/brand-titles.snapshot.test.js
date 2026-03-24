@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getExportReportTitle } from "@/lib/mizar-brand-brief";
+import { getExportReportTitle } from "@/lib/brand-brief";
 
 describe("getExportReportTitle — snapshoty tekstu", () => {
   it("domyślny tytuł raportu", () => {

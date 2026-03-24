@@ -34,7 +34,7 @@ export default function ContractorForm({ contractor, onSubmit, onCancel, isLoadi
   };
 
   return (
-    <Card className="bg-white shadow-lg mb-6">
+    <Card className="bg-background shadow-lg mb-6">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>{contractor ? 'Edytuj kontrahenta' : 'Nowy kontrahent'}</CardTitle>
         <Button variant="ghost" size="icon" onClick={onCancel}>

@@ -4,6 +4,18 @@ module.exports = {
     content: ["./index.html", "./src/**/*.{ts,tsx,js,jsx}"],
   theme: {
   	extend: {
+  		fontFamily: {
+  			sans: [
+  				"Inter",
+  				"Segoe UI",
+  				"system-ui",
+  				"-apple-system",
+  				"BlinkMacSystemFont",
+  				"Helvetica Neue",
+  				"Arial",
+  				"sans-serif",
+  			],
+  		},
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',

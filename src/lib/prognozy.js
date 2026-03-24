@@ -63,10 +63,10 @@ function isPaidStatus(status) {
 /**
  * MODUŁ 1 — Cash flow etapowy (tygodnie, saldo z konta + przyszłe / zaległe FV).
  */
-export function buildCashFlowEtapowy(mizarData, { horizonDays = 90, referenceDate = new Date() } = {}) {
+export function buildCashFlowEtapowy(fixtureData, { horizonDays = 90, referenceDate = new Date() } = {}) {
   const ref = startOfDay(referenceDate);
-  const bankSaldo = Number(mizarData?.konto_bankowe?.saldo_pln) || 0;
-  const invoices = mizarData?.faktury || [];
+  const bankSaldo = Number(fixtureData?.konto_bankowe?.saldo_pln) || 0;
+  const invoices = fixtureData?.faktury || [];
 
   const events = [];
   for (const f of invoices) {
@@ -168,9 +168,9 @@ export function buildCashFlowEtapowy(mizarData, { horizonDays = 90, referenceDat
 /**
  * MODUŁ 2 — Sezonowość (netto gotówkowe wg dat zapłaty).
  */
-export function buildSeasonalityAnalysis(mizarData, { referenceDate = new Date() } = {}) {
+export function buildSeasonalityAnalysis(fixtureData, { referenceDate = new Date() } = {}) {
   const byMonth = {};
-  for (const f of mizarData?.faktury || []) {
+  for (const f of fixtureData?.faktury || []) {
     if (!f.data_zaplaty) continue;
     const d = parseISO(String(f.data_zaplaty).slice(0, 10));
     if (!isValid(d)) continue;
@@ -234,8 +234,8 @@ export function buildSeasonalityAnalysis(mizarData, { referenceDate = new Date()
 /**
  * MODUŁ 3 — Ekspozycja EUR + scenariusze kursu (faktury z fixture).
  */
-export function buildEurExposure(mizarData) {
-  const invoices = (mizarData?.faktury || []).filter((f) => String(f.waluta || "").toUpperCase() === "EUR");
+export function buildEurExposure(fixtureData) {
+  const invoices = (fixtureData?.faktury || []).filter((f) => String(f.waluta || "").toUpperCase() === "EUR");
   const unpaid = invoices.filter((f) => !isPaidStatus(f.status));
   const paid = invoices.filter((f) => isPaidStatus(f.status));
 
@@ -292,7 +292,7 @@ export function eurSensitivityRows(exposureEur, baseMid, deltas) {
       kurs: rate,
       kosztPln: cost,
       roznica,
-      worseForMizar: d > 0,
+      worseForCompany: d > 0,
     };
   });
 }
@@ -300,16 +300,16 @@ export function eurSensitivityRows(exposureEur, baseMid, deltas) {
 /**
  * MODUŁ 4 — Pipeline ofert.
  */
-export function getOfertyProjects(mizarData) {
-  return (mizarData?.projekty || []).filter((p) => String(p.status || "").toLowerCase().includes("oferta"));
+export function getOfertyProjects(fixtureData) {
+  return (fixtureData?.projekty || []).filter((p) => String(p.status || "").toLowerCase().includes("oferta"));
 }
 
 export function buildPipelineScenarios(
-  mizarData,
+  fixtureData,
   probabilitiesByProjectId,
   { referenceDate = new Date() } = {}
 ) {
-  const oferty = getOfertyProjects(mizarData);
+  const oferty = getOfertyProjects(fixtureData);
   const probs = probabilitiesByProjectId || {};
 
   const items = oferty.map((p) => {
@@ -403,9 +403,9 @@ function linearRegression(xs, ys) {
 /**
  * MODUŁ 5 — Rentowność wg typu obiektu.
  */
-export function buildRentownoscTypy(mizarData) {
+export function buildRentownoscTypy(fixtureData) {
   const byType = {};
-  for (const p of mizarData?.projekty || []) {
+  for (const p of fixtureData?.projekty || []) {
     const t = (p.typ_obiektu || "inny").trim();
     if (!byType[t]) {
       byType[t] = {

@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, FileType, Copy, Mail } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { buildCrmContextForAi, stringifyCrmContext } from "@/lib/ai-crm-context";
-import { openaiChatCompletions, isOpenAiConfigured, estimateCostUsd } from "@/lib/openai-mizar";
+import { openaiChatCompletions, isOpenAiConfigured, estimateCostUsd } from "@/lib/openai-crm";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 
@@ -67,7 +67,7 @@ export function AiReportModal({ open, onOpenChange }) {
 
       const { text: out } = await openaiChatCompletions({
         messages: [
-          { role: "system", content: "Piszesz raporty dla spółki budowlanej MIZAR." },
+          { role: "system", content: "Piszesz raporty finansowe dla użytkownika aplikacji Fakturowo CRM." },
           { role: "user", content: user },
         ],
         max_tokens: 3500,
@@ -96,7 +96,7 @@ export function AiReportModal({ open, onOpenChange }) {
       doc.text(line, 14, y);
       y += 5;
     });
-    doc.save(`MIZAR_raport_AI_${type}.pdf`);
+    doc.save(`Fakturowo_raport_AI_${type}.pdf`);
     toast.success("PDF pobrany");
   };
 
@@ -106,7 +106,7 @@ export function AiReportModal({ open, onOpenChange }) {
     const blob = new Blob([html], { type: "application/msword;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `MIZAR_raport_AI_${type}.doc`;
+    a.download = `Fakturowo_raport_AI_${type}.doc`;
     a.click();
     toast.success("Plik Word (.doc) pobrany");
   };
@@ -117,7 +117,7 @@ export function AiReportModal({ open, onOpenChange }) {
   };
 
   const email = () => {
-    const sub = encodeURIComponent("Raport finansowy MIZAR (AI)");
+    const sub = encodeURIComponent("Raport finansowy Fakturowo (AI)");
     const body = encodeURIComponent(text.slice(0, 12000));
     window.location.href = `mailto:?subject=${sub}&body=${body}`;
   };

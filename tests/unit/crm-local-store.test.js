@@ -12,9 +12,9 @@ import {
   getPortfolio,
   setPortfolio,
   getExpiringCertifications,
-} from "@/lib/mizar-crm-local-store";
+} from "@/lib/crm-local-store";
 
-describe("mizar-crm-local-store", () => {
+describe("crm-local-store", () => {
   beforeEach(() => {
     localStorage.clear();
   });

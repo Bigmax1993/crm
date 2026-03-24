@@ -9,7 +9,7 @@ describe("fx-config-store (jednostkowe)", () => {
     expect(c.activeCurrencies).toContain("EUR");
   });
 
-  it("saveFxConfig zapisuje i wywołuje zdarzenie mizar-fx-config", () => {
+  it("saveFxConfig zapisuje i wywołuje zdarzenie fakturowo-fx-config", () => {
     const spy = vi.spyOn(window, "dispatchEvent");
     try {
       saveFxConfig({
@@ -18,7 +18,7 @@ describe("fx-config-store (jednostkowe)", () => {
         manualMid: { EUR: 4.5 },
       });
       expect(spy).toHaveBeenCalled();
-      const evt = spy.mock.calls.find((c) => c[0]?.type === "mizar-fx-config");
+      const evt = spy.mock.calls.find((c) => c[0]?.type === "fakturowo-fx-config");
       expect(evt).toBeDefined();
       const again = loadFxConfig();
       expect(again.manualMid.EUR).toBe(4.5);

@@ -108,7 +108,7 @@ export default function Contractors() {
           />
         )}
 
-        <Card className="bg-white shadow-lg mb-6">
+        <Card className="bg-background shadow-lg mb-6">
           <CardContent className="pt-6">
             <div className="flex gap-4 flex-wrap">
               <div className="flex-1 min-w-64">
@@ -138,7 +138,7 @@ export default function Contractors() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white shadow-lg">
+        <Card className="bg-background shadow-lg">
           <CardContent className="p-0">
             <Table>
               <TableHeader>

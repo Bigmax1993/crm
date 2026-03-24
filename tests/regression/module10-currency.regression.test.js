@@ -23,7 +23,7 @@ vi.mock("@/lib/nbp-rates", () => ({
 }));
 
 import { computePaidPlnSnapshot, computeIssuePlnSnapshot } from "@/lib/invoice-fx";
-import { getInvoicePlnForCashflow, foreignExposureRatio } from "@/lib/mizar-finance-pln";
+import { getInvoicePlnForCashflow, foreignExposureRatio } from "@/lib/finance-pln";
 
 describe("regresja — moduł 10 waluty", () => {
   beforeEach(() => {

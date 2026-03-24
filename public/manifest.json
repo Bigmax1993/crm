@@ -1,9 +1,9 @@
 {
-  "name": "Mizar",
-  "short_name": "Mizar",
-  "description": "CRM Mizar Sport — faktury, budowa, finanse",
-  "start_url": "/",
+  "name": "Fakturowo CRM",
+  "short_name": "Fakturowo",
+  "description": "CRM — faktury, budowa, finanse",
+  "start_url": ".",
   "display": "standalone",
-  "background_color": "#f8fafc",
-  "theme_color": "#1F4E79"
+  "background_color": "#ffffff",
+  "theme_color": "#6c3460"
 }

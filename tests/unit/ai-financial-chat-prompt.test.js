@@ -2,11 +2,19 @@ import { describe, it, expect } from "vitest";
 import { buildFinancialAiSystemPrompt } from "@/lib/ai-financial-chat-prompt";
 
 describe("buildFinancialAiSystemPrompt", () => {
-  it("wstawia brief marki i dane JSON do promptu systemowego", () => {
+  it("zawiera Fakturowo i osadzone dane kontekstu", () => {
     const p = buildFinancialAiSystemPrompt('{"x":1}');
-    expect(p).toContain("Mizar Sport");
-    expect(p).toContain("mizarsport.eu");
-    expect(p).toContain('{"x":1}');
-    expect(p).toContain("asystentem finansowym CRM");
+    expect(p).toContain("Fakturowo");
+    expect(p).toContain('"x":1');
+  });
+
+  it("zachowuje sekcję kontekstu, język polski i zakaz żargonu technicznego w odpowiedziach", () => {
+    const p = buildFinancialAiSystemPrompt('{"projekty":[]}');
+    expect(p).toContain("Odpowiadaj po polsku");
+    expect(p).toMatch(/dane z systemu/i);
+    expect(p).toContain("językiem biznesowym");
+    expect(p).toContain("nie wspominaj");
+    expect(p).toContain("formacie technicznym");
+    expect(p).toContain('"projekty":[]');
   });
 });

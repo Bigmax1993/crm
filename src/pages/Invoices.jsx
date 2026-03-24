@@ -19,7 +19,7 @@ import jsPDF from 'jspdf';
 import { escapeCSV } from '@/components/utils/normalize';
 import { MoneyValue } from '@/components/currency/MoneyValue';
 import { useClientEnrichedInvoices } from '@/hooks/useClientEnrichedInvoices';
-import { getInvoicePlnAtIssue } from '@/lib/mizar-finance-pln';
+import { getInvoicePlnAtIssue } from '@/lib/finance-pln';
 import { enrichInvoiceForSave, pickInvoiceApiPayload } from '@/lib/invoice-fx';
 import { Form } from '@/components/ui/form';
 import { InvoiceDialogFormFields } from '@/components/invoices/InvoiceDialogFormFields';
@@ -400,7 +400,7 @@ export default function Invoices() {
           </div>
         </div>
 
-        <Card className="bg-white shadow-lg mb-6">
+        <Card className="bg-background shadow-lg mb-6">
           <CardContent className="py-4">
             <div className="flex items-center justify-between">
               <div>
@@ -416,7 +416,7 @@ export default function Invoices() {
         </Card>
 
         <Tabs defaultValue="all" className="mb-4" onValueChange={(val) => { setActiveTab(val); setActiveMonthTab('all_months'); }}>
-          <TabsList className="bg-white">
+          <TabsList className="bg-background">
             <TabsTrigger value="all">Wszystkie faktury</TabsTrigger>
             <TabsTrigger value="purchase">Faktury zakupowe</TabsTrigger>
             <TabsTrigger value="sales">Faktury sprzedażowe</TabsTrigger>
@@ -428,7 +428,7 @@ export default function Invoices() {
             <div className="flex gap-2 pb-1">
               <button
                 onClick={() => setActiveMonthTab('all_months')}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${activeMonthTab === 'all_months' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${activeMonthTab === 'all_months' ? 'bg-blue-600 text-white' : 'bg-background text-slate-600 border border-slate-200 hover:bg-foreground/5'}`}
               >
                 Wszystkie miesiące
               </button>
@@ -439,7 +439,7 @@ export default function Invoices() {
                   <button
                     key={ym}
                     onClick={() => setActiveMonthTab(ym)}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${activeMonthTab === ym ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${activeMonthTab === ym ? 'bg-blue-600 text-white' : 'bg-background text-slate-600 border border-slate-200 hover:bg-foreground/5'}`}
                   >
                     {label}
                   </button>
@@ -449,7 +449,7 @@ export default function Invoices() {
           </div>
         )}
 
-        <Card className="bg-white shadow-lg mb-6">
+        <Card className="bg-background shadow-lg mb-6">
           <CardHeader>
             <CardTitle>Filtry</CardTitle>
           </CardHeader>
@@ -491,7 +491,7 @@ export default function Invoices() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white shadow-lg" ref={cardRef}>
+        <Card className="bg-background shadow-lg" ref={cardRef}>
           <CardContent className="p-0">
             <div
               ref={tableScrollRef}
@@ -684,7 +684,7 @@ export default function Invoices() {
                 <div
                   ref={stickyScrollRef}
                   onScroll={() => { if (tableScrollRef.current) tableScrollRef.current.scrollLeft = stickyScrollRef.current.scrollLeft; }}
-                  className="fixed bottom-0 overflow-x-auto bg-white border-t shadow-md z-50"
+                  className="fixed bottom-0 overflow-x-auto bg-background border-t shadow-md z-50"
                   style={{
                     left: 'calc(16rem)',
                     right: 0,
@@ -768,7 +768,7 @@ export default function Invoices() {
                   })}
                 >
                   <InvoiceDialogFormFields control={editForm.control} showNotes isCreate={false} />
-                  <div className="rounded-md border p-3 text-sm space-y-1 bg-muted/40">
+                  <div className="rounded-md border p-3 text-sm space-y-1 bg-background">
                     <p className="font-medium">Księgowanie PLN (NBP)</p>
                     <p>
                       Kwota PLN (wystawienie):{" "}

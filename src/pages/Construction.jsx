@@ -11,8 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Search, Plus, X, Trash2, Loader2, Building, Pencil, Image as ImageIcon, Upload as UploadIcon } from 'lucide-react';
 import { ConstructionOffersAi } from '@/components/ai/ConstructionOffersAi';
-import { OFFER_SEGMENT_OPTIONS, offerSegmentLabel } from '@/lib/mizar-offer-segments';
-import { getSiteExtension, patchSiteExtension } from '@/lib/mizar-crm-local-store';
+import { OFFER_SEGMENT_OPTIONS, offerSegmentLabel } from '@/lib/offer-segments';
+import { getSiteExtension, patchSiteExtension } from '@/lib/crm-local-store';
 
 function emptyLocalMeta() {
   return {
@@ -203,7 +203,7 @@ export default function Construction() {
         </div>
 
         {showForm && (
-          <Card className="bg-white shadow-lg mb-6">
+          <Card className="bg-background shadow-lg mb-6">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>{editingId ? 'Edytuj obiekt budowlany' : 'Nowy obiekt budowlany'}</CardTitle>
               <Button variant="ghost" size="icon" onClick={() => { setShowForm(false); setEditingId(null); resetForm(); }}>
@@ -351,8 +351,8 @@ export default function Construction() {
                   />
                 </div>
 
-                <div className="rounded-lg border border-primary/20 bg-muted/30 p-4 space-y-4">
-                  <p className="text-sm font-semibold text-foreground">Segment oferty i zgodność (Mizar Sport)</p>
+                <div className="rounded-lg border border-primary/20 bg-background p-4 space-y-4">
+                  <p className="text-sm font-semibold text-foreground">Segment oferty i zgodność</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label>Segment oferty</Label>
@@ -571,7 +571,7 @@ export default function Construction() {
           </Card>
         )}
 
-        <Card className="bg-white shadow-lg mb-6">
+        <Card className="bg-background shadow-lg mb-6">
           <CardContent className="pt-6">
             <div className="relative max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -587,7 +587,7 @@ export default function Construction() {
 
         <ConstructionOffersAi sites={sites} />
 
-        <Card className="bg-white shadow-lg">
+        <Card className="bg-background shadow-lg">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <Table>

@@ -1,8 +1,8 @@
 import { format, parseISO, subDays } from "date-fns";
 import { getManualMid, loadFxConfig } from "@/lib/fx-config-store";
 
-const CACHE_PREFIX = "mizar_nbp_v1_";
-const LAST_KNOWN_KEY = "mizar_nbp_last_mids_v1";
+const CACHE_PREFIX = "fakturowo_nbp_v1_";
+const LAST_KNOWN_KEY = "fakturowo_nbp_last_mids_v1";
 
 const TWENTY_FOUR_H = 24 * 60 * 60 * 1000;
 
@@ -192,7 +192,7 @@ export async function getPreviousCalendarDayTable(isoDate) {
   return getNbpTableAForBusinessDay(prev);
 }
 
-const EUR_CODE_CACHE_KEY = "mizar_nbp_eur_code_a_v1";
+const EUR_CODE_CACHE_KEY = "fakturowo_nbp_eur_code_a_v1";
 
 /**
  * Kurs EUR (tabela A, średni) z endpointu NBP — cache 24h w localStorage.

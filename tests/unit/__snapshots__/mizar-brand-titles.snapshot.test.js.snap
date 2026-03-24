@@ -1,5 +1,0 @@
-// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
-
-exports[`getExportReportTitle — snapshoty tekstu > domyślny tytuł raportu 1`] = `"Mizar Sport / MIZAR Sp. z o.o."`;
-
-exports[`getExportReportTitle — snapshoty tekstu > tytuł ze suffiksem 1`] = `"Mizar Sport / MIZAR Sp. z o.o. — eksport Excel"`;

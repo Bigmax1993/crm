@@ -1,0 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`getExportReportTitle — snapshoty tekstu > domyślny tytuł raportu 1`] = `"Fakturowo CRM"`;
+
+exports[`getExportReportTitle — snapshoty tekstu > tytuł ze suffiksem 1`] = `"Fakturowo CRM — eksport Excel"`;

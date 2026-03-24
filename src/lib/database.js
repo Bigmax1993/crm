@@ -1,5 +1,7 @@
 import initSqlJs from "sql.js";
-import mizarData from "@/fixtures/mizar_data.json";
+import crmFixtureData from "@/fixtures/crm_fixture_data.json";
+
+const SQLJS_STORAGE_KEY = "fakturowo_sqljs_v1";
 
 /** URL WASM z `public/` — musi uwzględniać Vite `base` (np. GitHub Pages /crm/). */
 const SQL_WASM_URL = `${import.meta.env.BASE_URL}sql-wasm.wasm`;
@@ -15,7 +17,7 @@ export const initDB = async () => {
         locateFile: (file) => (file.endsWith(".wasm") ? SQL_WASM_URL : file),
       });
 
-      const saved = localStorage.getItem("mizar_db");
+      const saved = localStorage.getItem(SQLJS_STORAGE_KEY);
 
       if (saved) {
         try {
@@ -26,24 +28,24 @@ export const initDB = async () => {
           console.log("✅ Baza wczytana z localStorage");
         } catch (e) {
            
-          console.warn("Błąd wczytywania mizar_db — tworzę od nowa:", e);
-          localStorage.removeItem("mizar_db");
+          console.warn("Błąd wczytywania bazy SQL.js — tworzę od nowa:", e);
+          localStorage.removeItem(SQLJS_STORAGE_KEY);
           db = new SQL.Database();
           db.run("PRAGMA foreign_keys = ON;");
           applySchema(db);
-          applySeed(db, mizarData);
+          applySeed(db, crmFixtureData);
           saveDB();
            
-          console.log("✅ Nowa baza utworzona z mizar_data.json");
+          console.log("✅ Nowa baza utworzona z crm_fixture_data.json");
         }
       } else {
         db = new SQL.Database();
         db.run("PRAGMA foreign_keys = ON;");
         applySchema(db);
-        applySeed(db, mizarData);
+        applySeed(db, crmFixtureData);
         saveDB();
          
-        console.log("✅ Nowa baza utworzona z mizar_data.json");
+        console.log("✅ Nowa baza utworzona z crm_fixture_data.json");
       }
     })();
   }
@@ -55,7 +57,7 @@ export const saveDB = () => {
   if (!db) return;
   try {
     const data = db.export();
-    localStorage.setItem("mizar_db", JSON.stringify(Array.from(data)));
+    localStorage.setItem(SQLJS_STORAGE_KEY, JSON.stringify(Array.from(data)));
   } catch (e) {
      
     console.error("saveDB / localStorage:", e);
@@ -64,7 +66,7 @@ export const saveDB = () => {
 };
 
 export const resetDB = () => {
-  localStorage.removeItem("mizar_db");
+  localStorage.removeItem(SQLJS_STORAGE_KEY);
   db = null;
   initPromise = null;
    
@@ -75,7 +77,7 @@ export const resetDB = () => {
  * Nowa baza w pamięci (Node / Vitest) — WASM z node_modules, ten sam schemat i seed co w przeglądarce.
  * Nie używa localStorage ani singletonu aplikacji.
  */
-export async function createSeededMemoryDatabase(data = mizarData) {
+export async function createSeededMemoryDatabase(data = crmFixtureData) {
   const { default: initSqlJsMod } = await import("sql.js");
   const { join } = await import("node:path");
   const dist = join(process.cwd(), "node_modules", "sql.js", "dist");

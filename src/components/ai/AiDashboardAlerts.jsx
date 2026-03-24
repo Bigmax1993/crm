@@ -11,11 +11,11 @@ import {
   isOpenAiConfigured,
   extractJsonObject,
   getAiSettings,
-} from "@/lib/openai-mizar";
+} from "@/lib/openai-crm";
 import { toast } from "sonner";
-import { getMizarBrandBriefForPrompt } from "@/lib/mizar-brand-brief";
+import { getBrandBriefForPrompt } from "@/lib/brand-brief";
 
-const LS_KEY = "mizar_ai_alerts_v1";
+const LS_KEY = "fakturowo_ai_alerts_v1";
 
 function levelIcon(level) {
   const l = String(level || "").toLowerCase();
@@ -51,8 +51,8 @@ export function AiDashboardAlerts() {
       setLoading(true);
       try {
         const ctx = await buildCrmContextForAi(base44);
-        const prompt = `Firma: Mizar Sport / MIZAR (obiekty sportowe). Kontekst marki:
-${getMizarBrandBriefForPrompt()}
+        const prompt = `Aplikacja: Fakturowo CRM (faktury, projekty, finanse). Kontekst:
+${getBrandBriefForPrompt()}
 
 Przeanalizuj dane finansowe CRM i zwróć TYLKO poprawny JSON (cudzysłowy podwójne):
 {
@@ -123,16 +123,16 @@ ${stringifyCrmContext(ctx)}`;
 
   if (!isOpenAiConfigured()) {
     return (
-      <Card className="bg-white shadow-lg mb-8 border-dashed">
+      <Card className="bg-background shadow-lg mb-8 border-dashed">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Sparkles className="h-4 w-4" />
             Alerty AI
           </CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          Skonfiguruj klucz OpenAI (zmienna <code className="text-xs">VITE_OPENAI_API_KEY</code> lub Ustawienia AI), aby
-          włączyć analizę przy starcie dashboardu (cache do 24h).
+        <CardContent className="text-base text-muted-foreground leading-relaxed">
+          Skonfiguruj klucz OpenAI (zmienna <code className="text-sm font-mono bg-muted px-1.5 py-0.5 rounded">VITE_OPENAI_API_KEY</code> lub
+          Ustawienia AI), aby włączyć analizę przy starcie dashboardu (cache do 24h).
         </CardContent>
       </Card>
     );
@@ -140,7 +140,7 @@ ${stringifyCrmContext(ctx)}`;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-      <Card className="bg-white shadow-lg">
+      <Card className="bg-background shadow-lg">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-amber-500" />
@@ -148,7 +148,7 @@ ${stringifyCrmContext(ctx)}`;
             <Badge variant="secondary" className="text-[10px]">
               AI
             </Badge>
-            {loading && <span className="text-xs text-muted-foreground font-normal">Analiza…</span>}
+            {loading && <span className="text-sm text-muted-foreground font-medium">Analiza…</span>}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -174,7 +174,7 @@ ${stringifyCrmContext(ctx)}`;
                     </Button>
                   </CollapsibleTrigger>
                 </div>
-                <CollapsibleContent className="text-xs text-muted-foreground mt-2 space-y-1">
+                <CollapsibleContent className="text-sm text-muted-foreground mt-2 space-y-1.5 leading-relaxed">
                   <p>{a.opis}</p>
                   {a.akcja ? <p className="font-medium text-slate-800">Akcja: {a.akcja}</p> : null}
                   {a.kwota ? <p>Kwota: {Number(a.kwota).toLocaleString("pl-PL")} PLN</p> : null}
@@ -186,7 +186,7 @@ ${stringifyCrmContext(ctx)}`;
         </CardContent>
       </Card>
 
-      <Card className="bg-white shadow-lg">
+      <Card className="bg-background shadow-lg">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-blue-500" />
@@ -212,9 +212,9 @@ ${stringifyCrmContext(ctx)}`;
                     AI
                   </Badge>
                 </div>
-                <p className="text-muted-foreground text-xs">{r.opis}</p>
+                <p className="text-muted-foreground text-sm leading-relaxed">{r.opis}</p>
                 {r.potencjalny_zysk_pln ? (
-                  <p className="text-xs mt-1 font-semibold text-green-700">
+                  <p className="text-sm mt-1 font-semibold text-green-800">
                     Potencjał: {Number(r.potencjalny_zysk_pln).toLocaleString("pl-PL")} PLN
                   </p>
                 ) : null}

@@ -22,7 +22,7 @@ import {
   monthlyCashFlowPaidPln,
   globalPLPln,
   foreignExposureRatio,
-} from "@/lib/mizar-finance-pln";
+} from "@/lib/finance-pln";
 import { useClientEnrichedInvoices } from "@/hooks/useClientEnrichedInvoices";
 import { useCurrencyDisplay } from "@/contexts/CurrencyDisplayContext";
 import { getNbpLatestTableA, getNbpTableAForBusinessDay, getMidFromTable } from "@/lib/nbp-rates";

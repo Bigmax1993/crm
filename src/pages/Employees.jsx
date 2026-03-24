@@ -97,7 +97,7 @@ export default function Employees() {
         </div>
 
         {showForm && (
-          <Card className="bg-white shadow-lg mb-6">
+          <Card className="bg-background shadow-lg mb-6">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Nowy pracownik</CardTitle>
               <Button variant="ghost" size="icon" onClick={() => { setShowForm(false); resetForm(); }}>
@@ -218,7 +218,7 @@ export default function Employees() {
           </Card>
         )}
 
-        <Card className="bg-white shadow-lg mb-6">
+        <Card className="bg-background shadow-lg mb-6">
           <CardContent className="pt-6">
             <div className="relative max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -232,7 +232,7 @@ export default function Employees() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white shadow-lg">
+        <Card className="bg-background shadow-lg">
           <CardContent className="p-0">
             <Table>
               <TableHeader>

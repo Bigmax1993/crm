@@ -59,7 +59,7 @@ import Hotels from './pages/Hotels';
 import IncomeStatement from './pages/IncomeStatement';
 import Invoices from './pages/Invoices';
 import Leads from './pages/Leads';
-import MizarExport from './pages/MizarExport';
+import ExportReports from './pages/ExportReports';
 import Portfolio from './pages/Portfolio';
 import MultiCurrencyDashboard from './pages/MultiCurrencyDashboard';
 import ProjectBalance from './pages/ProjectBalance';
@@ -88,7 +88,7 @@ export const PAGES = {
     "IncomeStatement": IncomeStatement,
     "Invoices": Invoices,
     "Leads": Leads,
-    "MizarExport": MizarExport,
+    "ExportReports": ExportReports,
     "Portfolio": Portfolio,
     "MultiCurrencyDashboard": MultiCurrencyDashboard,
     "ProjectBalance": ProjectBalance,

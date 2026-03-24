@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2, UserPlus } from "lucide-react";
-import { getLeads, setLeads, newLocalId } from "@/lib/mizar-crm-local-store";
+import { getLeads, setLeads, newLocalId } from "@/lib/crm-local-store";
 
 const STATUSES = [
   { value: "nowy", label: "Nowy" },
@@ -109,11 +109,7 @@ export default function Leads() {
               Leady i zapytania
             </h1>
             <p className="text-muted-foreground mt-1">
-              Lejek sprzedażowy (dane lokalne — uzupełnia stronę kontaktową{" "}
-              <a href="https://mizarsport.eu/kontakt/" className="text-primary underline" target="_blank" rel="noreferrer">
-                mizarsport.eu
-              </a>
-              ).
+              Lejek sprzedażowy — dane lokalne w przeglądarce; dodawaj kontakty ręcznie lub z importu.
             </p>
           </div>
           <Button onClick={openNew} className="gap-2">
@@ -182,7 +178,7 @@ export default function Leads() {
             <DialogHeader>
               <DialogTitle>{editing ? "Edytuj lead" : "Nowy lead"}</DialogTitle>
               <DialogDescription>
-                Dane zapisują się lokalnie w przeglądarce (lejek sprzedażowy Mizar Sport).
+                Dane zapisują się lokalnie w przeglądarce (lejek sprzedażowy).
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-2">

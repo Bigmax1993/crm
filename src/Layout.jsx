@@ -29,8 +29,8 @@ import {
   Package,
   Images,
 } from 'lucide-react';
-import { MizarSportLogo } from '@/components/brand/MizarSportLogo';
-import { MIZAR_EXPORT_ADDRESS, MIZAR_EXPORT_WEB } from '@/lib/mizar-brand-brief';
+import { AppLogo } from '@/components/brand/AppLogo';
+import { EXPORT_ADDRESS, EXPORT_WEB } from '@/lib/brand-brief';
 import { Button } from '@/components/ui/button';
 import { ModeToggle } from '@/components/mode-toggle';
 import { CurrencySwitcher } from '@/components/currency/CurrencySwitcher';
@@ -61,7 +61,7 @@ export default function Layout({ children, currentPageName }) {
     { name: 'Monitoring kosztów', page: 'ProjectCostMonitoring', icon: Radar },
     { name: 'Prognozy', page: 'FinancialForecasts', icon: TrendingUp },
     { name: 'Mapa obiektów', page: 'ProjectsMap', icon: MapPinned },
-    { name: 'Eksport Excel/PDF', page: 'MizarExport', icon: FileSpreadsheet },
+    { name: 'Eksport Excel/PDF', page: 'ExportReports', icon: FileSpreadsheet },
     { name: 'Leady', page: 'Leads', icon: Inbox },
     { name: 'Dostawcy', page: 'Suppliers', icon: Package },
     { name: 'Realizacje (portfolio)', page: 'Portfolio', icon: Images },
@@ -82,8 +82,8 @@ export default function Layout({ children, currentPageName }) {
     <div className="min-h-screen bg-background">
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <MizarSportLogo size="sm" />
-          <h1 className="font-bold text-lg text-foreground truncate">MIZAR CRM</h1>
+          <AppLogo size="sm" />
+          <h1 className="font-bold text-lg text-foreground truncate">Fakturowo CRM</h1>
         </div>
         <div className="flex items-center gap-1">
           <CurrencySwitcher />
@@ -99,10 +99,10 @@ export default function Layout({ children, currentPageName }) {
       >
         <div className="p-6">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sm font-bold text-sidebar-primary-foreground">
-            MS
+            FW
           </div>
-          <h1 className="text-xl font-bold text-sidebar-foreground mb-1">MIZAR Sp. z o.o.</h1>
-          <p className="text-sidebar-foreground/55 text-sm">CRM — obiekty sportowe</p>
+          <h1 className="text-xl font-bold text-sidebar-foreground mb-1">Fakturowo CRM</h1>
+          <p className="text-sidebar-foreground/55 text-sm">Faktury, budowa, finanse</p>
         </div>
         <nav className="px-3 space-y-0.5 flex-1 overflow-y-auto pb-4">
           {navigation.map((item) => {
@@ -112,21 +112,21 @@ export default function Layout({ children, currentPageName }) {
                 key={item.page}
                 to={createPageUrl(item.page)}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-[0.9375rem] font-medium leading-snug ${
                   isActive
                     ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm'
-                    : 'text-sidebar-foreground/85 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
                 }`}
               >
-                <item.icon className="h-4 w-4 shrink-0" />
-                <span className="leading-tight">{item.name}</span>
+                <item.icon className="h-4 w-4 shrink-0 opacity-90" />
+                <span>{item.name}</span>
               </Link>
             );
           })}
         </nav>
         <div className="px-3 pb-4 space-y-2 border-t border-sidebar-border pt-3">
           <div className="flex items-center justify-between px-1">
-            <span className="text-xs text-sidebar-foreground/50">Motyw</span>
+            <span className="text-sm text-sidebar-foreground/65 font-medium">Motyw</span>
             <ModeToggle className="text-sidebar-foreground/80 hover:text-sidebar-foreground" />
           </div>
           <Button
@@ -152,13 +152,15 @@ export default function Layout({ children, currentPageName }) {
           <CurrencySwitcher />
         </div>
         <div className="flex-1">{children}</div>
-        <footer className="border-t bg-muted/30 px-4 py-4 text-center text-xs text-muted-foreground space-y-1">
-          <p className="font-medium text-foreground/80">Mizar Sport — {MIZAR_EXPORT_ADDRESS}</p>
-          <p>
-            <a href={MIZAR_EXPORT_WEB} className="text-primary hover:underline" target="_blank" rel="noreferrer">
-              {MIZAR_EXPORT_WEB}
-            </a>
-          </p>
+        <footer className="border-t bg-background px-4 py-4 text-center text-xs text-muted-foreground space-y-1">
+          {EXPORT_ADDRESS ? <p className="font-medium text-foreground/80">{EXPORT_ADDRESS}</p> : null}
+          {EXPORT_WEB ? (
+            <p>
+              <a href={EXPORT_WEB} className="text-primary hover:underline" target="_blank" rel="noreferrer">
+                {EXPORT_WEB}
+              </a>
+            </p>
+          ) : null}
         </footer>
         <FinancialAiChat />
       </main>

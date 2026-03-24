@@ -16,31 +16,20 @@ import {
   extractInvoiceFromPdfOpenAI,
   mapOpenAiInvoiceJsonToInternal,
   isOpenAiConfigured,
-} from "@/lib/openai-mizar";
+} from "@/lib/openai-crm";
+import { extractPlainTextFromPdf } from "@/lib/invoice-pdf-plain-text";
+import { heuristicInvoiceFromPdfText } from "@/lib/invoice-heuristic-from-text";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { toast } from "sonner";
 import { enrichInvoiceForSave, pickInvoiceApiPayload } from "@/lib/invoice-fx";
-import {
-  findDuplicateInvoice,
-  invoiceNumberMatches,
-  normalizeInvoiceNumberKey,
-} from "@/lib/duplicate-detection";
-import { OCR_LLM_ATTEMPTS, pickInvoiceOcrPrompt } from "@/lib/invoice-ocr-prompts";
-
+import { findDuplicateInvoice, invoiceNumberMatches } from "@/lib/duplicate-detection";
 function detectFormat(file) {
   const n = file.name.toLowerCase();
   if (n.endsWith(".xml")) return "xml";
   if (n.endsWith(".pdf")) return "pdf";
   return "unknown";
-}
-
-/** Wynik OCR uznajemy za sensowny, jeśli jest choć numer lub nazwa — weryfikacja i tak jest ręczna. */
-function ocrInvoiceHasMinimumFields(inv) {
-  const num = String(inv?.invoice_number ?? "").trim();
-  const name = String(inv?.contractor_name ?? "").trim();
-  return num.length > 0 || name.length > 0;
 }
 
 function matchProjectId(projects, invoice) {
@@ -144,19 +133,8 @@ export default function Upload() {
         files.map(async (file) => {
           const fmt = detectFormat(file);
           if (fmt === "xml") return { file, xmlData: true, format: "xml" };
-          try {
-            const { file_url } = await base44.integrations.Core.UploadFile({ file });
-            return { file, file_url, format: "pdf" };
-          } catch (err) {
-            try {
-              const { file_uri } = await base44.integrations.Core.UploadPrivateFile({ file });
-              const { signed_url } = await base44.integrations.Core.CreateFileSignedUrl({ file_uri });
-              return { file, file_url: signed_url, format: "pdf" };
-            } catch {
-              toast.error(`Nie udało się wgrać: ${file.name}`);
-              return { file, skipped: true, format: "pdf" };
-            }
-          }
+          /* PDF lokalnie: pdf.js + heurystyka (bez LLM), opcjonalnie OpenAI. */
+          return { file, format: "pdf" };
         })
       );
 
@@ -175,206 +153,64 @@ export default function Upload() {
           }
           if (item.skipped) return [];
 
-          if (item.format === "pdf" && isOpenAiConfigured()) {
+          if (item.format === "pdf") {
+            let plain = "";
             try {
-              const { parsed } = await extractInvoiceFromPdfOpenAI(item.file);
-              const mapped = mapOpenAiInvoiceJsonToInternal(parsed, {
-                pdf_url: item.file_url,
-                fileName: item.file.name,
-              });
-              if (mapped && (mapped.invoice_number || mapped.contractor_name)) {
-                return [
-                  {
-                    ...mapped,
-                    project_id: matchProjectId(projects, mapped),
-                    _pdfFileRef: item.file,
-                  },
-                ];
-              }
-            } catch (openErr) {
-              console.warn("OpenAI PDF extraction:", openErr);
-              toast.message(`OpenAI: ${openErr.message || "błąd"} — OCR Base44`);
+              plain = await extractPlainTextFromPdf(item.file);
+            } catch (pdfErr) {
+              console.warn("PDF tekst (pdf.js):", pdfErr);
             }
+
+            const heur = heuristicInvoiceFromPdfText(plain, item.file.name);
+            if (heur && (heur.invoice_number?.trim() || heur.contractor_name?.trim() || heur.contractor_nip)) {
+              return [
+                {
+                  ...heur,
+                  project_id: matchProjectId(projects, heur),
+                  _pdfFileRef: item.file,
+                  _heuristicOcr: true,
+                },
+              ];
+            }
+
+            if (isOpenAiConfigured()) {
+              try {
+                const { parsed } = await extractInvoiceFromPdfOpenAI(item.file);
+                const mapped = mapOpenAiInvoiceJsonToInternal(parsed, {
+                  pdf_url: "",
+                  fileName: item.file.name,
+                });
+                if (mapped && (mapped.invoice_number || mapped.contractor_name)) {
+                  return [
+                    {
+                      ...mapped,
+                      project_id: matchProjectId(projects, mapped),
+                      _pdfFileRef: item.file,
+                    },
+                  ];
+                }
+                toast.message(`OpenAI: brak rozpoznanej faktury w „${item.file.name}” — uzupełnij ręcznie.`);
+                return [];
+              } catch (openErr) {
+                console.warn("OpenAI PDF extraction:", openErr);
+                toast.error(`OpenAI (${item.file.name}): ${openErr.message || "błąd"}`);
+                return [];
+              }
+            }
+
+            if (plain.length < 40) {
+              toast.warning(
+                `PDF „${item.file.name}”: mało tekstu (często skan obrazu) — potrzebny klucz OpenAI albo plik XML.`
+              );
+            } else {
+              toast.warning(
+                `PDF „${item.file.name}”: heurystyka bez LLM nic nie wyciągnęła — OpenAI (Ustawienia AI) lub ręcznie.`
+              );
+            }
+            return [];
           }
 
-          const schema = {
-            type: "object",
-            properties: {
-              invoices: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    invoice_number: { type: "string", default: "" },
-                    contractor_name: { type: "string", default: "" },
-                    contractor_nip: { type: "string", default: "" },
-                    amount: { type: "number", default: 0 },
-                    net_amount: { type: "number", default: 0 },
-                    vat_amount: { type: "number", default: 0 },
-                    currency: { type: "string", default: "PLN" },
-                    issue_date: { type: "string", default: "" },
-                    payment_deadline: { type: "string", default: "" },
-                    payer: { type: "string", default: "" },
-                    position: { type: "string", default: "" },
-                    category: { type: "string", default: "standard" },
-                    order_number: { type: "string", default: "" },
-                    line_items: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          name: { type: "string" },
-                          quantity: { type: "number" },
-                          net: { type: "number" },
-                          vat: { type: "number" },
-                          gross: { type: "number" },
-                        },
-                      },
-                    },
-                    hotel_name: { type: "string", default: "" },
-                    city: { type: "string", default: "" },
-                    persons_count: { type: "number", default: 0 },
-                    stay_period: { type: "string", default: "" },
-                    is_paragon: { type: "boolean", default: false },
-                    is_paid: { type: "boolean", default: false },
-                    is_kanbud_seller: { type: "boolean", default: false },
-                  },
-                  required: ["invoice_number", "contractor_name", "amount"],
-                },
-              },
-            },
-            required: ["invoices"],
-          };
-
-          const attempts = await Promise.all(
-            Array.from({ length: OCR_LLM_ATTEMPTS }, async (_, attemptIdx) => {
-              try {
-                return await base44.integrations.Core.InvokeLLM({
-                  prompt: pickInvoiceOcrPrompt(attemptIdx),
-                  file_urls: item.file_url ? [item.file_url] : [],
-                  response_json_schema: schema,
-                });
-              } catch (err) {
-                console.warn("OCR attempt failed:", err);
-                return { invoices: [] };
-              }
-            })
-          );
-
-          const allInvoices = attempts
-            .map((result) => result?.invoices || [])
-            .flat()
-            .filter(ocrInvoiceHasMinimumFields);
-
-          if (allInvoices.length === 0) return [];
-
-          const invoiceGroups = {};
-          allInvoices.forEach((inv) => {
-            const key = normalizeInvoiceNumberKey(inv.invoice_number) || "_brak_nr";
-            if (!invoiceGroups[key]) invoiceGroups[key] = [];
-            invoiceGroups[key].push(inv);
-          });
-
-          const consensusInvoices = Object.values(invoiceGroups).map((group) => {
-            const normKeyStr = (s) =>
-              String(s ?? "")
-                .trim()
-                .replace(/\s+/g, " ")
-                .toLowerCase();
-
-            const getMostCommonString = (field) => {
-              const raws = group
-                .map((inv) => inv[field])
-                .filter((v) => v != null && String(v).trim() !== "");
-              if (raws.length === 0) return "";
-              const buckets = new Map();
-              for (const raw of raws) {
-                const k = normKeyStr(raw);
-                if (!buckets.has(k)) buckets.set(k, { count: 0, best: raw });
-                const b = buckets.get(k);
-                b.count += 1;
-                if (String(raw).length > String(b.best).length) b.best = raw;
-              }
-              return [...buckets.values()].sort(
-                (a, b) => b.count - a.count || String(b.best).length - String(a.best).length
-              )[0].best;
-            };
-
-            const getMedianPositive = (field) => {
-              const values = group
-                .map((inv) => inv[field])
-                .filter((v) => typeof v === "number" && !Number.isNaN(v) && v > 0)
-                .sort((a, b) => a - b);
-              if (values.length === 0) return 0;
-              const m = Math.floor(values.length / 2);
-              return values.length % 2 ? values[m] : (values[m - 1] + values[m]) / 2;
-            };
-
-            const getMedianNonNegInt = (field) => {
-              const values = group
-                .map((inv) => inv[field])
-                .filter((v) => typeof v === "number" && !Number.isNaN(v) && v >= 0)
-                .sort((a, b) => a - b);
-              if (values.length === 0) return 0;
-              const m = Math.floor(values.length / 2);
-              const med = values.length % 2 ? values[m] : (values[m - 1] + values[m]) / 2;
-              return Math.round(med);
-            };
-
-            const mostCommonBoolean = (field) => {
-              const trueCount = group.filter((inv) => inv[field] === true).length;
-              return trueCount > group.length / 2;
-            };
-
-            const lineMerge = group
-              .map((g) => (Array.isArray(g.line_items) ? g.line_items : []))
-              .reduce((best, cur) => (cur.length > best.length ? cur : best), []);
-
-            const invoice = {
-              invoice_number: getMostCommonString("invoice_number"),
-              contractor_name: getMostCommonString("contractor_name"),
-              contractor_nip: getMostCommonString("contractor_nip"),
-              amount: Math.abs(getMedianPositive("amount")),
-              net_amount: Math.abs(getMedianPositive("net_amount")) || null,
-              vat_amount: Math.abs(getMedianPositive("vat_amount")) || null,
-              currency: (getMostCommonString("currency") || "PLN").toUpperCase(),
-              issue_date: getMostCommonString("issue_date"),
-              payment_deadline: getMostCommonString("payment_deadline"),
-              payer: getMostCommonString("payer"),
-              position: getMostCommonString("position"),
-              category: getMostCommonString("category") || "standard",
-              order_number: getMostCommonString("order_number"),
-              invoice_lines: lineMerge.length ? JSON.stringify(lineMerge) : "",
-              hotel_name: getMostCommonString("hotel_name"),
-              city: getMostCommonString("city"),
-              persons_count: getMedianNonNegInt("persons_count"),
-              stay_period: getMostCommonString("stay_period"),
-              is_paragon: mostCommonBoolean("is_paragon"),
-              is_paid: mostCommonBoolean("is_paid"),
-              is_kanbud_seller: mostCommonBoolean("is_kanbud_seller"),
-            };
-
-            const isParagon = invoice.is_paragon === true;
-            const isCurrencyExchange =
-              invoice.position &&
-              invoice.contractor_name &&
-              (invoice.contractor_name.toUpperCase().includes("KANTOR") ||
-                invoice.position.toUpperCase().includes("KANTOR") ||
-                invoice.position.toUpperCase().includes("WYMIANA") ||
-                invoice.position.toUpperCase().includes("EXCHANGE"));
-
-            return {
-              ...invoice,
-              pdf_url: item.file_url,
-              fileName: item.file.name,
-              format: "pdf",
-              is_paragon: isParagon || isCurrencyExchange,
-              is_paid: invoice.is_paid || isParagon || isCurrencyExchange,
-              _pdfFileRef: item.file,
-            };
-          });
-
-          return consensusInvoices;
+          return [];
         } catch (e) {
           console.error(`Error processing ${item.file.name}:`, e);
           const errorMsg = e?.data?.message || e?.message || "Błąd podczas przetwarzania pliku";
@@ -410,7 +246,7 @@ export default function Upload() {
             amount: 0,
             currency: "PLN",
             category: "standard",
-            pdf_url: item.file_url,
+            pdf_url: "",
             fileName: item.file.name,
             format: "pdf",
             _pdfFileRef: item.file,
@@ -438,14 +274,14 @@ export default function Upload() {
       setExtractedData(deduplicatedResults);
       setStep("review");
       if (deduplicatedResults.length === 0) {
-        toast.warning("Brak faktur do weryfikacji — sprawdź pliki lub OCR.");
+        toast.warning("Brak faktur do weryfikacji — sprawdź pliki, XML lub klucz OpenAI (PDF).");
       } else if (deduplicatedResults.every((r) => r._manualStub)) {
         toast.warning(
           "Nie udało się odczytać plików automatycznie — uzupełnij pola ręcznie lub użyj „Popraw z AI” (PDF + klucz OpenAI)."
         );
       } else if (deduplicatedResults.some((r) => r._manualStub)) {
         toast.success(
-          `Wyekstrahowano ${deduplicatedResults.length} pozycji — część bez OCR; uzupełnij dane ręcznie lub „Popraw z AI”.`
+          `Wyekstrahowano ${deduplicatedResults.length} pozycji — część do uzupełnienia ręcznie; PDF możesz poprawić „Popraw z AI”.`
         );
       } else {
         toast.success(`Wyekstrahowano ${deduplicatedResults.length} pozycji do weryfikacji`);
@@ -664,7 +500,7 @@ export default function Upload() {
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-2">Import faktur PDF / XML</h1>
           <p className="text-muted-foreground">
-            PDF: OpenAI (gpt-4o + plik) gdy skonfigurowany klucz, w przeciwnym razie OCR Base44; XML JPK-FA / e-faktura; weryfikacja i projekt
+            PDF: najpierw tekst z pliku + heurystyka (bez LLM); skany lub trudne layouty — OpenAI (opcjonalnie); XML: JPK-FA / e-faktura lokalnie
           </p>
         </motion.div>
 
@@ -770,7 +606,7 @@ export default function Upload() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-muted-foreground">
-                Żaden plik nie został rozpoznany. Sprawdź format (PDF/XML), połączenie z Base44 oraz klucz OpenAI w ustawieniach.
+                Żaden plik nie został rozpoznany. PDF z tekstem: sprawdź heurystykę; skany — OpenAI lub XML; XML — format pliku.
               </p>
               <Button
                 type="button"
@@ -995,7 +831,7 @@ export default function Upload() {
                         </div>
                         <div className="md:col-span-2">
                           <Label className="flex items-center flex-wrap gap-1">
-                            Pozycje (JSON z OCR/XML)
+                            Pozycje (JSON z OpenAI / XML)
                             {invoice._aiConfidence?.invoice_lines != null && (
                               <span className="text-[10px] font-normal text-muted-foreground">
                                 AI {invoice._aiConfidence.invoice_lines}%

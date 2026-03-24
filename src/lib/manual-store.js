@@ -1,4 +1,4 @@
-const KEY = "mizar_manual_balance";
+const KEY = "fakturowo_manual_balance";
 
 export function loadManualBalance() {
   try {

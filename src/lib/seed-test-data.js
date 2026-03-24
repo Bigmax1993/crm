@@ -1,9 +1,9 @@
-import mizarFixture from "@/fixtures/mizar_data.json";
+import crmFixture from "@/fixtures/crm_fixture_data.json";
 import { pickInvoiceApiPayload } from "@/lib/invoice-fx";
 
 /** Eksport surowych danych (np. testy, podgląd). */
-export function getMizarFixture() {
-  return mizarFixture;
+export function getCrmFixture() {
+  return crmFixture;
 }
 
 function mapInvoiceStatus(status) {
@@ -27,15 +27,15 @@ function mapWorkflowStatus(projStatus) {
 }
 
 /**
- * Importuje dane z mizar_data.json do encji CRM (Base44):
+ * Importuje dane z crm_fixture_data.json do encji CRM (Base44):
  * ConstructionSite ← projekty, Contractor ← kontrahenci, Invoice ← faktury.
  *
  * @param {import('@/api/base44Client').base44} base44
  * @param {{ skipExisting?: boolean }} [options]
  * @returns {Promise<{ createdSites: number; createdContractors: number; createdInvoices: number; skippedInvoices: number; errors: string[] }>}
  */
-export async function seedMizarTestData(base44, { skipExisting = true } = {}) {
-  const data = mizarFixture;
+export async function seedCrmTestData(base44, { skipExisting = true } = {}) {
+  const data = crmFixture;
   const errors = [];
 
   const contractorsByOldId = {};
@@ -75,7 +75,7 @@ export async function seedMizarTestData(base44, { skipExisting = true } = {}) {
         status: "active",
         country: "Polska",
         payment_terms: k.termin_platnosci_dni ?? 14,
-        notes: `mizar_data ${k.id} | ${k.specjalizacja || ""} | waluta: ${k.waluta_rozliczen || "PLN"}`,
+        notes: `fixture ${k.id} | ${k.specjalizacja || ""} | waluta: ${k.waluta_rozliczen || "PLN"}`,
       };
       const created = await base44.entities.Contractor.create(payload);
       contractorRows.push(created);
@@ -105,7 +105,7 @@ export async function seedMizarTestData(base44, { skipExisting = true } = {}) {
         longitude: p.lokalizacja?.lng ?? null,
         status: mapSiteOperationalStatus(p.status),
         workflow_status: mapWorkflowStatus(p.status),
-        notes: `mizar_data ${p.id} | NIP klienta: ${p.nip_klienta || ""} | ${p.typ_obiektu || ""}`,
+        notes: `fixture ${p.id} | NIP klienta: ${p.nip_klienta || ""} | ${p.typ_obiektu || ""}`,
       };
       const created = await base44.entities.ConstructionSite.create(payload);
       siteRows.push(created);
@@ -141,7 +141,7 @@ export async function seedMizarTestData(base44, { skipExisting = true } = {}) {
       status,
       invoice_type: f.typ === "wystawiona" ? "sales" : "purchase",
       position: f.opis || "",
-      notes: `mizar_data ${f.id}`,
+      notes: `fixture ${f.id}`,
       project_id: projectId,
       net_amount: f.kwota_netto,
       vat_amount: f.kwota_vat,

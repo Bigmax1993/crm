@@ -1,0 +1,16 @@
+{
+  "projekty": [],
+  "kontrahenci": [],
+  "faktury": [],
+  "konto_bankowe": {
+    "saldo_pln": 0,
+    "saldo_eur": 0,
+    "data_aktualizacji": ""
+  },
+  "kapital": {
+    "kapital_zakladowy": 0,
+    "zyski_poprzednich_lat": 0,
+    "zysk_biezacego_roku": 0
+  },
+  "majatek_trwaly": []
+}

@@ -4,80 +4,80 @@
 
 @layer base {
   /**
-   * Tło obszaru treści: granat (canvas). Karty ( --card ) zostają jasne dla czytelności.
-   * Marka: fiolet primary, zieleń akcentów.
+   * Jasny motyw: tekst w tonacji czarnej (--foreground / --card-foreground).
+   * Przyciski primary zostają w kolorze marki (biały tekst na fiolecie).
    */
+  /* Jednolite tło: tło = karty = sidebar (ten sam odcień); obramowania rozdzielają sekcje). */
   :root {
-    --background: 220 45% 14%;
-    --foreground: 210 40% 98%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --background: 40 7% 96%;
+    --foreground: 30 4% 19%;
+    --card: 40 7% 96%;
+    --card-foreground: 30 4% 19%;
+    --popover: 40 7% 96%;
+    --popover-foreground: 30 4% 19%;
     --primary: 310 48% 40%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 35% 22%;
-    --secondary-foreground: 210 40% 96%;
-    --muted: 220 32% 20%;
-    --muted-foreground: 215 18% 72%;
-    --accent: 220 36% 24%;
-    --accent-foreground: 210 40% 96%;
-    --destructive: 0 72% 50%;
+    --secondary: 40 7% 96%;
+    --secondary-foreground: 30 5% 22%;
+    --muted: 40 7% 96%;
+    --muted-foreground: 30 3% 38%;
+    --accent: 40 7% 96%;
+    --accent-foreground: 30 5% 22%;
+    --destructive: 359 73% 46%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 28% 30%;
-    --input: 220 28% 26%;
+    --border: 40 9% 87%;
+    --input: 40 9% 87%;
     --ring: 310 48% 48%;
     --chart-1: 310 48% 40%;
-    --chart-2: 124 54% 38%;
-    --chart-3: 45 96% 51%;
-    --chart-4: 207 92% 46%;
-    --chart-5: 310 35% 52%;
+    --chart-2: 142 71% 36%;
+    --chart-3: 32 95% 44%;
+    --chart-4: 262 47% 48%;
+    --chart-5: 199 89% 48%;
     --radius: 0.5rem;
-    /* Sidebar w tej samej tonacji granatu co canvas; akcent marki tylko przy active / logo */
-    --sidebar-background: 220 42% 12%;
-    --sidebar-foreground: 210 40% 96%;
+    --sidebar-background: 40 7% 96%;
+    --sidebar-foreground: 30 5% 20%;
     --sidebar-primary: 310 48% 42%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 35% 18%;
-    --sidebar-accent-foreground: 210 40% 96%;
-    --sidebar-border: 220 30% 22%;
-    --sidebar-ring: 124 50% 42%;
+    --sidebar-accent: 40 8% 92%;
+    --sidebar-accent-foreground: 30 5% 20%;
+    --sidebar-border: 40 9% 87%;
+    --sidebar-ring: 142 50% 40%;
   }
 
+  /* Ten sam układ co :root — tekst pozostaje ciemny (czarny), bez odwracania na jasny. */
   .dark {
-    --background: 222 48% 9%;
-    --foreground: 210 40% 96%;
-    /* Nieco wyższa saturacja = czytelniejszy granat kart (bez „brudnego” brązu) */
-    --card: 222 44% 13%;
-    --card-foreground: 210 40% 96%;
-    --popover: 222 44% 13%;
-    --popover-foreground: 210 40% 96%;
-    --primary: 310 52% 55%;
-    --primary-foreground: 222 48% 8%;
-    --secondary: 222 35% 18%;
-    --secondary-foreground: 210 40% 96%;
-    --muted: 222 32% 16%;
-    --muted-foreground: 215 16% 68%;
-    --accent: 124 28% 20%;
-    --accent-foreground: 124 45% 78%;
-    --destructive: 0 58% 40%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 222 28% 22%;
-    --input: 222 28% 20%;
-    --ring: 310 52% 55%;
-    --chart-1: 310 55% 58%;
-    --chart-2: 124 50% 48%;
-    --chart-3: 45 90% 55%;
-    --chart-4: 207 85% 55%;
-    --chart-5: 280 45% 58%;
-    --sidebar-background: 222 48% 9%;
-    --sidebar-foreground: 210 40% 94%;
-    --sidebar-primary: 310 52% 52%;
+    --background: 40 7% 96%;
+    --foreground: 30 4% 19%;
+    --card: 40 7% 96%;
+    --card-foreground: 30 4% 19%;
+    --popover: 40 7% 96%;
+    --popover-foreground: 30 4% 19%;
+    --primary: 310 48% 40%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 40 7% 96%;
+    --secondary-foreground: 30 5% 22%;
+    --muted: 40 7% 96%;
+    --muted-foreground: 30 3% 38%;
+    --accent: 40 7% 96%;
+    --accent-foreground: 30 5% 22%;
+    --destructive: 359 73% 46%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 40 9% 87%;
+    --input: 40 9% 87%;
+    --ring: 310 48% 48%;
+    --chart-1: 310 48% 40%;
+    --chart-2: 142 71% 36%;
+    --chart-3: 32 95% 44%;
+    --chart-4: 262 47% 48%;
+    --chart-5: 199 89% 48%;
+    --sidebar-background: 40 7% 96%;
+    --sidebar-foreground: 30 5% 20%;
+    --sidebar-primary: 310 48% 42%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 32% 14%;
-    --sidebar-accent-foreground: 210 40% 96%;
-    --sidebar-border: 222 26% 18%;
-    --sidebar-ring: 124 45% 45%;
+    --sidebar-accent: 40 8% 92%;
+    --sidebar-accent-foreground: 30 5% 20%;
+    --sidebar-border: 40 9% 87%;
+    --sidebar-ring: 142 50% 40%;
   }
 }
 
@@ -89,6 +89,8 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+    font-optical-sizing: auto;
+    text-rendering: optimizeLegibility;
   }
 }

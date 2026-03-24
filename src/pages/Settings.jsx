@@ -10,7 +10,7 @@ import { Settings as SettingsIcon, Home, Save, Banknote, Database, Loader2 } fro
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 import { loadFxConfig, saveFxConfig } from '@/lib/fx-config-store';
-import { seedMizarTestData } from '@/lib/seed-mizar-test-data';
+import { seedCrmTestData } from '@/lib/seed-test-data';
 import { resetDB } from '@/lib/database';
 
 const FX_CODES = ['PLN', 'EUR', 'USD', 'GBP', 'CHF', 'CZK', 'NOK', 'SEK', 'DKK', 'HUF', 'RON', 'UAH'];
@@ -22,7 +22,7 @@ export default function Settings() {
   const [fxConfig, setFxConfig] = useState(loadFxConfig);
 
   const seedMutation = useMutation({
-    mutationFn: () => seedMizarTestData(base44),
+    mutationFn: () => seedCrmTestData(base44),
     onSuccess: (res) => {
       queryClient.invalidateQueries();
       toast.success(
@@ -79,7 +79,7 @@ export default function Settings() {
     { value: 'ProjectCostMonitoring', label: 'Monitoring kosztów' },
     { value: 'FinancialForecasts', label: 'Prognozy' },
     { value: 'ProjectsMap', label: 'Mapa obiektów' },
-    { value: 'MizarExport', label: 'Eksport Excel/PDF' },
+    { value: 'ExportReports', label: 'Eksport Excel/PDF' },
     { value: 'Invoices', label: 'Faktury' },
     { value: 'Contractors', label: 'Kontrahenci' },
     { value: 'Transfers', label: 'Przelewy' },
@@ -98,10 +98,10 @@ export default function Settings() {
             <SettingsIcon className="h-8 w-8 text-muted-foreground" />
             <h1 className="text-4xl font-bold text-foreground">Ustawienia</h1>
           </div>
-          <p className="text-muted-foreground">Konfiguracja systemu MIZAR CRM</p>
+          <p className="text-muted-foreground">Konfiguracja systemu Fakturowo CRM</p>
         </div>
 
-        <Card className="bg-white shadow-lg">
+        <Card className="bg-background shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Home className="h-5 w-5" />
@@ -142,7 +142,7 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white shadow-lg mt-6">
+        <Card className="bg-background shadow-lg mt-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Banknote className="h-5 w-5" />
@@ -210,16 +210,16 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white shadow-lg mt-6">
+        <Card className="bg-background shadow-lg mt-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Database className="h-5 w-5 text-emerald-600" />
               Lokalna baza SQL.js
             </CardTitle>
             <CardDescription>
-              SQLite w przeglądarce (sql.js) — snapshot w <code className="text-xs bg-slate-100 px-1 rounded">localStorage</code> pod kluczem{' '}
-              <code className="text-xs bg-slate-100 px-1 rounded">mizar_db</code>. Reset usuwa bazę; po przeładowaniu strony zostanie utworzona na
-              nowo z <code className="text-xs bg-slate-100 px-1 rounded">mizar_data.json</code>.
+              SQLite w przeglądarce (sql.js) — snapshot w <code className="text-xs bg-foreground/5 px-1 rounded border border-border/60">localStorage</code> pod kluczem{' '}
+              <code className="text-xs bg-foreground/5 px-1 rounded border border-border/60">fakturowo_sqljs_v1</code>. Reset usuwa bazę; po przeładowaniu strony zostanie utworzona na
+              nowo z <code className="text-xs bg-foreground/5 px-1 rounded border border-border/60">crm_fixture_data.json</code>.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -229,7 +229,7 @@ export default function Settings() {
               onClick={() => {
                 if (
                   !window.confirm(
-                    'Wyczyścić lokalną bazę SQL.js? Zostanie odtworzona z mizar_data.json przy następnym wczytaniu strony.'
+                    'Wyczyścić lokalną bazę SQL.js? Zostanie odtworzona z crm_fixture_data.json przy następnym wczytaniu strony.'
                   )
                 ) {
                   return;
@@ -244,18 +244,17 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white shadow-lg mt-6">
+        <Card className="bg-background shadow-lg mt-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Database className="h-5 w-5" />
-              Dane testowe CRM
+              Import danych z pliku JSON
             </CardTitle>
             <CardDescription>
-              Źródło: plik <code className="text-xs bg-slate-100 px-1 rounded">src/fixtures/mizar_data.json</code> —
-              zestaw projektów, kontrahentów i faktur. Import dodaje brakujące rekordy; faktury o tym samym numerze są
-              pomijane. Gdy masz nowszą wersję danych (np. <code className="text-xs bg-slate-100 px-1 rounded">mizar_data.json</code>{' '}
-              z folderu <code className="text-xs bg-slate-100 px-1 rounded">mizar_data</code> lub Pobrane), nadpisz plik w{' '}
-              <code className="text-xs bg-slate-100 px-1 rounded">fixtures</code> i zaimportuj ponownie.
+              Domyślnie plik <code className="text-xs bg-foreground/5 px-1 rounded border border-border/60">src/fixtures/crm_fixture_data.json</code> jest pusty (tylko struktura).
+              Możesz uzupełnić go własnymi projektami, kontrahentami i fakturami — import dodaje brakujące rekordy; faktury o tym samym numerze są pomijane.
+              Gdy masz nowszą wersję pliku (np. z folderu <code className="text-xs bg-foreground/5 px-1 rounded border border-border/60">Pobrane</code>), nadpisz go w{' '}
+              <code className="text-xs bg-foreground/5 px-1 rounded border border-border/60">fixtures</code> i zaimportuj ponownie.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -271,7 +270,7 @@ export default function Settings() {
               ) : (
                 <Database className="h-4 w-4" />
               )}
-              Importuj mizar_data do CRM
+              Importuj dane fixture do CRM
             </Button>
             <p className="text-sm text-muted-foreground">
               Kolejność: kontrahenci → obiekty budowy → faktury (z powiązaniami project_id i danymi PLN/NBP z pliku).

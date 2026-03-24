@@ -1,7 +1,7 @@
 import React from "react";
 import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
-import { loadCrmLocalState } from "@/lib/mizar-crm-local-store";
+import { loadCrmLocalState } from "@/lib/crm-local-store";
 import Leads from "@/pages/Leads";
 import Suppliers from "@/pages/Suppliers";
 import Portfolio from "@/pages/Portfolio";

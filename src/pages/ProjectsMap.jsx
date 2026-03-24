@@ -5,7 +5,7 @@ import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaf
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { projectProfitability } from "@/lib/mizar-finance";
+import { projectProfitability } from "@/lib/finance";
 
 const STATUS_COLOR = {
   oferta: "#2563eb",
@@ -67,7 +67,7 @@ export default function ProjectsMap() {
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold">Mapa obiektów</h1>
-            <p className="text-muted-foreground mt-1">Projekty sportowe MIZAR na mapie Polski</p>
+            <p className="text-muted-foreground mt-1">Projekty na mapie Polski</p>
           </div>
           <div className="w-full md:w-64">
             <Select value={filter} onValueChange={setFilter}>

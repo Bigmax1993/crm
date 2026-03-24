@@ -15,8 +15,8 @@ import {
   LineChart,
   Line,
 } from "recharts";
-import { forecastFromLast3Months } from "@/lib/mizar-finance";
-import { monthlyCashFlowPaidPln } from "@/lib/mizar-finance-pln";
+import { forecastFromLast3Months } from "@/lib/finance";
+import { monthlyCashFlowPaidPln } from "@/lib/finance-pln";
 import { useClientEnrichedInvoices } from "@/hooks/useClientEnrichedInvoices";
 import { useCurrencyDisplay } from "@/contexts/CurrencyDisplayContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";

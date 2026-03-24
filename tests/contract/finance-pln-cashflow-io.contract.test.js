@@ -2,7 +2,7 @@
  * Kontrakt wejście/wyjście: ten sam zestaw faktur musi dawać stabilne KPI dla dashboardów.
  */
 import { describe, it, expect } from "vitest";
-import { monthlyCashFlowPaidPln, globalPLPln, sumReceivablesPln } from "@/lib/mizar-finance-pln";
+import { monthlyCashFlowPaidPln, globalPLPln, sumReceivablesPln } from "@/lib/finance-pln";
 
 const CONTRACT_INVOICES = [
   {
@@ -30,7 +30,7 @@ const CONTRACT_INVOICES = [
   },
 ];
 
-describe("kontrakt — cash flow / KPI (mizar-finance-pln)", () => {
+describe("kontrakt — cash flow / KPI (finance-pln)", () => {
   it("globalPLPln dla zestawu kontraktowego", () => {
     const g = globalPLPln(CONTRACT_INVOICES);
     expect(g).toMatchObject({ przychody: 500, koszty: 200, brutto: 300 });

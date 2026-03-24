@@ -3,7 +3,7 @@
  * dofinansowania, leady, dostawcy, portfolio — localStorage.
  */
 
-const STORAGE_KEY = "mizar_crm_local_v1";
+const STORAGE_KEY = "fakturowo_crm_local_v1";
 
 function defaultState() {
   return {
@@ -28,7 +28,7 @@ export function loadCrmLocalState() {
 
 export function saveCrmLocalState(next) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...defaultState(), ...next, version: 1 }));
-  window.dispatchEvent(new Event("mizar-crm-local"));
+  window.dispatchEvent(new Event("fakturowo-crm-local"));
 }
 
 export function newLocalId(prefix = "id") {

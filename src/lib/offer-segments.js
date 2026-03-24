@@ -1,6 +1,5 @@
 /**
- * Segmenty oferty zgodne z menu mizarsport.eu
- * @see https://mizarsport.eu/
+ * Segmenty oferty (budownictwo sportowe / obiekty).
  */
 export const OFFER_SEGMENT_OPTIONS = [
   { value: "", label: "— nie wybrano —" },
@@ -15,7 +14,7 @@ export const OFFER_SEGMENT_OPTIONS = [
 ];
 
 export function offerSegmentLabel(value) {
-  if (!value) return "—";
+  if (value == null || value === "") return "—";
   const o = OFFER_SEGMENT_OPTIONS.find((x) => x.value === value);
-  return o?.label || value;
+  return o ? o.label : String(value);
 }

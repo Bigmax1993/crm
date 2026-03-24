@@ -98,7 +98,7 @@ export default function ContractorDetails() {
         </Link>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          <Card className="lg:col-span-2 bg-white shadow-lg">
+          <Card className="lg:col-span-2 bg-background shadow-lg">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-blue-100 rounded-lg">
@@ -161,7 +161,7 @@ export default function ContractorDetails() {
                 </div>
               </div>
               {contractor.notes && (
-                <div className="mt-4 p-3 bg-slate-50 rounded-lg">
+                <div className="mt-4 p-3 bg-background border border-border/60 rounded-lg">
                   <p className="text-sm text-slate-500">Notatki</p>
                   <p>{contractor.notes}</p>
                 </div>
@@ -169,7 +169,7 @@ export default function ContractorDetails() {
             </CardContent>
           </Card>
 
-          <Card className="bg-white shadow-lg">
+          <Card className="bg-background shadow-lg">
             <CardHeader>
               <CardTitle>Statystyki</CardTitle>
             </CardHeader>
@@ -195,7 +195,7 @@ export default function ContractorDetails() {
         </div>
 
         <Tabs defaultValue="contacts" className="space-y-4">
-          <TabsList className="bg-white">
+          <TabsList className="bg-background">
             <TabsTrigger value="contacts">
               <User className="h-4 w-4 mr-2" /> Kontakty ({contacts.length})
             </TabsTrigger>
@@ -208,7 +208,7 @@ export default function ContractorDetails() {
           </TabsList>
 
           <TabsContent value="contacts">
-            <Card className="bg-white shadow-lg">
+            <Card className="bg-background shadow-lg">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Osoby kontaktowe</CardTitle>
                 <Button size="sm" onClick={() => setShowContactForm(true)}>
@@ -228,9 +228,9 @@ export default function ContractorDetails() {
                     <p className="text-slate-500 text-center py-4">Brak kontaktów</p>
                   ) : (
                     contacts.map(contact => (
-                      <div key={contact.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                      <div key={contact.id} className="flex items-center justify-between p-4 bg-background border border-border/60 rounded-lg">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-white rounded-full">
+                          <div className="p-2 bg-background rounded-full">
                             <User className="h-5 w-5 text-slate-400" />
                           </div>
                           <div>
@@ -259,7 +259,7 @@ export default function ContractorDetails() {
           </TabsContent>
 
           <TabsContent value="history">
-            <Card className="bg-white shadow-lg">
+            <Card className="bg-background shadow-lg">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Historia kontaktów</CardTitle>
                 <Button size="sm" onClick={() => setShowInteractionForm(true)}>
@@ -280,7 +280,7 @@ export default function ContractorDetails() {
                     <p className="text-slate-500 text-center py-4">Brak historii</p>
                   ) : (
                     interactions.map(item => (
-                      <div key={item.id} className="p-4 bg-slate-50 rounded-lg">
+                      <div key={item.id} className="p-4 bg-background border border-border/60 rounded-lg">
                         <div className="flex items-start justify-between mb-2">
                           <Badge className={typeColors[item.type]}>{typeLabels[item.type]}</Badge>
                           <span className="text-sm text-slate-500">
@@ -298,7 +298,7 @@ export default function ContractorDetails() {
           </TabsContent>
 
           <TabsContent value="invoices">
-            <Card className="bg-white shadow-lg">
+            <Card className="bg-background shadow-lg">
               <CardHeader>
                 <CardTitle>Faktury kontrahenta</CardTitle>
               </CardHeader>
@@ -308,7 +308,7 @@ export default function ContractorDetails() {
                     <p className="text-slate-500 text-center py-4">Brak faktur</p>
                   ) : (
                     contractorInvoices.map(inv => (
-                      <div key={inv.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                      <div key={inv.id} className="flex items-center justify-between p-4 bg-background border border-border/60 rounded-lg">
                         <div>
                           <p className="font-medium">{inv.invoice_number}</p>
                           <p className="text-sm text-slate-500">

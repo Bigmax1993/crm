@@ -19,7 +19,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { overdueInvoices, activeProjectsCount } from "@/lib/mizar-finance";
+import { overdueInvoices, activeProjectsCount } from "@/lib/finance";
 import {
   sumReceivablesPln,
   sumPayablesPln,
@@ -30,7 +30,7 @@ import {
   globalPLPln,
   budgetAlertsPln,
   getInvoicePlnAtIssue,
-} from "@/lib/mizar-finance-pln";
+} from "@/lib/finance-pln";
 import { useClientEnrichedInvoices } from "@/hooks/useClientEnrichedInvoices";
 import { useCurrencyDisplay } from "@/contexts/CurrencyDisplayContext";
 import { format } from "date-fns";
@@ -122,7 +122,7 @@ export default function CEODashboard() {
       <div className="max-w-7xl mx-auto space-y-6">
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-3xl md:text-4xl font-bold text-foreground">Dashboard CEO</h1>
-          <p className="text-muted-foreground mt-1">MIZAR Sp. z o.o. — podsumowanie finansowe i operacyjne</p>
+          <p className="text-muted-foreground mt-1">Podsumowanie finansowe i operacyjne</p>
         </motion.div>
 
         {(bAlerts.length > 0 || overdue.length > 0) && (

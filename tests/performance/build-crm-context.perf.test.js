@@ -13,7 +13,7 @@ describe("wydajność — buildCrmContextForAi (fixture)", () => {
     const ctx = await buildCrmContextForAi(base44);
     const ms = performance.now() - t0;
     expect(ctx).toHaveProperty("generated_at");
-    expect(ctx).toHaveProperty("mizar_fixture");
+    expect(ctx).toHaveProperty("fixture_snapshot");
     expect(ms).toBeLessThan(3000);
   });
 });

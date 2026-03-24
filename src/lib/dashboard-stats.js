@@ -16,13 +16,13 @@ function isZaplacona(f) {
 }
 
 /**
- * KPI i agregaty pod dashboard MIZAR z mizar_data.json.
- * @param {object} mizarData — struktura jak w fixtures/mizar_data.json
+ * KPI i agregaty z danych fixture (crm_fixture_data.json).
+ * @param {object} fixtureData — struktura jak w fixtures/crm_fixture_data.json
  * @param {Date} [now]
  */
-export function computeMizarDashboardStats(mizarData, now = new Date()) {
-  const projekty = mizarData?.projekty || [];
-  const faktury = mizarData?.faktury || [];
+export function computeDashboardStats(fixtureData, now = new Date()) {
+  const projekty = fixtureData?.projekty || [];
+  const faktury = fixtureData?.faktury || [];
 
   const activeProjects = projekty.filter((p) =>
     String(p.status || "").toLowerCase().includes("w trakcie")
