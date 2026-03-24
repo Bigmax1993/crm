@@ -80,7 +80,7 @@ describe("App — bootstrap auth (integracja)", () => {
     await waitFor(() => expect(authBootstrap.redirectToLogin).toHaveBeenCalled());
   });
 
-  it("bez appBaseUrl nie wywołuje redirectToLogin z useEffect; przycisk nadal woła logowanie", async () => {
+  it("bez appBaseUrl nie wywołuje redirectToLogin; przycisk używa przeładowania SPA (bez /api Base44)", async () => {
     authBootstrap.appParamsSnapshot.appBaseUrl = "";
     render(<App />);
 
@@ -91,7 +91,7 @@ describe("App — bootstrap auth (integracja)", () => {
     expect(authBootstrap.redirectToLogin).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: /otwórz logowanie/i }));
-    expect(authBootstrap.redirectToLogin).toHaveBeenCalledTimes(1);
+    expect(authBootstrap.redirectToLogin).not.toHaveBeenCalled();
   });
 
   it("VITE_DEV_SKIP_AUTH=true omija public-settings i renderuje stronę główną", async () => {

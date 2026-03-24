@@ -35,11 +35,13 @@ function makeResizeEntry(target) {
     x: 0,
     y: 0,
   };
+  const box = { inlineSize: contentRect.width, blockSize: contentRect.height };
   return {
     target: target ?? (typeof document !== "undefined" ? document.body : {}),
     contentRect,
-    borderBoxSize: [],
-    contentBoxSize: [],
+    /** Radix UI (@radix-ui/react-use-size) czyta entries[0].borderBoxSize[0].inlineSize */
+    borderBoxSize: [box],
+    contentBoxSize: [box],
     devicePixelContentBoxSize: [],
   };
 }

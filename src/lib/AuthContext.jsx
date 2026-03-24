@@ -8,6 +8,11 @@ import { isSupabaseAuthEnabled, isDevSkipAuth as devSkipAuth } from "@/lib/authC
 import { getSupabase, resetSupabaseClient, setRememberMePreference } from "@/lib/supabaseClient";
 import { roleFromUser } from "@/lib/auth-roles";
 import { needsMfaStepUp } from "@/lib/authMfa";
+import {
+  assignSpaRootUrl,
+  canUseBase44RemoteLogout,
+  clearBase44BrowserSession,
+} from "@/lib/base44ClientLogout";
 
 const AuthContext = createContext();
 
@@ -329,10 +334,18 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       setIsAuthenticated(false);
 
+      if (canUseBase44RemoteLogout()) {
+        if (shouldRedirect) {
+          base44.auth.logout(window.location.href);
+        } else {
+          base44.auth.logout();
+        }
+        return;
+      }
+
+      clearBase44BrowserSession();
       if (shouldRedirect) {
-        base44.auth.logout(window.location.href);
-      } else {
-        base44.auth.logout();
+        assignSpaRootUrl();
       }
     },
     []
@@ -343,7 +356,11 @@ export const AuthProvider = ({ children }) => {
       window.location.assign(createAbsolutePageHref("Login"));
       return;
     }
-    base44.auth.redirectToLogin(window.location.href);
+    if (canUseBase44RemoteLogout()) {
+      base44.auth.redirectToLogin(window.location.href);
+      return;
+    }
+    assignSpaRootUrl();
   }, []);
 
   return (
