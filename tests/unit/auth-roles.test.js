@@ -29,7 +29,7 @@ describe("auth-roles", () => {
     expect(canAccessPage("SettingsAI", ROLE.ADMIN)).toBe(true);
   });
 
-  it("canAccessPage — Security dostępne dla zwykłego usera (nie jest admin-only)", () => {
-    expect(canAccessPage("Security", ROLE.USER)).toBe(true);
+  it("canAccessPage — Roadmap dostępne dla zwykłego usera (nie jest admin-only)", () => {
+    expect(canAccessPage("Roadmap", ROLE.USER)).toBe(true);
   });
 });

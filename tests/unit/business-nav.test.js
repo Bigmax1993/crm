@@ -39,15 +39,17 @@ describe("business-nav — NAV_GROUP_ORDER", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("strona Roadmap jest w grupie System z tytułem", () => {
-    expect(PAGE_TITLES.Roadmap).toBe("Plan rozwoju");
+  it("grupa System: Roadmap, SettingsAI, Settings (bez Security — strona usunięta)", () => {
     const system = NAV_GROUP_ORDER.find((g) => g.id === "system");
-    expect(system?.pages).toContain("Roadmap");
+    expect(system?.pages).toEqual(["SettingsAI", "Roadmap", "Settings"]);
+    expect(PAGE_TITLES.Roadmap).toBe("Plan rozwoju");
+    expect(PAGE_TITLES.Settings).toBe("Ustawienia");
+    expect(PAGE_TITLES.SettingsAI).toBe("Ustawienia AI");
   });
 
-  it("strona Security jest w grupie System z tytułem", () => {
-    expect(PAGE_TITLES.Security).toBe("Bezpieczeństwo");
-    const system = NAV_GROUP_ORDER.find((g) => g.id === "system");
-    expect(system?.pages).toContain("Security");
+  it("Security nie występuje w nawigacji ani w tytułach", () => {
+    const navPages = NAV_GROUP_ORDER.flatMap((g) => g.pages);
+    expect(navPages).not.toContain("Security");
+    expect(PAGE_TITLES.Security).toBeUndefined();
   });
 });

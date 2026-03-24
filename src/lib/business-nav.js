@@ -27,7 +27,6 @@ export const PAGE_TITLES = {
   ProjectsMap: "Mapa obiektów",
   SettingsAI: "Ustawienia AI",
   Roadmap: "Plan rozwoju",
-  Security: "Bezpieczeństwo",
   Settings: "Ustawienia",
   ContractorDetails: "Kontrahent",
 };
@@ -77,7 +76,7 @@ export const NAV_GROUP_ORDER = [
   {
     id: "system",
     label: "System",
-    pages: ["SettingsAI", "Roadmap", "Security", "Settings"],
+    pages: ["SettingsAI", "Roadmap", "Settings"],
   },
 ];
 

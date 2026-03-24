@@ -12,7 +12,6 @@ import {
   Users,
   HardHat,
   Menu,
-  LogOut,
   Settings as SettingsIcon,
   Scale,
   Waves,
@@ -67,7 +66,6 @@ const PAGE_ICONS = {
   ProjectsMap: MapPinned,
   SettingsAI: Sparkles,
   Roadmap: ListChecks,
-  Security: Shield,
   Settings: SettingsIcon,
 };
 

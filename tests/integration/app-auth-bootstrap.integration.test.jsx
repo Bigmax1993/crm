@@ -55,7 +55,6 @@ describe("App — bootstrap (bez logowania)", () => {
 
   afterEach(() => {
     vi.mocked(console.error).mockRestore();
-    vi.unstubAllEnvs();
   });
 
   it("od razu renderuje Dashboard CEO (brak ekranów auth / public-settings)", async () => {

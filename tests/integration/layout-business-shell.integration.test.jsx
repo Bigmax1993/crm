@@ -67,6 +67,7 @@ describe("Layout — powłoka biznesowa (Power BI)", () => {
     expect(screen.getByRole("link", { name: "Faktury" })).toHaveAttribute("href", "/Invoices");
     expect(screen.getByRole("link", { name: "Cash flow" })).toHaveAttribute("href", "/CashFlow");
     expect(screen.getByRole("link", { name: "Plan rozwoju" })).toHaveAttribute("href", "/Roadmap");
+    expect(screen.queryByRole("link", { name: "Bezpieczeństwo" })).not.toBeInTheDocument();
   });
 
   it("mobile: przycisk otwarcia menu nawigacji", async () => {
