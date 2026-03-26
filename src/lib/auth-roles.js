@@ -28,6 +28,21 @@ export function roleFromUser(user) {
  */
 export function canAccessPage(pageName, role) {
   if (!ADMIN_ONLY_PAGES.has(pageName)) return true;
-  if (role == null) return true;
+  if (isAdminUiEnabled()) return true;
+  if (role == null) return false;
   return role === ROLE.ADMIN;
+}
+
+export function isAdminUiEnabled() {
+  if (typeof window === "undefined") return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("admin") === "1") {
+      localStorage.setItem("crm_admin_ui", "1");
+      return true;
+    }
+    return localStorage.getItem("crm_admin_ui") === "1";
+  } catch {
+    return false;
+  }
 }

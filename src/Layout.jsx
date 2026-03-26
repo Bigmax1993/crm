@@ -40,6 +40,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { NAV_GROUP_ORDER, PAGE_TITLES, titleForPage } from "@/lib/business-nav";
+import { canAccessPage } from "@/lib/auth-roles";
 
 const PAGE_ICONS = {
   MultiCurrencyDashboard: Banknote,
@@ -77,7 +78,8 @@ const NAV_GROUPS = NAV_GROUP_ORDER.map((g) => ({
       name: PAGE_TITLES[page],
       icon: PAGE_ICONS[page],
     }))
-    .filter((x) => x.icon && x.name),
+    .filter((x) => x.icon && x.name && canAccessPage(x.page, null)),
+})).filter((g) => g.items.length > 0);
 }));
 
 function NavRailLink({ item, isActive, expanded }) {
