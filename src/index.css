@@ -79,6 +79,17 @@
     --sidebar-border: 40 9% 87%;
     --sidebar-ring: 142 50% 40%;
   }
+
+  html.embed-black-text {
+    --foreground: 0 0% 0%;
+    --card-foreground: 0 0% 0%;
+    --popover-foreground: 0 0% 0%;
+    --secondary-foreground: 0 0% 0%;
+    --muted-foreground: 0 0% 0%;
+    --accent-foreground: 0 0% 0%;
+    --sidebar-foreground: 0 0% 0%;
+    --sidebar-accent-foreground: 0 0% 0%;
+  }
 }
 
 
