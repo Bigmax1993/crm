@@ -45,7 +45,7 @@ export async function searchPhotonPoland(query) {
 
   const url = new URL("https://photon.komoot.io/api/");
   url.searchParams.set("q", q);
-  url.searchParams.set("lang", "pl");
+  // Nie ustawiaj lang=pl — API Photon (komoot) zwraca wtedy HTTP 400 (param nieobsługiwany / błędny).
   url.searchParams.set("limit", "12");
   url.searchParams.set("bbox", PL_BBOX);
 
@@ -60,6 +60,8 @@ export async function searchPhotonPoland(query) {
   const out = [];
 
   for (const f of features) {
+    const cc = String(f?.properties?.countrycode || "").toUpperCase();
+    if (cc && cc !== "PL") continue;
     const row = parsePhotonFeature(f);
     if (!row) continue;
     const key = `${row.cityValue.toLowerCase()}|${row.lat.toFixed(4)}|${row.lon.toFixed(4)}`;

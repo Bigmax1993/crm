@@ -41,7 +41,12 @@ export function CityGeocodeInput({ city, latitude, longitude, onPatch, disabled,
       } catch (e) {
         setResults([]);
         setOpen(false);
-        toast.error(e?.message || "Nie udało się pobrać sugestii miejscowości.");
+        const msg = e?.message || "";
+        toast.error(
+          msg.includes("Photon HTTP")
+            ? "Geokodowanie (Photon): serwer odrzucił zapytanie. Spróbuj ponownie za chwilę lub użyj przycisku OpenAI."
+            : msg || "Nie udało się pobrać sugestii miejscowości."
+        );
       } finally {
         setLoadingList(false);
       }
