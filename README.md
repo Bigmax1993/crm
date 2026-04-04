@@ -60,6 +60,8 @@ npm run build
 
 Wynik w **`dist/`**. Dla SPA potrzebny fallback do `index.html` na serwerze.
 
+**GitHub Pages:** po `npm run build` skrypt `scripts/copy-spa-404.mjs` tworzy **`dist/404.html`** (kopia `index.html`), żeby działały bezpośrednie linki typu `/crm/ProjectCostMonitoring` (bez 404 od serwera).
+
 ## Struktura (skrót)
 
 ```

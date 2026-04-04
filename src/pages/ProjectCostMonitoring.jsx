@@ -84,8 +84,8 @@ export default function ProjectCostMonitoring() {
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Powiadomienia</AlertTitle>
           <AlertDescription>
-            Przy przekroczeniu 80% budżetu wyświetlane jest powiadomienie w aplikacji (Sonner). Integracja e-mail wymaga
-            funkcji po stronie Base44.
+            Przy przekroczeniu 80% budżetu wyświetlane jest powiadomienie w aplikacji (Sonner). Powiadomienia e-mail wymagają
+            osobnego backendu lub usługi (np. Base44, własne API).
           </AlertDescription>
         </Alert>
 

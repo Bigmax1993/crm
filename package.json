@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "vite",
     "start": "vite",
-    "build": "vite build",
-    "build:static": "vite build",
+    "build": "vite build && node scripts/copy-spa-404.mjs",
+    "build:static": "vite build && node scripts/copy-spa-404.mjs",
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p ./jsconfig.json",

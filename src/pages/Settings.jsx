@@ -12,6 +12,7 @@ import { base44 } from '@/api/base44Client';
 import { loadFxConfig, saveFxConfig } from '@/lib/fx-config-store';
 import { seedCrmTestData } from '@/lib/seed-test-data';
 import { resetDB } from '@/lib/database';
+import { clearAllWebAppStorage } from '@/lib/app-storage-reset';
 
 const FX_CODES = ['PLN', 'EUR', 'USD', 'GBP', 'CHF', 'CZK', 'NOK', 'SEK', 'DKK', 'HUF', 'RON', 'UAH'];
 
@@ -223,24 +224,45 @@ export default function Settings() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => {
-                if (
-                  !window.confirm(
-                    'Wyczyścić lokalną bazę SQL.js? Zostanie odtworzona z crm_fixture_data.json przy następnym wczytaniu strony.'
-                  )
-                ) {
-                  return;
-                }
-                resetDB();
-                toast.success('Baza SQL zresetowana — przeładowanie…');
-                window.location.reload();
-              }}
-            >
-              Resetuj bazę SQL.js
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => {
+                  if (
+                    !window.confirm(
+                      'Wyczyścić lokalną bazę SQL.js? Zostanie odtworzona z crm_fixture_data.json przy następnym wczytaniu strony.'
+                    )
+                  ) {
+                    return;
+                  }
+                  resetDB();
+                  toast.success('Baza SQL zresetowana — przeładowanie…');
+                  window.location.reload();
+                }}
+              >
+                Resetuj bazę SQL.js
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="border-destructive/60 text-destructive hover:bg-destructive/10"
+                onClick={() => {
+                  if (
+                    !window.confirm(
+                      'Pełny reset strony: usunąć WSZYSTKIE dane tej aplikacji w tej przeglądarce (baza SQL, faktury lokalne, AI, cache NBP, ustawienia strony głównej, tokeny Base44 z pamięci)? Tej operacji nie cofniesz.'
+                    )
+                  ) {
+                    return;
+                  }
+                  clearAllWebAppStorage();
+                  toast.success('Dane wyczyszczone — przeładowanie…');
+                  window.location.reload();
+                }}
+              >
+                Pełny reset strony (cały localStorage CRM)
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
