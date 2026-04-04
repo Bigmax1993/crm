@@ -16,7 +16,10 @@ export const INVOICE_CURRENCIES = [
   "UAH",
 ];
 
-const DEFAULT_PAYER = "KANBUD Sp. z o.o. Sp.k.";
+/** Domyślny płatnik w formularzu — użytkownik może zmienić w polu „Płatnik”. */
+export const DEFAULT_INVOICE_PAYER = "Własna firma (płatnik)";
+
+const DEFAULT_PAYER = DEFAULT_INVOICE_PAYER;
 
 /** Puste lub RRRR-MM-DD (input type="date") — także poprawność kalendarzowa. */
 const optionalYmd = z

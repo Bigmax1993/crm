@@ -28,6 +28,7 @@ import {
   invoiceUpdateFormSchema,
   invoiceFormDefaults,
   invoiceToFormValues,
+  DEFAULT_INVOICE_PAYER,
 } from '@/lib/invoice-schema';
 import { toast } from 'sonner';
 import { findInvoiceNumberConflict } from '@/lib/duplicate-detection';
@@ -568,8 +569,8 @@ export default function Invoices() {
                             </Button>
                           </div>
                         </TableCell>
-                         <TableCell>{inv.invoice_type === 'sales' ? (inv.payer || 'KANBUD Sp. z o.o. Sp.k.') : inv.contractor_name}</TableCell>
-                         <TableCell>{inv.invoice_type === 'sales' ? inv.contractor_name : (inv.payer || 'KANBUD Sp. z o.o. Sp.k.')}</TableCell>
+                         <TableCell>{inv.invoice_type === 'sales' ? (inv.payer || DEFAULT_INVOICE_PAYER) : inv.contractor_name}</TableCell>
+                         <TableCell>{inv.invoice_type === 'sales' ? inv.contractor_name : (inv.payer || DEFAULT_INVOICE_PAYER)}</TableCell>
                          <TableCell className="text-slate-600 text-sm">{inv.position || '-'}</TableCell>
                          <TableCell className="whitespace-nowrap">
                            {inv.amount != null ? inv.amount.toFixed(2) : '-'} {inv.currency || 'PLN'}

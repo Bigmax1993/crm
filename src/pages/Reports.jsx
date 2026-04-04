@@ -20,7 +20,6 @@ import html2canvas from 'html2canvas';
 const normalizeContractorName = (name) => {
   if (!name) return name;
   return name
-    .replace(/kanbud/gi, '')
     .replace(/[-–]/g, ' ')
     .replace(/\s+/g, ' ')
     .replace(/[.]+(?=\s|$)/g, '') // Usuń kropki na końcu lub przed spacją

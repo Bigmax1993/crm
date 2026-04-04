@@ -143,6 +143,6 @@ export function heuristicInvoiceFromPdfText(rawText, fileName) {
     stay_period: "",
     is_paragon: false,
     is_paid: false,
-    is_kanbud_seller: false,
+    is_own_company_seller: false,
   };
 }

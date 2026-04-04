@@ -3,6 +3,8 @@
  * Używane w UI i w testach jednostkowych.
  */
 
+import { DEFAULT_INVOICE_PAYER } from "@/lib/invoice-schema";
+
 export function extractInvoiceNumber(text) {
   if (!text) return "";
   const patterns = [
@@ -88,7 +90,7 @@ export function parseCSV(text) {
           transfer_date: date || "",
           title: description,
           account_number: accountNumber,
-          payer: "KANBUD Sp. z o.o. Sp.k.",
+          payer: DEFAULT_INVOICE_PAYER,
           invoice_number: extractInvoiceNumber(description),
         });
       }
@@ -125,7 +127,7 @@ export function parseCSV(text) {
         row["Opis"] ||
         "",
       account_number: row["Numer konta"] || row["Nr konta"] || "",
-      payer: "KANBUD Sp. z o.o. Sp.k.",
+      payer: DEFAULT_INVOICE_PAYER,
     };
 
     transfer.invoice_number =

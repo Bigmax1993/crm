@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { transferFingerprint } from '@/lib/duplicate-detection';
 import { getUploadFilePublicUrl } from '@/lib/upload-file-url';
 import { parseCSV } from '@/lib/transfers-parse';
+import { DEFAULT_INVOICE_PAYER } from '@/lib/invoice-schema';
 
 export default function Transfers() {
   const [files, setFiles] = useState([]);
@@ -165,7 +166,7 @@ Nie uzupełniaj pól domyślnymi wartościami z pamięci — tylko treść dokum
 
           if (result) {
             result.amount = Math.abs(result.amount || 0);
-            result.payer = 'KANBUD Sp. z o.o. Sp.k.';
+            result.payer = DEFAULT_INVOICE_PAYER;
             allTransfers.push(result);
           }
         }

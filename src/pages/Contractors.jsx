@@ -52,8 +52,7 @@ export default function Contractors() {
       c.nip?.includes(search) ||
       c.city?.toLowerCase().includes(search.toLowerCase());
     const matchesType = typeFilter === 'all' || c.type === typeFilter;
-    const notKanbud = c.name?.toUpperCase() !== 'KANBUD';
-    return matchesSearch && matchesType && notKanbud;
+    return matchesSearch && matchesType;
   });
 
   const getInvoiceStats = (contractorName) => {

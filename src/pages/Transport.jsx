@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Search, Truck, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { findDuplicateInvoice } from '@/lib/duplicate-detection';
+import { DEFAULT_INVOICE_PAYER } from '@/lib/invoice-schema';
 
 export default function Transport() {
   const [search, setSearch] = useState('');
@@ -17,7 +18,7 @@ export default function Transport() {
   const [formData, setFormData] = useState({
     contractor_name: '',
     invoice_number: '',
-    payer: 'KANBUD Sp. z o.o. Sp.k.',
+    payer: DEFAULT_INVOICE_PAYER,
     amount: '',
     currency: 'PLN',
     issue_date: '',
@@ -70,7 +71,7 @@ export default function Transport() {
       setFormData({
         contractor_name: '',
         invoice_number: '',
-        payer: 'KANBUD Sp. z o.o. Sp.k.',
+        payer: DEFAULT_INVOICE_PAYER,
         amount: '',
         currency: 'PLN',
         issue_date: '',

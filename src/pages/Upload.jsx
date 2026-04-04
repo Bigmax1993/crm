@@ -465,7 +465,7 @@ export default function Upload() {
           format: _fmt,
           _rejected: _rej,
           _sourceXml: _sx,
-          is_kanbud_seller,
+          is_own_company_seller,
           is_paragon,
           is_paid,
           line_items: _lines,
@@ -478,7 +478,7 @@ export default function Upload() {
           ...rest
         } = data;
         const normalizedPayer = normalizePayer(data.payer);
-        const isSales = is_kanbud_seller === true;
+        const isSales = is_own_company_seller === true;
         const paragon = is_paragon === true;
         const paidFlag = is_paid === true;
         const project_id = data.project_id || matchProjectId(projectList, data);

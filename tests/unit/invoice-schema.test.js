@@ -5,6 +5,7 @@ import {
   invoiceUpdateFormSchema,
   invoiceFormDefaults,
   invoiceToFormValues,
+  DEFAULT_INVOICE_PAYER,
 } from "@/lib/invoice-schema";
 
 const validBase = {
@@ -20,7 +21,7 @@ const validBase = {
   notes: "",
   invoice_type: "purchase",
   status: "unpaid",
-  payer: "KANBUD Sp. z o.o. Sp.k.",
+  payer: DEFAULT_INVOICE_PAYER,
 };
 
 describe("invoiceFormSchema", () => {
@@ -56,7 +57,7 @@ describe("invoiceFormSchema", () => {
     const { payer, ...rest } = validBase;
     const r = invoiceFormSchema.safeParse({ ...rest, payer: "" });
     expect(r.success).toBe(true);
-    expect(r.data.payer).toBe("KANBUD Sp. z o.o. Sp.k.");
+    expect(r.data.payer).toBe(DEFAULT_INVOICE_PAYER);
   });
 
   it("parsuje kwotę ze stringa (input number)", () => {

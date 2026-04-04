@@ -18,7 +18,7 @@ WYJŚCIE: jeden obiekt JSON zgodny ze schemą (tablica invoices). Bez markdown.
 
 KONTRAHENT (contractor_name, contractor_nip):
 - Przy FAKTURZE ZAKUPU: kontrahent = sprzedawca / wystawca (nie nabywca, nie własna firma jeśli to nasza strona jako nabywca).
-- Przy FAKTURZE SPRZEDAŻY (is_kanbud_seller=true): kontrahent = nabywca.
+- Przy FAKTURZE SPRZEDAŻY (is_own_company_seller=true): kontrahent = nabywca (Twoja firma wystawia dokument).
 - NIP: 10 cyfr dla PL; brak w dokumencie → pusty string.
 
 KWOTY: amount = brutto z podsumowania / „Do zapłaty” / „Razem”. net_amount, vat_amount ze stopki VAT; jeśli nie da się odczytać — 0. Waluta ISO (PLN, EUR, …).
@@ -38,7 +38,7 @@ HOTELE: hotel_name, city, persons_count, stay_period gdy dokument dotyczy pobytu
 FLAGI:
 - is_paragon: paragon fiskalny / uproszczony.
 - is_paid: oznaczenie opłacone / zapłacono / saldo 0 wyraźnie na dokumencie.
-- is_kanbud_seller: true gdy KANBUD jest WYSTAWCĄ (sprzedaż).
+- is_own_company_seller: true gdy na dokumencie wystawcą jest Twoja firma (faktura sprzedaży).
 
 position: krótki opis głównej treści lub uwagi (typ dokumentu: proforma/korekta/rachunek — dopisz jeśli nie jest zwykłą FV).
 
