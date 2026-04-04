@@ -2,9 +2,10 @@
 #
 # Po pierwszym pushu: Repo → Settings → Pages → Build and deployment → Source: „GitHub Actions”.
 #
+# Jeden job (build + upload + deploy): unika błędu „Multiple artifacts named github-pages”
+# przy retry finalizacji uploadu (actions/upload-pages-artifact#97).
+#
 # Adres strony (zwykle): https://<user>.github.io/<repo>/
-# Jeśli repozytorium nazywa się <user>.github.io (strona główna użytkownika), ustaw poniżej VITE_BASE_PATH na "/"
-# (zamiast /${{ github.event.repository.name }}/).
 
 name: Deploy to GitHub Pages
 
@@ -19,12 +20,15 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: pages-${{ github.repository }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  build_and_deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -47,19 +51,11 @@ jobs:
       - name: Build (Vite + copy-spa-404.mjs → 404.html)
         run: npm run build
         env:
-          # Ścieżka pod którą GitHub Pages serwuje projekt (nie user.github.io root)
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: dist
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
       - uses: actions/deploy-pages@v4
-        id: deployment
+        id: deploy
