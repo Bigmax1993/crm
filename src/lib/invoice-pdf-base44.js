@@ -2,7 +2,7 @@ import { base44 } from "@/api/base44Client";
 import { getUploadFilePublicUrl } from "@/lib/upload-file-url";
 import { INVOICE_JSON_PROMPT } from "@/lib/openai-crm";
 import {
-  getInvoiceBase44AttemptCount,
+  getInvoicePdfOcrAttemptCount,
   INVOICE_OCR_SCAN_ADDENDUM,
   INVOICE_OCR_SCAN_ADDENDUM_DEEP,
 } from "@/lib/invoice-ocr-prompts";
@@ -100,7 +100,7 @@ To jest próba ${attemptIndex + 1} z serii — jeśli wcześniej pola były pust
 
 /**
  * Ekstrakcja faktury z PDF przez Base44 (upload + InvokeLLM z plikiem).
- * Kilka prób z twardszym promptem dla skanów (5 prób na fakturę).
+ * Kilka prób z twardszym promptem dla skanów (domyślnie 4 na fakturę — getInvoicePdfOcrAttemptCount).
  */
 export async function extractInvoiceFromPdfBase44(file) {
   const uploadRes = await base44.integrations.Core.UploadFile({ file });
@@ -112,7 +112,7 @@ export async function extractInvoiceFromPdfBase44(file) {
     );
   }
 
-  const maxAttempts = getInvoiceBase44AttemptCount();
+  const maxAttempts = getInvoicePdfOcrAttemptCount();
   let lastError = null;
   let lastResult = null;
 

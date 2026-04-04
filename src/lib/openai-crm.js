@@ -1,3 +1,5 @@
+import { getInvoicePdfOcrAttemptCount } from "@/lib/invoice-ocr-prompts";
+
 const LS_SETTINGS = "fakturowo_ai_settings_v1";
 const LS_USAGE = "fakturowo_ai_usage_v1";
 const LS_HISTORY = "fakturowo_ai_history_v1";
@@ -331,7 +333,8 @@ export async function extractInvoiceFromPdfOpenAI(file) {
   try {
     let lastText = "";
     let lastUsage = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    const maxAttempts = getInvoicePdfOcrAttemptCount();
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const userPrompt = buildOpenAiInvoiceUserText(attempt);
       const res = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",

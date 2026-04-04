@@ -1,15 +1,26 @@
 /**
- * Prompty OCR (Base44 InvokeLLM) dla importu faktur PDF.
- * Liczba prób na PDF: getInvoiceBase44AttemptCount() (stałe 5).
+ * Prompty OCR (InvokeLLM / OpenAI) dla importu faktur PDF.
+ * Liczba prób na jeden plik: getInvoicePdfOcrAttemptCount() — domyślnie 4, opcjonalnie VITE_OCR_LLM_ATTEMPTS (1–10).
  */
-function clampAttempts(n) {
-  if (!Number.isFinite(n) || n < 3) return 6;
-  return Math.min(Math.floor(n), 10);
+const DEFAULT_INVOICE_PDF_OCR_ATTEMPTS = 4;
+
+function clampOcrAttemptsEnv(n) {
+  if (!Number.isFinite(n) || n < 1) return null;
+  return Math.min(Math.max(Math.floor(n), 1), 10);
 }
 
-export const OCR_LLM_ATTEMPTS = clampAttempts(
-  Number(typeof import.meta !== "undefined" && import.meta.env?.VITE_OCR_LLM_ATTEMPTS)
-);
+export const OCR_LLM_ATTEMPTS = (() => {
+  const raw = Number(typeof import.meta !== "undefined" && import.meta.env?.VITE_OCR_LLM_ATTEMPTS);
+  const c = clampOcrAttemptsEnv(raw);
+  return c ?? DEFAULT_INVOICE_PDF_OCR_ATTEMPTS;
+})();
+
+/** Wspólna liczba przejść LLM na fakturę (OpenAI + ścieżka Base44). */
+export function getInvoicePdfOcrAttemptCount() {
+  const raw = Number(typeof import.meta !== "undefined" && import.meta.env?.VITE_OCR_LLM_ATTEMPTS);
+  const c = clampOcrAttemptsEnv(raw);
+  return c ?? DEFAULT_INVOICE_PDF_OCR_ATTEMPTS;
+}
 
 /** Standardowy — zasady biznesowe i pola. */
 export const INVOICE_OCR_PROMPT_BASE = `Jesteś ekspertem OCR faktur i dokumentów kosztowych (Polska, UE). Dane trafią do weryfikacji ręcznej — ekstrahuj wyłącznie to, co widać w pliku; nie zgaduj numerów ani kwot.
@@ -85,7 +96,7 @@ export const INVOICE_OCR_SCAN_ADDENDUM_DEEP = `TRYB GŁĘBOKI (kolejna próba OC
 - kwota_brutto: musi odpowiadać „Razem brutto” / „Do zapłaty” / ostatniemu wierszowi podsumowania; jeśli VAT w wierszach — suma netto+VAT powinna się zgadzać (tolerancja zaokrągleń groszowych).
 - Przy niskim kontraście lub szumie: wybierz wariant tekstu powtarzający się co najmniej dwa razy w dokumencie dla tego samego pola.`;
 
-/** Stała liczba prób Base44 OCR na jeden PDF faktury (wzmocniony konsensus). */
+/** @deprecated użyj getInvoicePdfOcrAttemptCount — zachowane dla importów. */
 export function getInvoiceBase44AttemptCount() {
-  return 5;
+  return getInvoicePdfOcrAttemptCount();
 }
