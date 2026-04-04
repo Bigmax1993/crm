@@ -29,6 +29,10 @@ export default function Contractors() {
     queryKey: ['invoices'],
     queryFn: () => base44.entities.Invoice.list(),
   });
+  const { data: constructionSites = [] } = useQuery({
+    queryKey: ['construction-sites'],
+    queryFn: () => base44.entities.ConstructionSite.list(),
+  });
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Contractor.create(data),
@@ -106,12 +110,20 @@ export default function Contractors() {
 
         {showForm && (
           <ContractorForm
+            key={editingContractor?.id || 'new'}
             contractor={editingContractor}
+            constructionSites={constructionSites}
             onSubmit={(data) => {
+              const payload = {
+                ...data,
+                default_project_id: data.default_project_id?.trim?.()
+                  ? data.default_project_id
+                  : null,
+              };
               if (editingContractor) {
-                updateMutation.mutate({ id: editingContractor.id, data });
+                updateMutation.mutate({ id: editingContractor.id, data: payload });
               } else {
-                createMutation.mutate(data);
+                createMutation.mutate(payload);
               }
             }}
             onCancel={() => { setShowForm(false); setEditingContractor(null); }}

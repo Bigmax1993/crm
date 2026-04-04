@@ -124,6 +124,8 @@ export const invoiceFormSchema = z.object({
     },
     z.string().min(1)
   ),
+  /** id obiektu budowy (ConstructionSite) lub puste */
+  project_id: z.string().optional().default(""),
 });
 
 export const invoiceUpdateFormSchema = invoiceFormSchema.extend({
@@ -147,6 +149,7 @@ export const invoiceFormDefaults = {
   invoice_type: "purchase",
   paid_at: "",
   notes: "",
+  project_id: "",
 };
 
 export function invoiceToFormValues(inv) {
@@ -186,5 +189,6 @@ export function invoiceToFormValues(inv) {
       if (!raw) return DEFAULT_PAYER;
       return replaceLegacyDefaultPayer(raw);
     })(),
+    project_id: inv.project_id ? String(inv.project_id) : "",
   };
 }

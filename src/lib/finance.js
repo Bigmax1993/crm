@@ -1,3 +1,7 @@
+/**
+ * Agregaty w **surowej walucie faktury** (filtrowanie po `currency`).
+ * Dla PLN z NBP i wielu walut — `finance-pln.js` + `finance-metric-definitions.js`.
+ */
 import { format, parseISO, startOfMonth, isValid } from "date-fns";
 
 const PLN = (v) => (typeof v === "number" && !Number.isNaN(v) ? v : 0);
@@ -12,20 +16,21 @@ export function isUnpaidStatus(status) {
   return status === "unpaid" || status === "overdue";
 }
 
-/** Należności: faktury sprzedażowe niezapłacone */
+/** Należności (jedna waluta surowa). @see FINANCE_METRICS.receivablesPayablesRawSingleCurrency */
 export function sumReceivables(invoices, currency = "PLN") {
   return invoices
     .filter((i) => i.invoice_type === "sales" && isUnpaidStatus(i.status) && (i.currency || "PLN") === currency)
     .reduce((s, i) => s + PLN(i.amount), 0);
 }
 
-/** Zobowiązania: faktury zakupowe niezapłacone */
+/** Zobowiązania (jedna waluta surowa). @see FINANCE_METRICS.receivablesPayablesRawSingleCurrency */
 export function sumPayables(invoices, currency = "PLN") {
   return invoices
     .filter((i) => i.invoice_type !== "sales" && isUnpaidStatus(i.status) && (i.currency || "PLN") === currency)
     .reduce((s, i) => s + PLN(i.amount), 0);
 }
 
+/** Przychód/koszt wg miesiąca wystawienia, jedna waluta surowa (naliczenie). */
 export function monthlyRevenueVsCost(invoices, currency = "PLN") {
   const map = {};
   for (const inv of invoices) {
@@ -41,6 +46,7 @@ export function monthlyRevenueVsCost(invoices, currency = "PLN") {
   return Object.values(map).sort((a, b) => a.month.localeCompare(b.month));
 }
 
+/** Cash flow: paid, miesiąc płatności, jedna waluta surowa. */
 export function monthlyCashFlowPaid(invoices, currency = "PLN") {
   const map = {};
   for (const inv of invoices) {
@@ -67,6 +73,7 @@ export function monthlyCashFlowPaid(invoices, currency = "PLN") {
   });
 }
 
+/** Koszty zakupu na projekt (naliczenie, jedna waluta). */
 export function costByProject(invoices, projects, currency = "PLN") {
   const byId = {};
   for (const p of projects) {
@@ -81,6 +88,7 @@ export function costByProject(invoices, projects, currency = "PLN") {
   return Object.values(byId).filter((x) => x.koszt > 0);
 }
 
+/** Rentowność projektu (mieszana metoda — jak projectProfitabilityPln). @see FINANCE_METRICS.projectProfitabilityMixedPln */
 export function projectProfitability(invoices, projects, currency = "PLN") {
   return projects.map((p) => {
     let przychody = 0;
@@ -111,6 +119,7 @@ export function activeProjectsCount(projects) {
   }).length;
 }
 
+/** @see FINANCE_METRICS.budgetUtilizationPln (tu: amount w walucie faktury, bez NBP) */
 export function budgetAlerts(projects, invoices, threshold = 0.8) {
   const alerts = [];
   for (const p of projects) {
@@ -137,6 +146,7 @@ export function overdueInvoices(invoices) {
   });
 }
 
+/** @see FINANCE_METRICS.resultGlobalPaidRawCurrency */
 export function globalPL(invoices, currency = "PLN") {
   let przychody = 0;
   let koszty = 0;
@@ -151,6 +161,7 @@ export function globalPL(invoices, currency = "PLN") {
   return { przychody, koszty, brutto, marzaPct };
 }
 
+/** Wynik per projekt, paid, jedna waluta surowa. Preferuj `plByProjectPln`. */
 export function plByProject(invoices, projects, currency = "PLN") {
   return projects.map((p) => {
     let przychody = 0;
@@ -167,6 +178,7 @@ export function plByProject(invoices, projects, currency = "PLN") {
   });
 }
 
+/** Kwartalnie, paid, jedna waluta. Preferuj `quarterlyYoYTrendPln`. */
 export function quarterlyYoYTrend(invoices, currency = "PLN") {
   const qKey = (d) => {
     const m = d.getMonth();

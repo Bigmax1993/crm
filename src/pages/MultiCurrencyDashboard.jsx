@@ -2,7 +2,8 @@ import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { financeMetricSummary } from "@/lib/finance-metric-definitions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -150,6 +151,9 @@ export default function MultiCurrencyDashboard() {
           <p className="text-muted-foreground mt-1">
             Kursy NBP, KPI w walucie widoku ({displayCurrency}), cash flow PLN z przełącznikiem wykresu
           </p>
+          <p className="text-xs text-muted-foreground mt-2 max-w-3xl">
+            {financeMetricSummary("receivablesOpenPln")} {financeMetricSummary("resultGlobalPaidPln")}
+          </p>
         </motion.div>
 
         {kpis.fxShare > 0.2 && (
@@ -166,18 +170,21 @@ export default function MultiCurrencyDashboard() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Należności (PLN wg NBP)</CardTitle>
+              <CardDescription className="text-[11px] leading-snug">{financeMetricSummary("receivablesOpenPln")}</CardDescription>
             </CardHeader>
             <CardContent className="text-2xl font-bold">{formatDisplayAmount(kpis.naleznosci)}</CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Zobowiązania (PLN wg NBP)</CardTitle>
+              <CardDescription className="text-[11px] leading-snug">{financeMetricSummary("payablesOpenPln")}</CardDescription>
             </CardHeader>
             <CardContent className="text-2xl font-bold">{formatDisplayAmount(kpis.zobowiazania)}</CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Wynik (zapłacone, PLN)</CardTitle>
+              <CardDescription className="text-[11px] leading-snug">{financeMetricSummary("resultGlobalPaidPln")}</CardDescription>
             </CardHeader>
             <CardContent className="text-2xl font-bold">{formatDisplayAmount(kpis.wynik)}</CardContent>
           </Card>
@@ -185,7 +192,10 @@ export default function MultiCurrencyDashboard() {
 
         <Card>
           <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <CardTitle>Cash flow (wartości w PLN, skorygowane o kurs płatności)</CardTitle>
+            <div>
+              <CardTitle>Cash flow (wartości w PLN, skorygowane o kurs płatności)</CardTitle>
+              <CardDescription className="text-xs mt-1">{financeMetricSummary("cashflowMonthlyPaidPln")}</CardDescription>
+            </div>
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">Skala wykresu</span>
               <Select value={chartDisplay} onValueChange={setChartDisplay}>

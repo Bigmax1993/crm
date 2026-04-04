@@ -14,6 +14,7 @@ import { Upload as UploadIcon, FileText, Loader2, CheckCircle, AlertCircle, XCir
 import { cn } from "@/lib/utils";
 import {
   extractInvoiceFromPdfOpenAI,
+  extractInvoiceFromXmlTextOpenAI,
   mapOpenAiInvoiceJsonToInternal,
   isOpenAiConfigured,
 } from "@/lib/openai-crm";
@@ -29,6 +30,7 @@ import { findDuplicateInvoice, invoiceNumberMatches } from "@/lib/duplicate-dete
 import { looksLikeBankReportName, looksLikeBankReportPlain } from "@/lib/invoice-report-detection";
 import { bulkCreateOrSequential, formatBase44Error } from "@/lib/base44-entity-save";
 import { displayInvoiceSeller, displayInvoiceContractor } from "@/lib/invoice-schema";
+import { matchProjectId } from "@/lib/match-project";
 
 function detectFormat(file) {
   const n = file.name.toLowerCase();
@@ -51,33 +53,6 @@ function ExtractionSourceBadge({ source }) {
       {labels[source] ?? source}
     </span>
   );
-}
-
-function matchProjectId(projects, invoice) {
-  const cn = (invoice.contractor_name || "").toLowerCase().trim();
-  const sn = (invoice.seller_name || "").toLowerCase().trim();
-  const order = (invoice.order_number || "").toLowerCase().trim();
-  for (const p of projects) {
-    const client = (p.client_name || "").toLowerCase().trim();
-    if (
-      client &&
-      (cn.includes(client) ||
-        client.includes(cn) ||
-        sn.includes(client) ||
-        client.includes(sn))
-    )
-      return p.id;
-    const oname = (p.object_name || "").toLowerCase().trim();
-    if (
-      oname &&
-      (cn.includes(oname) || oname.includes(cn) || sn.includes(oname) || oname.includes(sn))
-    )
-      return p.id;
-    const nums = (p.invoice_numbers || "").toLowerCase();
-    if (order && nums.includes(order)) return p.id;
-    if (invoice.invoice_number && nums.includes(String(invoice.invoice_number).toLowerCase())) return p.id;
-  }
-  return null;
 }
 
 function aiFieldClass(invoice, field) {
@@ -104,9 +79,14 @@ export default function Upload() {
     queryKey: ["construction-sites"],
     queryFn: () => base44.entities.ConstructionSite.list(),
   });
+  const { data: contractors = [] } = useQuery({
+    queryKey: ["contractors"],
+    queryFn: () => base44.entities.Contractor.list(),
+  });
+  const projectMatchOpts = { contractors };
 
-  const parseXMLFile = async (file) => {
-    const text = await file.text();
+  /** Parsuje XML już wczytany do stringa (jeden odczyt pliku na początku przetwarzania). */
+  const parseInvoiceRowsFromXmlString = (text) => {
     try {
       const jpk = parsePolishInvoiceXml(text);
       if (jpk.length) return jpk;
@@ -171,7 +151,10 @@ export default function Upload() {
       const uploadedFiles = await Promise.all(
         files.map(async (file) => {
           const fmt = detectFormat(file);
-          if (fmt === "xml") return { file, xmlData: true, format: "xml" };
+          if (fmt === "xml") {
+            const xmlText = await file.text();
+            return { file, xmlData: true, format: "xml", xmlText };
+          }
           /* PDF lokalnie: pdf.js + heurystyka (bez LLM), opcjonalnie OpenAI. */
           return { file, format: "pdf" };
         })
@@ -183,12 +166,14 @@ export default function Upload() {
         setProgress((prev) => ({ ...prev, current: Math.min(idx, prev.total) }));
         try {
           if (item.xmlData) {
-            const xmlResults = await parseXMLFile(item.file);
+            const xmlResults = parseInvoiceRowsFromXmlString(item.xmlText);
             return xmlResults.map((r) => ({
               ...r,
               fileName: item.file.name,
               format: "xml",
               _extractionSource: "xml",
+              _xmlFileRef: item.file,
+              _xmlTextSnapshot: item.xmlText,
             }));
           }
           if (item.skipped) return [];
@@ -213,7 +198,7 @@ export default function Upload() {
               return [
                 {
                   ...heur,
-                  project_id: matchProjectId(projects, heur),
+                  project_id: matchProjectId(projects, heur, projectMatchOpts),
                   _pdfFileRef: item.file,
                   _heuristicOcr: true,
                   _extractionSource: "heuristic",
@@ -241,7 +226,7 @@ export default function Upload() {
                   return [
                     {
                       ...mapped,
-                      project_id: matchProjectId(projects, mapped),
+                      project_id: matchProjectId(projects, mapped, projectMatchOpts),
                       _pdfFileRef: item.file,
                       _extractionSource: "openai",
                     },
@@ -268,7 +253,7 @@ export default function Upload() {
                 return [
                   {
                     ...mapped,
-                    project_id: matchProjectId(projects, mapped),
+                    project_id: matchProjectId(projects, mapped, projectMatchOpts),
                     _pdfFileRef: item.file,
                     _extractionSource: "base44",
                   },
@@ -331,6 +316,8 @@ export default function Upload() {
             category: "standard",
             fileName: item.file.name,
             format: "xml",
+            _xmlFileRef: item.file,
+            _xmlTextSnapshot: item.xmlText,
             _manualStub: true,
             _extractionSource: "manual",
           });
@@ -364,7 +351,7 @@ export default function Upload() {
           seenByFile.set(key, true);
           deduplicatedResults.push({
             ...invoice,
-            project_id: invoice.project_id || matchProjectId(projects, invoice),
+            project_id: invoice.project_id || matchProjectId(projects, invoice, projectMatchOpts),
             _rejected: false,
           });
         }
@@ -382,7 +369,7 @@ export default function Upload() {
         );
       } else if (deduplicatedResults.some((r) => r._manualStub)) {
         toast.success(
-          `Wyekstrahowano ${deduplicatedResults.length} pozycji — część do uzupełnienia ręcznie; PDF możesz poprawić „Popraw z AI”.`
+          `Wyekstrahowano ${deduplicatedResults.length} pozycji — część do uzupełnienia ręcznie; PDF/XML możesz poprawić „Popraw z AI”.`
         );
       } else {
         toast.success(`Wyekstrahowano ${deduplicatedResults.length} pozycji do weryfikacji`);
@@ -455,6 +442,7 @@ export default function Upload() {
     try {
       const existingInvoices = await base44.entities.Invoice.list();
       const projectList = await base44.entities.ConstructionSite.list();
+      const contractorList = await base44.entities.Contractor.list();
 
       const newInvoices = [];
       let duplicatesInDb = 0;
@@ -523,6 +511,8 @@ export default function Upload() {
           _aiHighlight: _ah,
           _aiConfidence: _ac,
           _pdfFileRef: _pdfRef,
+          _xmlFileRef: _xmlRef,
+          _xmlTextSnapshot: _xmlTextSnap,
           _extractionSource: _exSrc,
           _manualStub: _stub,
           _heuristicOcr: _heur,
@@ -532,7 +522,8 @@ export default function Upload() {
         const isSales = is_own_company_seller === true;
         const paragon = is_paragon === true;
         const paidFlag = is_paid === true;
-        const project_id = data.project_id || matchProjectId(projectList, data);
+        const project_id =
+          data.project_id || matchProjectId(projectList, data, { contractors: contractorList });
         return {
           ...rest,
           payer: normalizedPayer,
@@ -609,46 +600,93 @@ export default function Upload() {
 
   const reextractWithOpenAi = async (idx) => {
     const inv = extractedData[idx];
-    const file = inv._pdfFileRef;
-    if (!file) {
-      toast.error("Brak pliku PDF w pamięci — dodaj plik ponownie i przetwórz.");
+    const pdfFile = inv._pdfFileRef;
+    const xmlFile = inv._xmlFileRef;
+    const xmlSnap =
+      typeof inv._xmlTextSnapshot === "string"
+        ? inv._xmlTextSnapshot
+        : inv._xmlTextSnapshot != null
+          ? String(inv._xmlTextSnapshot)
+          : "";
+    const hasXmlSource = Boolean(xmlFile || xmlSnap);
+    if (!pdfFile && !hasXmlSource) {
+      toast.error(
+        inv.format === "xml"
+          ? "Brak treści XML w tej sesji (np. po odświeżeniu strony) — dodaj plik XML ponownie i kliknij Przetwórz."
+          : "Brak pliku w pamięci — dodaj plik ponownie i przetwórz."
+      );
       return;
     }
     setReAiLoading(idx);
     try {
       let mapped = null;
       let extractionSource = null;
-      if (isOpenAiConfigured()) {
-        try {
-          const { parsed } = await extractInvoiceFromPdfOpenAI(file);
-          mapped = mapOpenAiInvoiceJsonToInternal(parsed, {
-            pdf_url: inv.pdf_url,
-            fileName: inv.fileName,
-          });
+      const mapOpts = { pdf_url: inv.pdf_url, fileName: inv.fileName };
+
+      if (hasXmlSource) {
+        const xmlText = xmlSnap.length ? xmlSnap : await xmlFile.text();
+        if (isOpenAiConfigured()) {
+          try {
+            const { parsed } = await extractInvoiceFromXmlTextOpenAI(xmlText, inv.fileName);
+            mapped = mapOpenAiInvoiceJsonToInternal(parsed, mapOpts);
+            if (
+              mapped &&
+              (mapped.invoice_number?.trim() || mapped.seller_name?.trim() || mapped.contractor_name?.trim())
+            ) {
+              extractionSource = "openai";
+            }
+          } catch (openErr) {
+            console.warn("OpenAI XML re-extract:", openErr);
+            toast.message(
+              openErr?.message ? `OpenAI: ${openErr.message.slice(0, 120)} — próbuję Base44…` : "Próbuję Base44…"
+            );
+          }
+        }
+        if (!extractionSource) {
+          if (!xmlFile) {
+            throw new Error(
+              "Base44 wymaga ponownego pliku XML — ustaw OpenAI w ustawieniach albo wczytaj plik jeszcze raz."
+            );
+          }
+          const { parsed } = await extractInvoiceFromPdfBase44(xmlFile, { format: "xml" });
+          mapped = mapOpenAiInvoiceJsonToInternal(parsed, mapOpts);
           if (
             mapped &&
             (mapped.invoice_number?.trim() || mapped.seller_name?.trim() || mapped.contractor_name?.trim())
           ) {
-            extractionSource = "openai";
+            extractionSource = "base44";
           }
-        } catch (openErr) {
-          console.warn("OpenAI re-extract:", openErr);
-          toast.message(openErr?.message ? `OpenAI: ${openErr.message.slice(0, 120)} — próbuję Base44…` : "Próbuję OCR Base44…");
+        }
+      } else {
+        if (isOpenAiConfigured()) {
+          try {
+            const { parsed } = await extractInvoiceFromPdfOpenAI(pdfFile);
+            mapped = mapOpenAiInvoiceJsonToInternal(parsed, mapOpts);
+            if (
+              mapped &&
+              (mapped.invoice_number?.trim() || mapped.seller_name?.trim() || mapped.contractor_name?.trim())
+            ) {
+              extractionSource = "openai";
+            }
+          } catch (openErr) {
+            console.warn("OpenAI re-extract:", openErr);
+            toast.message(
+              openErr?.message ? `OpenAI: ${openErr.message.slice(0, 120)} — próbuję Base44…` : "Próbuję OCR Base44…"
+            );
+          }
+        }
+        if (!extractionSource) {
+          const { parsed } = await extractInvoiceFromPdfBase44(pdfFile);
+          mapped = mapOpenAiInvoiceJsonToInternal(parsed, mapOpts);
+          if (
+            mapped &&
+            (mapped.invoice_number?.trim() || mapped.seller_name?.trim() || mapped.contractor_name?.trim())
+          ) {
+            extractionSource = "base44";
+          }
         }
       }
-      if (!extractionSource) {
-        const { parsed } = await extractInvoiceFromPdfBase44(file);
-        mapped = mapOpenAiInvoiceJsonToInternal(parsed, {
-          pdf_url: inv.pdf_url,
-          fileName: inv.fileName,
-        });
-        if (
-          mapped &&
-          (mapped.invoice_number?.trim() || mapped.seller_name?.trim() || mapped.contractor_name?.trim())
-        ) {
-          extractionSource = "base44";
-        }
-      }
+
       if (
         !mapped ||
         (!mapped.invoice_number?.trim() && !mapped.seller_name?.trim() && !mapped.contractor_name?.trim())
@@ -658,8 +696,12 @@ export default function Upload() {
       const updated = [...extractedData];
       updated[idx] = {
         ...mapped,
-        project_id: matchProjectId(projects, mapped) || inv.project_id,
-        _pdfFileRef: file,
+        format: inv.format || mapped.format || (hasXmlSource ? "xml" : "pdf"),
+        fileName: inv.fileName,
+        project_id: matchProjectId(projects, mapped, projectMatchOpts) || inv.project_id,
+        _pdfFileRef: pdfFile,
+        _xmlFileRef: xmlFile,
+        _xmlTextSnapshot: xmlSnap || inv._xmlTextSnapshot,
         _rejected: false,
         _extractionSource: extractionSource,
       };
@@ -685,7 +727,7 @@ export default function Upload() {
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-2">Import faktur PDF / XML</h1>
           <p className="text-muted-foreground">
-            PDF: warstwa tekstowa lub OCR Tesseract (skany); heurystyka; potem OpenAI lub Base44/LLM; XML: JPK-FA / e-faktura lokalnie
+            PDF: warstwa tekstowa lub OCR Tesseract (skany); heurystyka; potem OpenAI lub Base44/LLM. XML: JPK-FA / e-faktura lokalnie; przycisk „Popraw z AI” używa OpenAI (tekst XML) lub Base44.
           </p>
         </motion.div>
 
@@ -917,7 +959,9 @@ export default function Upload() {
                       </h4>
                       {!invoice._rejected && (
                         <div className="flex flex-wrap gap-2">
-                          {invoice._pdfFileRef && (
+                          {(invoice._pdfFileRef ||
+                            invoice._xmlFileRef ||
+                            invoice.format === "xml") && (
                             <Button
                               type="button"
                               variant="secondary"
@@ -1130,7 +1174,8 @@ export default function Upload() {
                             </SelectContent>
                           </Select>
                           <p className="text-xs text-muted-foreground mt-1">
-                            Automat: dopasowanie po kliencie, nazwie obiektu lub numerze w polu projektu.
+                            Automat: klient/obiekt/numery na projekcie; NIP kontrahenta → domyślny projekt; słowa kluczowe
+                            obiektu (Budowa) w opisie / pozycjach.
                           </p>
                         </div>
                         <div className="md:col-span-2">

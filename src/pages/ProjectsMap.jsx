@@ -3,9 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
 import { base44 } from "@/api/base44Client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { financeMetricSummary } from "@/lib/finance-metric-definitions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { projectProfitability } from "@/lib/finance";
+import { projectProfitabilityPln } from "@/lib/finance-pln";
+import { useClientEnrichedInvoices } from "@/hooks/useClientEnrichedInvoices";
 
 const STATUS_COLOR = {
   oferta: "#2563eb",
@@ -39,12 +41,13 @@ export default function ProjectsMap() {
     queryKey: ["invoices"],
     queryFn: () => base44.entities.Invoice.list(),
   });
+  const enriched = useClientEnrichedInvoices(invoices);
 
   const prof = useMemo(() => {
-    const list = projectProfitability(invoices, projects, "PLN");
+    const list = projectProfitabilityPln(enriched, projects);
     const m = new Map(list.map((x) => [x.project.id, x]));
     return m;
-  }, [invoices, projects]);
+  }, [enriched, projects]);
 
   const filtered = useMemo(() => {
     if (filter === "all") return projects;
@@ -67,7 +70,9 @@ export default function ProjectsMap() {
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold">Mapa obiektów</h1>
-            <p className="text-muted-foreground mt-1">Projekty na mapie Polski</p>
+            <p className="text-muted-foreground mt-1 max-w-xl text-sm">
+              Projekty na mapie Polski. Rentowność w dymku: {financeMetricSummary("projectProfitabilityMixedPln")}
+            </p>
           </div>
           <div className="w-full md:w-64">
             <Select value={filter} onValueChange={setFilter}>
@@ -90,6 +95,7 @@ export default function ProjectsMap() {
         <Card className="overflow-hidden">
           <CardHeader>
             <CardTitle>Podgląd</CardTitle>
+            <CardDescription className="text-xs">Wynik w PLN (jak rentowność na dashboardzie CEO).</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <div className="h-[480px] w-full relative z-0">

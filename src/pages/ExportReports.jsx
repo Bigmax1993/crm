@@ -24,6 +24,7 @@ import { FileSpreadsheet, FileType, Loader2 } from "lucide-react";
 import { EXPORT_BRAND_EXCEL_ARGB, getExportReportTitle, EXPORT_ADDRESS, EXPORT_WEB } from "@/lib/brand-brief";
 import ExecutivePdfSurface from "@/components/export/ExecutivePdfSurface";
 import { displayInvoiceSeller } from "@/lib/invoice-schema";
+import { useClientEnrichedInvoices } from "@/hooks/useClientEnrichedInvoices";
 
 function styleHeader(row) {
   row.eachCell((cell) => {
@@ -46,24 +47,25 @@ export default function ExportReports() {
     queryKey: ["invoices"],
     queryFn: () => base44.entities.Invoice.list(),
   });
+  const enriched = useClientEnrichedInvoices(invoices);
   const { data: projects = [] } = useQuery({
     queryKey: ["construction-sites"],
     queryFn: () => base44.entities.ConstructionSite.list(),
   });
 
-  const cashRows = useMemo(() => monthlyCashFlowPaidPln(invoices), [invoices]);
+  const cashRows = useMemo(() => monthlyCashFlowPaidPln(enriched), [enriched]);
   const topProjects = useMemo(
-    () => [...projectProfitabilityPln(invoices, projects)].sort((a, b) => b.wynik - a.wynik).slice(0, 5),
-    [invoices, projects]
+    () => [...projectProfitabilityPln(enriched, projects)].sort((a, b) => b.wynik - a.wynik).slice(0, 5),
+    [enriched, projects]
   );
   const kpi = useMemo(() => {
-    const g = globalPLPln(invoices);
+    const g = globalPLPln(enriched);
     return {
-      naleznosci: sumReceivablesPln(invoices),
-      zobowiazania: sumPayablesPln(invoices),
+      naleznosci: sumReceivablesPln(enriched),
+      zobowiazania: sumPayablesPln(enriched),
       wynik: g.brutto,
     };
-  }, [invoices]);
+  }, [enriched]);
 
   const exportExcel = async () => {
     setBusy("xlsx");
@@ -71,7 +73,7 @@ export default function ExportReports() {
       const wb = new ExcelJS.Workbook();
       const dateStr = format(new Date(), "yyyy-MM-dd");
 
-      const uniqueDates = [...new Set(invoices.map((i) => i.issue_date?.slice?.(0, 10)).filter(Boolean))];
+      const uniqueDates = [...new Set(enriched.map((i) => i.issue_date?.slice?.(0, 10)).filter(Boolean))];
       const rateCache = {};
       for (const d of uniqueDates) {
         rateCache[d] = await getNbpTableAForBusinessDay(d);
@@ -119,7 +121,7 @@ export default function ExportReports() {
       s1.getRow(1).alignment = { vertical: "middle", wrapText: true };
       styleHeader(s1.getRow(2));
       let sumPln = 0;
-      invoices.forEach((inv) => {
+      enriched.forEach((inv) => {
         const fx = resolveRowFx(inv);
         if (typeof fx.kwotaPLN === "number") sumPln += fx.kwotaPLN;
         const row = s1.addRow({
@@ -170,7 +172,7 @@ export default function ExportReports() {
       s1b.getRow(1).font = { bold: true };
       styleHeader(s1b.getRow(2));
       const byCur = {};
-      invoices.forEach((inv) => {
+      enriched.forEach((inv) => {
         const w = (inv.currency || "PLN").toUpperCase();
         if (!byCur[w]) byCur[w] = { count: 0, sum: 0 };
         byCur[w].count += 1;
@@ -198,7 +200,7 @@ export default function ExportReports() {
       let sumK = 0;
       projects.forEach((p) => {
         const budget = Number(p.budget_planned) || 0;
-        const cost = invoices
+        const cost = enriched
           .filter((i) => i.project_id === p.id && i.invoice_type !== "sales")
           .reduce((s, i) => s + (getInvoicePlnAtIssue(i) ?? 0), 0);
         const pct = budget > 0 ? (cost / budget) * 100 : null;
@@ -251,10 +253,10 @@ export default function ExportReports() {
       s4.mergeCells(1, 1, 1, 2);
       s4.getRow(1).font = { bold: true };
       styleHeader(s4.getRow(2));
-      const n = sumReceivablesPln(invoices);
-      const z = sumPayablesPln(invoices);
-      s4.addRow({ l: "Należności (FV sprzedaż, niezapłacone)", v: n });
-      s4.addRow({ l: "Zobowiązania (FV zakup, niezapłacone)", v: z });
+      const n = sumReceivablesPln(enriched);
+      const z = sumPayablesPln(enriched);
+      s4.addRow({ l: "Należności (FV sprzedaż, otwarte, PLN NBP)", v: n });
+      s4.addRow({ l: "Zobowiązania (FV zakup, otwarte, PLN NBP)", v: z });
       s4.addRow({ l: "Bilans należności − zobowiązania", v: n - z });
       const t4 = s4.addRow({ l: "SUMA CAŁKOWITA (netto pozycji)", v: n + z });
       t4.font = { bold: true };
@@ -271,7 +273,7 @@ export default function ExportReports() {
       s6.mergeCells(1, 1, 1, 4);
       s6.getRow(1).font = { bold: true };
       styleHeader(s6.getRow(2));
-      invoices
+      enriched
         .filter((i) => i.fx_difference_pln != null && Number.isFinite(Number(i.fx_difference_pln)))
         .forEach((inv) => {
           s6.addRow({

@@ -32,6 +32,7 @@ describe("InvoiceDialogFormFields", () => {
     expect(screen.getAllByText(/Kwota/).length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText("Waluta")).toBeInTheDocument();
     expect(screen.getByText(/jeśli od razu opłacona/)).toBeInTheDocument();
+    expect(screen.getByText(/Projekt \(obiekt budowy\)/)).toBeInTheDocument();
     expect(screen.queryByText("Notatki")).not.toBeInTheDocument();
   });
 

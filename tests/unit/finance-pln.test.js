@@ -7,6 +7,8 @@ import {
   monthlyCashFlowPaidPln,
   monthlyRevenueVsCostPln,
   globalPLPln,
+  plByProjectPln,
+  quarterlyYoYTrendPln,
   foreignExposureRatio,
   budgetAlertsPln,
   isUnpaidStatus,
@@ -226,5 +228,54 @@ describe("finance-pln (jednostkowe)", () => {
     expect(isUnpaidStatus("unpaid")).toBe(true);
     expect(isUnpaidStatus("overdue")).toBe(true);
     expect(isUnpaidStatus("paid")).toBe(false);
+  });
+
+  it("plByProjectPln — tylko opłacone FV z project_id", () => {
+    const projects = [{ id: "p1", object_name: "A" }];
+    const invoices = [
+      {
+        project_id: "p1",
+        invoice_type: "sales",
+        status: "paid",
+        amount_pln: 400,
+        currency: "PLN",
+        amount: 400,
+      },
+      {
+        project_id: "p1",
+        invoice_type: "purchase",
+        status: "paid",
+        amount_pln: 100,
+        currency: "PLN",
+        amount: 100,
+      },
+      {
+        project_id: "p1",
+        invoice_type: "sales",
+        status: "unpaid",
+        amount_pln: 999,
+        currency: "PLN",
+        amount: 999,
+      },
+    ];
+    const [row] = plByProjectPln(invoices, projects);
+    expect(row.przychody).toBe(400);
+    expect(row.koszty).toBe(100);
+    expect(row.brutto).toBe(300);
+  });
+
+  it("quarterlyYoYTrendPln — kwartał wg daty płatności", () => {
+    const invoices = [
+      {
+        invoice_type: "sales",
+        status: "paid",
+        paid_at: "2024-02-01",
+        amount_pln_at_payment: 100,
+        currency: "PLN",
+        amount: 100,
+      },
+    ];
+    const rows = quarterlyYoYTrendPln(invoices);
+    expect(rows.some((r) => r.key === "2024-Q1" && r.przychody === 100)).toBe(true);
   });
 });

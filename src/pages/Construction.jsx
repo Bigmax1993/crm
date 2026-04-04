@@ -53,6 +53,7 @@ function siteRowToFormData(site) {
     client_name: s(site.client_name),
     workflow_status: site.workflow_status || "realizacja",
     payment_schedule: s(site.payment_schedule),
+    project_match_keywords: s(site.project_match_keywords),
   };
 }
 
@@ -77,6 +78,7 @@ export default function Construction() {
     client_name: '',
     workflow_status: 'realizacja',
     payment_schedule: '',
+    project_match_keywords: '',
   });
   const queryClient = useQueryClient();
 
@@ -131,9 +133,10 @@ export default function Construction() {
       budget_planned: '',
       latitude: '',
       longitude: '',
-      client_name: '',
-      workflow_status: 'realizacja',
-      payment_schedule: '',
+    client_name: '',
+    workflow_status: 'realizacja',
+    payment_schedule: '',
+    project_match_keywords: '',
     });
   };
 
@@ -333,6 +336,15 @@ export default function Construction() {
                     onChange={(e) => setFormData({ ...formData, invoice_numbers: e.target.value })}
                     placeholder="Numery FV lub zamówienia (dopasowanie przy imporcie)"
                     className="h-20"
+                  />
+                </div>
+                <div>
+                  <Label>Słowa kluczowe → projekt (import faktur)</Label>
+                  <Textarea
+                    value={formData.project_match_keywords}
+                    onChange={(e) => setFormData({ ...formData, project_match_keywords: e.target.value })}
+                    placeholder="Po przecinku lub nowej linii; dopasowanie do opisu / JSON pozycji / nr zamówienia (bez rozróżniania wielkości liter)"
+                    className="h-20 text-sm"
                   />
                 </div>
                 <div>

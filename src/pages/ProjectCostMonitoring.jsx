@@ -3,6 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getInvoicePlnAtIssue } from "@/lib/finance-pln";
+import { financeMetricSummary } from "@/lib/finance-metric-definitions";
+import { useClientEnrichedInvoices } from "@/hooks/useClientEnrichedInvoices";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -39,18 +42,19 @@ export default function ProjectCostMonitoring() {
     queryKey: ["construction-sites"],
     queryFn: () => base44.entities.ConstructionSite.list(),
   });
+  const enriched = useClientEnrichedInvoices(invoices);
 
   const rows = useMemo(() => {
     return projects.map((p) => {
       const budget = Number(p.budget_planned) || 0;
-      const cost = invoices
+      const cost = enriched
         .filter((i) => i.project_id === p.id && i.invoice_type !== "sales")
-        .reduce((s, i) => s + (Number(i.amount) || 0), 0);
+        .reduce((s, i) => s + (getInvoicePlnAtIssue(i) ?? 0), 0);
       const pct = budget > 0 ? (cost / budget) * 100 : 0;
       const delta = cost - budget;
       return { project: p, budget, cost, pct, delta, schedule: parseSchedule(p.payment_schedule) };
     });
-  }, [projects, invoices]);
+  }, [projects, enriched]);
 
   useEffect(() => {
     for (const r of rows) {
@@ -77,7 +81,9 @@ export default function ProjectCostMonitoring() {
       <div className="max-w-7xl mx-auto space-y-6">
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-3xl md:text-4xl font-bold">Monitoring kosztów projektów</h1>
-          <p className="text-muted-foreground mt-1">Budżet vs koszty rzeczywiste, harmonogram płatności, status</p>
+          <p className="text-muted-foreground mt-1 max-w-3xl text-sm">
+            Budżet vs koszty (suma zakupów w PLN wg wystawienia — jak alerty budżetu). {financeMetricSummary("budgetUtilizationPln")}
+          </p>
         </motion.div>
 
         <Alert>

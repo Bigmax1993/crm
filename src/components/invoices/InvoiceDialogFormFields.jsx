@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { INVOICE_CURRENCIES } from "@/lib/invoice-schema";
 
-export function InvoiceDialogFormFields({ control, showNotes, isCreate }) {
+export function InvoiceDialogFormFields({ control, showNotes, isCreate, projects = [] }) {
   return (
     <>
       <FormField
@@ -185,6 +185,34 @@ export function InvoiceDialogFormFields({ control, showNotes, isCreate }) {
             <FormControl>
               <Input type="date" {...field} value={field.value ?? ""} />
             </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={control}
+        name="project_id"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Projekt (obiekt budowy)</FormLabel>
+            <Select
+              onValueChange={(v) => field.onChange(v === "__none__" ? "" : v)}
+              value={field.value && String(field.value).trim() ? String(field.value) : "__none__"}
+            >
+              <FormControl>
+                <SelectTrigger>
+                  <SelectValue placeholder="— brak —" />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                <SelectItem value="__none__">— brak —</SelectItem>
+                {projects.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.object_name || p.city || p.id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <FormMessage />
           </FormItem>
         )}

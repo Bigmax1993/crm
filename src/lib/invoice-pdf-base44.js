@@ -74,9 +74,11 @@ function hasCoreInvoiceFields(parsed) {
   return Boolean(nr || spr || nab || leg);
 }
 
-function buildInvoiceBase44Prompt(attemptIndex) {
+function buildInvoiceBase44Prompt(attemptIndex, { format = "pdf" } = {}) {
   const ocrPriority =
-    "OCR: dokładnie przepisz widoczne napisy z dokumentu; obejmij WSZYSTKIE strony PDF; numery i sumy często na pierwszej lub ostatniej stronie.\n\n";
+    format === "xml"
+      ? "Źródło: plik XML faktury (JPK-FA, FA(2), e-faktura itp.). Wyciągnij pola ze struktury XML (tagi, atrybuty, wartości węzłów).\n\n"
+      : "OCR: dokładnie przepisz widoczne napisy z dokumentu; obejmij WSZYSTKIE strony PDF; numery i sumy często na pierwszej lub ostatniej stronie.\n\n";
 
   const footer = `
 
@@ -110,13 +112,13 @@ To jest próba ${attemptIndex + 1} z serii — jeśli wcześniej pola były pust
  * Ekstrakcja faktury z PDF przez Base44 (upload + InvokeLLM z plikiem).
  * Kilka prób z twardszym promptem dla skanów (domyślnie 5 na fakturę — getInvoicePdfOcrAttemptCount).
  */
-export async function extractInvoiceFromPdfBase44(file) {
+export async function extractInvoiceFromPdfBase44(file, { format = "pdf" } = {}) {
   const uploadRes = await base44.integrations.Core.UploadFile({ file });
   const fileUrl = getUploadFilePublicUrl(uploadRes);
   if (!fileUrl) {
     throw new Error(
       uploadRes?.message ||
-        "Upload PDF nie zwrócił adresu pliku — sprawdź integrację Base44 (Core.UploadFile)."
+        "Upload pliku nie zwrócił adresu — sprawdź integrację Base44 (Core.UploadFile)."
     );
   }
 
@@ -126,7 +128,7 @@ export async function extractInvoiceFromPdfBase44(file) {
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      const prompt = buildInvoiceBase44Prompt(attempt);
+      const prompt = buildInvoiceBase44Prompt(attempt, { format });
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
         file_urls: [fileUrl],

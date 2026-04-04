@@ -7,26 +7,34 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, X } from 'lucide-react';
 
-export default function ContractorForm({ contractor, onSubmit, onCancel, isLoading }) {
-  const [formData, setFormData] = useState(contractor || {
-    name: '',
-    short_name: '',
-    nip: '',
-    regon: '',
-    address: '',
-    city: '',
-    postal_code: '',
-    country: 'Polska',
-    phone: '',
-    email: '',
-    website: '',
-    bank_account: '',
-    type: 'supplier',
-    category: 'other',
-    status: 'active',
-    notes: '',
-    payment_terms: 14
-  });
+export default function ContractorForm({ contractor, onSubmit, onCancel, isLoading, constructionSites = [] }) {
+  const [formData, setFormData] = useState(
+    contractor
+      ? {
+          ...contractor,
+          default_project_id: contractor.default_project_id || '',
+        }
+      : {
+          name: '',
+          short_name: '',
+          nip: '',
+          regon: '',
+          address: '',
+          city: '',
+          postal_code: '',
+          country: 'Polska',
+          phone: '',
+          email: '',
+          website: '',
+          bank_account: '',
+          type: 'supplier',
+          category: 'other',
+          status: 'active',
+          notes: '',
+          payment_terms: 14,
+          default_project_id: '',
+        }
+  );
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -150,6 +158,31 @@ export default function ContractorForm({ contractor, onSubmit, onCancel, isLoadi
               value={formData.bank_account}
               onChange={(e) => setFormData({ ...formData, bank_account: e.target.value })}
             />
+          </div>
+
+          <div>
+            <Label>Domyślny projekt (import faktur po NIP)</Label>
+            <Select
+              value={formData.default_project_id ? formData.default_project_id : '__none__'}
+              onValueChange={(v) =>
+                setFormData({ ...formData, default_project_id: v === '__none__' ? '' : v })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="— brak —" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">— brak —</SelectItem>
+                {constructionSites.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.object_name || s.city || s.id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Gdy NIP sprzedawcy lub nabywcy na fakturze zgadza się z NIP kontrahenta, ustawiany jest ten projekt.
+            </p>
           </div>
 
           <div>

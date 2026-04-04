@@ -2,7 +2,8 @@ import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { financeMetricSummary } from "@/lib/finance-metric-definitions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   BarChart,
@@ -27,6 +28,7 @@ import {
   monthlyCashFlowPaidPln,
   costByProjectPln,
   projectProfitabilityPln,
+  plByProjectPln,
   globalPLPln,
   budgetAlertsPln,
   getInvoicePlnAtIssue,
@@ -102,6 +104,17 @@ export default function CEODashboard() {
       }));
   }, [enriched, projects, convertPlnToDisplay]);
 
+  const top5PaidOnly = useMemo(() => {
+    return [...plByProjectPln(enriched, projects)]
+      .filter((r) => r.przychody > 0 || r.koszty > 0)
+      .sort((a, b) => b.wynik - a.wynik)
+      .slice(0, 5)
+      .map((row) => ({
+        ...row,
+        wynikDisp: convertPlnToDisplay(row.wynik),
+      }));
+  }, [enriched, projects, convertPlnToDisplay]);
+
   const bAlerts = useMemo(() => budgetAlertsPln(projects, enriched, 0.8), [projects, enriched]);
   const overdue = useMemo(() => overdueInvoices(enriched), [enriched]);
   const overduePlnSum = useMemo(
@@ -123,6 +136,10 @@ export default function CEODashboard() {
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-3xl md:text-4xl font-bold text-foreground">Dashboard CEO</h1>
           <p className="text-muted-foreground mt-1">Podsumowanie finansowe i operacyjne</p>
+          <p className="text-xs text-muted-foreground mt-2 max-w-3xl">
+            KPI u góry: należności i zobowiązania — FV otwarte (PLN wg wystawienia); wynik — tylko opłacone FV (PLN jak cash
+            flow). Wykresy mają krótszą definicję pod tytułem karty.
+          </p>
         </motion.div>
 
         {(bAlerts.length > 0 || overdue.length > 0) && (
@@ -181,6 +198,7 @@ export default function CEODashboard() {
           <Card>
             <CardHeader>
               <CardTitle>Przychody vs koszty (miesiąc)</CardTitle>
+              <CardDescription className="text-xs">{financeMetricSummary("revenueCostMonthlyAccrualPln")}</CardDescription>
             </CardHeader>
             <CardContent className="h-80">
               <ResponsiveContainer width="100%" height="100%">
@@ -200,6 +218,7 @@ export default function CEODashboard() {
           <Card>
             <CardHeader>
               <CardTitle>Cash flow narastający</CardTitle>
+              <CardDescription className="text-xs">{financeMetricSummary("cashflowMonthlyPaidPln")}</CardDescription>
             </CardHeader>
             <CardContent className="h-80">
               <ResponsiveContainer width="100%" height="100%">
@@ -220,6 +239,7 @@ export default function CEODashboard() {
           <Card>
             <CardHeader>
               <CardTitle>Koszty wg projektu</CardTitle>
+              <CardDescription className="text-xs">{financeMetricSummary("projectCostAccruedPln")}</CardDescription>
             </CardHeader>
             <CardContent className="h-80">
               {pieData.length === 0 ? (
@@ -240,29 +260,57 @@ export default function CEODashboard() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Top 5 projektów wg rentowności</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {top5.map((row, idx) => (
-                  <div key={row.project.id || idx} className="flex justify-between items-center border-b border-border pb-2">
-                    <div>
-                      <p className="font-medium">{row.project.object_name || row.project.city}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Marża: {row.marza != null ? `${row.marza.toFixed(1)}%` : "—"}
-                      </p>
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Top 5 projektów wg rentowności</CardTitle>
+                <CardDescription className="text-xs">{financeMetricSummary("projectProfitabilityMixedPln")}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {top5.map((row, idx) => (
+                    <div key={row.project.id || idx} className="flex justify-between items-center border-b border-border pb-2">
+                      <div>
+                        <p className="font-medium">{row.project.object_name || row.project.city}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Marża: {row.marza != null ? `${row.marza.toFixed(1)}%` : "—"}
+                        </p>
+                      </div>
+                      <div className="text-right font-semibold">
+                        {row.wynikDisp.toLocaleString("pl-PL", { minimumFractionDigits: 2 })} {displayCurrency}
+                      </div>
                     </div>
-                    <div className="text-right font-semibold">
-                      {row.wynikDisp.toLocaleString("pl-PL", { minimumFractionDigits: 2 })} {displayCurrency}
+                  ))}
+                  {top5.length === 0 && <p className="text-muted-foreground text-sm">Brak danych.</p>}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Top 5 — jedna metoda (tylko opłacone)</CardTitle>
+                <CardDescription className="text-xs">{financeMetricSummary("resultByProjectPaidPln")}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {top5PaidOnly.map((row, idx) => (
+                    <div key={`p-${row.project.id || idx}`} className="flex justify-between items-center border-b border-border pb-2">
+                      <div>
+                        <p className="font-medium">{row.project.object_name || row.project.city}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Marża: {row.marza != null ? `${row.marza.toFixed(1)}%` : "—"}
+                        </p>
+                      </div>
+                      <div className="text-right font-semibold">
+                        {row.wynikDisp.toLocaleString("pl-PL", { minimumFractionDigits: 2 })} {displayCurrency}
+                      </div>
                     </div>
-                  </div>
-                ))}
-                {top5.length === 0 && <p className="text-muted-foreground text-sm">Brak danych.</p>}
-              </div>
-            </CardContent>
-          </Card>
+                  ))}
+                  {top5PaidOnly.length === 0 && <p className="text-muted-foreground text-sm">Brak danych.</p>}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         <p className="text-xs text-muted-foreground text-center">

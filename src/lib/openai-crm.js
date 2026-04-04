@@ -395,6 +395,90 @@ export async function extractInvoiceFromPdfOpenAI(file) {
   }
 }
 
+const MAX_OPENAI_XML_CHARS = 200_000;
+
+/**
+ * Ekstrakcja faktury z treści XML przez OpenAI (tekst w wiadomości, bez uploadu pliku).
+ */
+export async function extractInvoiceFromXmlTextOpenAI(xmlString, fileName = "faktura.xml") {
+  const model = getAiSettings().model || "gpt-4o";
+  const gate = canMakeAiRequest();
+  if (!gate.ok) throw new Error("Limit AI lub brak klucza");
+
+  const key = getOpenAiApiKey();
+  const raw = String(xmlString ?? "");
+  const truncated = raw.length > MAX_OPENAI_XML_CHARS;
+  const xmlPayload = truncated ? raw.slice(0, MAX_OPENAI_XML_CHARS) : raw;
+  const tailNote = truncated
+    ? `\n\n(Uwaga: XML został obcięty do ${MAX_OPENAI_XML_CHARS} znaków — ekstrahuj z dostępnego fragmentu.)`
+    : "";
+
+  let lastText = "";
+  let lastUsage = null;
+  const maxAttempts = getInvoicePdfOcrAttemptCount();
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const basePrompt = buildOpenAiInvoiceUserText(attempt);
+    const userPrompt = `${basePrompt}${tailNote}
+
+---
+
+Źródło: strukturalny plik XML faktury (JPK-FA, FA(2), e-faktura itp.; nazwa pliku: ${fileName}). Odczytaj sprzedawcę, nabywcę, kwoty, daty i pozycje z tagów i wartości węzłów — tak jakbyś czytał PDF, ale dane są w XML.
+
+<<<EOF_INVOICE_XML
+${xmlPayload}
+EOF_INVOICE_XML`;
+
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 4096,
+        temperature: 0,
+        messages: [
+          {
+            role: "user",
+            content: userPrompt,
+          },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(t.slice(0, 280));
+    }
+
+    const j = await res.json();
+    const text = j.choices?.[0]?.message?.content || "";
+    lastText = text;
+    lastUsage = j.usage;
+    const total = j.usage?.total_tokens ?? 0;
+    recordUsage(total, { type: "invoice_xml", model, attempt });
+
+    const parsed = extractJsonObject(text);
+    const hasCore =
+      parsed &&
+      (String(parsed.numer_faktury ?? "").trim() ||
+        String(parsed.nazwa_sprzedawcy ?? "").trim() ||
+        String(parsed.nazwa_nabywcy ?? "").trim() ||
+        String(parsed.nazwa_kontrahenta ?? "").trim());
+    if (hasCore) {
+      return { parsed, rawText: text, usage: j.usage };
+    }
+  }
+
+  return {
+    parsed: extractJsonObject(lastText),
+    rawText: lastText,
+    usage: lastUsage,
+  };
+}
+
 function normalizeInvoiceConfidence(raw) {
   if (!raw || typeof raw !== "object") return {};
   const keyMap = {

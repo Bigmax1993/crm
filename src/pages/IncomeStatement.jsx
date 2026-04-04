@@ -2,10 +2,12 @@ import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { plByProject, quarterlyYoYTrend, globalPL } from "@/lib/finance";
+import { globalPLPln, plByProjectPln, quarterlyYoYTrendPln } from "@/lib/finance-pln";
+import { financeMetricSummary } from "@/lib/finance-metric-definitions";
+import { useClientEnrichedInvoices } from "@/hooks/useClientEnrichedInvoices";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 
 export default function IncomeStatement() {
@@ -18,12 +20,12 @@ export default function IncomeStatement() {
     queryFn: () => base44.entities.ConstructionSite.list(),
   });
 
-  const currency = "PLN";
+  const enriched = useClientEnrichedInvoices(invoices);
 
-  const perProject = useMemo(() => plByProject(invoices, projects, currency), [invoices, projects]);
-  const globalRow = useMemo(() => globalPL(invoices, currency), [invoices]);
+  const perProject = useMemo(() => plByProjectPln(enriched, projects), [enriched, projects]);
+  const globalRow = useMemo(() => globalPLPln(enriched), [enriched]);
 
-  const trend = useMemo(() => quarterlyYoYTrend(invoices, currency).slice(-12), [invoices]);
+  const trend = useMemo(() => quarterlyYoYTrendPln(enriched).slice(-12), [enriched]);
 
   if (isLoading) {
     return (
@@ -38,7 +40,10 @@ export default function IncomeStatement() {
       <div className="max-w-7xl mx-auto space-y-6">
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-3xl md:text-4xl font-bold">Rachunek wyników</h1>
-          <p className="text-muted-foreground mt-1">Przychody i koszty (faktury zapłacone) — per projekt i globalnie</p>
+          <p className="text-muted-foreground mt-1 max-w-3xl">
+            Tylko FV opłacone; kwoty w PLN (kurs płatności / wystawienia jak w cash flow).{" "}
+            <span className="text-xs block mt-1">{financeMetricSummary("resultByProjectPaidPln")}</span>
+          </p>
         </motion.div>
 
         <Tabs defaultValue="projects">
@@ -50,6 +55,7 @@ export default function IncomeStatement() {
             <Card>
               <CardHeader>
                 <CardTitle>Podsumowanie globalne</CardTitle>
+                <CardDescription className="text-xs">{financeMetricSummary("resultGlobalPaidPln")}</CardDescription>
               </CardHeader>
               <CardContent className="grid sm:grid-cols-3 gap-4 text-sm">
                 <Kpi label="Przychody" value={globalRow.przychody} />
@@ -67,6 +73,7 @@ export default function IncomeStatement() {
             <Card>
               <CardHeader>
                 <CardTitle>Projekty</CardTitle>
+                <CardDescription className="text-xs">{financeMetricSummary("resultByProjectPaidPln")}</CardDescription>
               </CardHeader>
               <CardContent className="overflow-x-auto">
                 <Table>
@@ -100,6 +107,7 @@ export default function IncomeStatement() {
             <Card>
               <CardHeader>
                 <CardTitle>Trend rentowności (kwartały, zapłacone)</CardTitle>
+                <CardDescription className="text-xs">{financeMetricSummary("quarterlyTrendPaidPln")}</CardDescription>
               </CardHeader>
               <CardContent className="h-96">
                 <ResponsiveContainer width="100%" height="100%">

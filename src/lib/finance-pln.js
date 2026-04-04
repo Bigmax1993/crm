@@ -1,3 +1,7 @@
+/**
+ * Agregaty finansowe w **PLN** (`amount_pln`, kurs NBP z wystawienia / płatności).
+ * Zestawienie definicji metryk: `finance-metric-definitions.js`.
+ */
 import { format, parseISO, startOfMonth, isValid } from "date-fns";
 
 export const PLN = (v) => (typeof v === "number" && !Number.isNaN(v) ? v : 0);
@@ -29,18 +33,21 @@ export function isUnpaidStatus(status) {
   return status === "unpaid" || status === "overdue";
 }
 
+/** @see FINANCE_METRICS.receivablesOpenPln w `finance-metric-definitions.js` */
 export function sumReceivablesPln(invoices) {
   return invoices
     .filter((i) => i.invoice_type === "sales" && isUnpaidStatus(i.status))
     .reduce((s, i) => s + (getInvoicePlnAtIssue(i) ?? 0), 0);
 }
 
+/** @see FINANCE_METRICS.payablesOpenPln */
 export function sumPayablesPln(invoices) {
   return invoices
     .filter((i) => i.invoice_type !== "sales" && isUnpaidStatus(i.status))
     .reduce((s, i) => s + (getInvoicePlnAtIssue(i) ?? 0), 0);
 }
 
+/** @see FINANCE_METRICS.cashflowMonthlyPaidPln */
 export function monthlyCashFlowPaidPln(invoices) {
   const map = {};
   for (const inv of invoices) {
@@ -66,6 +73,7 @@ export function monthlyCashFlowPaidPln(invoices) {
   });
 }
 
+/** @see FINANCE_METRICS.revenueCostMonthlyAccrualPln */
 export function monthlyRevenueVsCostPln(invoices) {
   const map = {};
   for (const inv of invoices) {
@@ -81,6 +89,7 @@ export function monthlyRevenueVsCostPln(invoices) {
   return Object.values(map).sort((a, b) => a.month.localeCompare(b.month));
 }
 
+/** @see FINANCE_METRICS.resultGlobalPaidPln */
 export function globalPLPln(invoices) {
   let przychody = 0;
   let koszty = 0;
@@ -95,12 +104,57 @@ export function globalPLPln(invoices) {
   return { przychody, koszty, brutto, marzaPct };
 }
 
+/** @see FINANCE_METRICS.resultByProjectPaidPln */
+export function plByProjectPln(invoices, projects) {
+  return projects.map((p) => {
+    let przychody = 0;
+    let koszty = 0;
+    for (const inv of invoices) {
+      if (inv.project_id !== p.id) continue;
+      if (inv.status !== "paid") continue;
+      const amt = getInvoicePlnForCashflow(inv);
+      if (inv.invoice_type === "sales") przychody += amt;
+      else koszty += amt;
+    }
+    const brutto = przychody - koszty;
+    const marzaPct = przychody > 0 ? (brutto / przychody) * 100 : null;
+    return { project: p, przychody, koszty, brutto, marzaPct };
+  });
+}
+
+/** @see FINANCE_METRICS.quarterlyTrendPaidPln */
+export function quarterlyYoYTrendPln(invoices) {
+  const qKey = (d) => {
+    const m = d.getMonth();
+    const q = Math.floor(m / 3) + 1;
+    return `${d.getFullYear()}-Q${q}`;
+  };
+  const bucket = {};
+  for (const inv of invoices) {
+    if (inv.status !== "paid") continue;
+    const d = invoicePaidDate(inv);
+    if (!d) continue;
+    const k = qKey(d);
+    if (!bucket[k]) bucket[k] = { key: k, przychody: 0, koszty: 0 };
+    const amt = getInvoicePlnForCashflow(inv);
+    if (inv.invoice_type === "sales") bucket[k].przychody += amt;
+    else bucket[k].koszty += amt;
+  }
+  return Object.values(bucket)
+    .sort((a, b) => a.key.localeCompare(b.key))
+    .map((b) => ({
+      ...b,
+      wynik: b.przychody - b.koszty,
+    }));
+}
+
 export function foreignExposureRatio(invoices) {
   if (!invoices.length) return 0;
   const foreign = invoices.filter((i) => (i.currency || "PLN").toUpperCase() !== "PLN").length;
   return foreign / invoices.length;
 }
 
+/** @see FINANCE_METRICS.projectCostAccruedPln */
 export function costByProjectPln(invoices, projects) {
   const byId = {};
   for (const p of projects) {
@@ -117,6 +171,7 @@ export function costByProjectPln(invoices, projects) {
   return Object.values(byId).filter((x) => x.koszt > 0);
 }
 
+/** @see FINANCE_METRICS.projectProfitabilityMixedPln */
 export function projectProfitabilityPln(invoices, projects) {
   return projects.map((p) => {
     let przychody = 0;
@@ -140,6 +195,7 @@ export function budgetCostPlnForProject(invoices, projectId) {
     .reduce((s, i) => s + (getInvoicePlnAtIssue(i) ?? 0), 0);
 }
 
+/** @see FINANCE_METRICS.budgetUtilizationPln */
 export function budgetAlertsPln(projects, invoices, threshold = 0.8) {
   const alerts = [];
   for (const p of projects) {

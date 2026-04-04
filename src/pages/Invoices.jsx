@@ -39,7 +39,7 @@ import { getUploadFilePublicUrl } from '@/lib/upload-file-url';
 
 const MONTHS_PL = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
 
-const INVOICES_TABLE_MIN_WIDTH_PX = 1840;
+const INVOICES_TABLE_MIN_WIDTH_PX = 1980;
 
 /** Wyświetlanie NIP w tabeli: 10 cyfr → format 3-3-3-2. */
 function formatContractorNipForTable(nip) {
@@ -59,6 +59,7 @@ export default function Invoices() {
    const [search, setSearch] = useState('');
    const [statusFilter, setStatusFilter] = useState('all');
    const [selectedInvoices, setSelectedInvoices] = useState([]);
+   const [bulkProjectTarget, setBulkProjectTarget] = useState('__none__');
    const [editingInvoice, setEditingInvoice] = useState(null);
    const [editDialogOpen, setEditDialogOpen] = useState(false);
    const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -110,6 +111,14 @@ export default function Invoices() {
     queryKey: ['invoices'],
     queryFn: () => base44.entities.Invoice.list('-created_date'),
   });
+  const { data: constructionSites = [] } = useQuery({
+    queryKey: ['construction-sites'],
+    queryFn: () => base44.entities.ConstructionSite.list(),
+  });
+  const siteById = React.useMemo(
+    () => Object.fromEntries(constructionSites.map((s) => [s.id, s])),
+    [constructionSites]
+  );
   const enrichedInvoices = useClientEnrichedInvoices(invoices);
   const enrichedById = React.useMemo(
     () => Object.fromEntries(enrichedInvoices.map((i) => [i.id, i])),
@@ -154,10 +163,8 @@ export default function Invoices() {
 
   const updateInvoiceMutation = useMutation({
     mutationFn: async (data) => {
-      const enriched = await enrichInvoiceForSave(
-        { ...data },
-        { recomputePaid: data.status === 'paid' }
-      );
+      const payload = { ...data, project_id: data.project_id ? data.project_id : null };
+      const enriched = await enrichInvoiceForSave(payload, { recomputePaid: payload.status === 'paid' });
       await base44.entities.Invoice.update(data.id, pickInvoiceApiPayload(enriched));
     },
     onSuccess: () => {
@@ -167,9 +174,31 @@ export default function Invoices() {
     },
   });
 
+  const bulkAssignProjectMutation = useMutation({
+    mutationFn: async ({ ids, project_id }) => {
+      for (const id of ids) {
+        const inv = invoices.find((i) => i.id === id);
+        if (!inv) continue;
+        const next = { ...inv, project_id: project_id || null };
+        const enriched = await enrichInvoiceForSave(next, { recomputePaid: next.status === 'paid' });
+        await base44.entities.Invoice.update(id, pickInvoiceApiPayload(enriched));
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['invoices']);
+      setSelectedInvoices([]);
+      setBulkProjectTarget('__none__');
+      toast.success('Zaktualizowano projekt u zaznaczonych faktur');
+    },
+    onError: (e) => {
+      toast.error(e?.message || 'Nie udało się przypisać projektu');
+    },
+  });
+
   const createInvoiceMutation = useMutation({
     mutationFn: async (data) => {
-      const enriched = await enrichInvoiceForSave(data, { recomputePaid: data.status === 'paid' });
+      const payload = { ...data, project_id: data.project_id ? data.project_id : null };
+      const enriched = await enrichInvoiceForSave(payload, { recomputePaid: payload.status === 'paid' });
       return base44.entities.Invoice.create(pickInvoiceApiPayload(enriched));
     },
     onSuccess: () => {
@@ -287,6 +316,7 @@ export default function Invoices() {
         'Kontrahent',
         'NIP kontrahenta',
         'Pozycja',
+        'Projekt',
         'Kwota',
         'Waluta',
         'Data wystawienia',
@@ -300,6 +330,11 @@ export default function Invoices() {
         escapeCSV(displayInvoiceContractor(inv) || ''),
         escapeCSV(formatContractorNipForTable(inv.contractor_nip) || ''),
         escapeCSV(inv.position || ''),
+        escapeCSV(
+          inv.project_id
+            ? siteById[inv.project_id]?.object_name || siteById[inv.project_id]?.city || inv.project_id
+            : ''
+        ),
         escapeCSV(inv.amount || ''),
         escapeCSV(inv.currency || ''),
         escapeCSV(inv.issue_date && isValidDate(inv.issue_date) ? format(new Date(inv.issue_date), 'dd.MM.yyyy') : ''),
@@ -322,6 +357,14 @@ export default function Invoices() {
           ['NIP sprzedawcy', escapeCSV(formatContractorNipForTable(inv.seller_nip) || '')],
           ['Kontrahent', escapeCSV(displayInvoiceContractor(inv) || '')],
           ['NIP kontrahenta', escapeCSV(formatContractorNipForTable(inv.contractor_nip) || '')],
+          [
+            'Projekt',
+            escapeCSV(
+              inv.project_id
+                ? siteById[inv.project_id]?.object_name || siteById[inv.project_id]?.city || inv.project_id
+                : ''
+            ),
+          ],
           ['Kwota', escapeCSV(inv.amount || '')],
           ['Waluta', escapeCSV(inv.currency || '')],
           ['Data wystawienia', escapeCSV(inv.issue_date && isValidDate(inv.issue_date) ? format(new Date(inv.issue_date), 'dd.MM.yyyy') : '')],
@@ -544,14 +587,47 @@ export default function Invoices() {
                 </SelectContent>
               </Select>
               {selectedInvoices.length > 0 && (
-                <Button
-                  onClick={handleDeleteSelected}
-                  variant="destructive"
-                  disabled={deleteMultipleMutation.isPending}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Usuń zaznaczone ({selectedInvoices.length})
-                </Button>
+                <>
+                  <Select value={bulkProjectTarget} onValueChange={setBulkProjectTarget}>
+                    <SelectTrigger className="w-[220px]">
+                      <SelectValue placeholder="Przypisz projekt…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Wybierz projekt…</SelectItem>
+                      <SelectItem value="__clear__">Wyczyść projekt</SelectItem>
+                      {constructionSites.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.object_name || p.city || p.id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={
+                      bulkProjectTarget === '__none__' ||
+                      bulkAssignProjectMutation.isPending
+                    }
+                    onClick={() => {
+                      const pid = bulkProjectTarget === '__clear__' ? null : bulkProjectTarget;
+                      bulkAssignProjectMutation.mutate({
+                        ids: selectedInvoices,
+                        project_id: pid,
+                      });
+                    }}
+                  >
+                    Przypisz do projektu ({selectedInvoices.length})
+                  </Button>
+                  <Button
+                    onClick={handleDeleteSelected}
+                    variant="destructive"
+                    disabled={deleteMultipleMutation.isPending}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Usuń zaznaczone ({selectedInvoices.length})
+                  </Button>
+                </>
               )}
             </div>
           </CardContent>
@@ -582,6 +658,7 @@ export default function Invoices() {
                     <TableHead>Kontrahent</TableHead>
                     <TableHead>NIP kontrahenta</TableHead>
                     <TableHead>Pozycja</TableHead>
+                    <TableHead>Projekt</TableHead>
                     <TableHead>Kwota dokumentu</TableHead>
                     <TableHead>Kwota EUR</TableHead>
                     <TableHead>PLN (NBP)</TableHead>
@@ -595,13 +672,13 @@ export default function Invoices() {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={15} className="text-center py-8 text-slate-500">
+                      <TableCell colSpan={16} className="text-center py-8 text-slate-500">
                         Ładowanie...
                       </TableCell>
                     </TableRow>
                   ) : filteredInvoices.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={15} className="text-center py-8 text-slate-500">
+                      <TableCell colSpan={16} className="text-center py-8 text-slate-500">
                         Brak faktur
                       </TableCell>
                     </TableRow>
@@ -646,6 +723,22 @@ export default function Invoices() {
                            {formatContractorNipForTable(inv.contractor_nip) || "—"}
                          </TableCell>
                          <TableCell className="text-slate-600 text-sm">{inv.position || '-'}</TableCell>
+                         <TableCell
+                           className="text-slate-600 text-sm max-w-[160px] truncate"
+                           title={
+                             inv.project_id
+                               ? siteById[inv.project_id]?.object_name ||
+                                 siteById[inv.project_id]?.city ||
+                                 inv.project_id
+                               : ''
+                           }
+                         >
+                           {inv.project_id
+                             ? siteById[inv.project_id]?.object_name ||
+                               siteById[inv.project_id]?.city ||
+                               inv.project_id
+                             : '—'}
+                         </TableCell>
                          <TableCell className="whitespace-nowrap">
                            {inv.amount != null ? inv.amount.toFixed(2) : '-'} {inv.currency || 'PLN'}
                          </TableCell>
@@ -848,7 +941,12 @@ export default function Invoices() {
                   >
                     <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-6 py-4">
                       <div className="space-y-4">
-                        <InvoiceDialogFormFields control={editForm.control} showNotes isCreate={false} />
+                        <InvoiceDialogFormFields
+                          control={editForm.control}
+                          showNotes
+                          isCreate={false}
+                          projects={constructionSites}
+                        />
                         <div className="rounded-md border bg-background p-3 text-sm space-y-1">
                           <p className="font-medium">Księgowanie PLN (NBP)</p>
                           <p>
@@ -921,7 +1019,12 @@ export default function Invoices() {
                   })}
                 >
                   <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-6 py-4">
-                    <InvoiceDialogFormFields control={addForm.control} showNotes={false} isCreate />
+                    <InvoiceDialogFormFields
+                      control={addForm.control}
+                      showNotes={false}
+                      isCreate
+                      projects={constructionSites}
+                    />
                   </div>
                   <DialogFooter className="shrink-0 gap-2 border-t bg-background px-6 py-4 sm:justify-end">
                     <Button type="button" variant="outline" onClick={() => setAddDialogOpen(false)}>
