@@ -761,104 +761,114 @@ export default function Invoices() {
               if (!open) setEditingInvoice(null);
             }}
           >
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
+            <DialogContent className="flex max-h-[min(90dvh,90vh)] max-w-2xl flex-col gap-0 overflow-hidden p-0">
+              <DialogHeader className="shrink-0 border-b border-border/60 px-6 pb-3 pt-6 pr-14 text-center sm:text-left">
                 <DialogTitle>Edytuj fakturę</DialogTitle>
                 <DialogDescription>
                   Zmień dane faktury; kwoty PLN i kurs NBP z wystawienia są podsumowane poniżej.
                 </DialogDescription>
               </DialogHeader>
-              <Form {...editForm}>
-                <form
-                  className="space-y-4 py-4"
-                  onSubmit={editForm.handleSubmit((values) => {
-                    const conflict = findInvoiceNumberConflict(invoices, values.invoice_number, editingInvoice?.id);
-                    if (conflict) {
-                      toast.error(`Numer „${values.invoice_number}” jest już używany przez inną fakturę.`);
-                      return;
-                    }
-                    updateInvoiceMutation.mutate({ ...editingInvoice, ...values });
-                  })}
-                >
-                  <InvoiceDialogFormFields control={editForm.control} showNotes isCreate={false} />
-                  <div className="rounded-md border p-3 text-sm space-y-1 bg-background">
-                    <p className="font-medium">Księgowanie PLN (NBP)</p>
-                    <p>
-                      Kwota PLN (wystawienie):{" "}
-                      <strong>
-                        {editingInvoice.amount_pln != null
-                          ? Number(editingInvoice.amount_pln).toLocaleString("pl-PL", { minimumFractionDigits: 2 })
-                          : "—"}
-                      </strong>
-                    </p>
-                    <p>
-                      Kurs NBP: {editingInvoice.nbp_mid_issue ?? "—"} (tabela{" "}
-                      {editingInvoice.nbp_table_date_issue || "—"})
-                    </p>
-                    {editingInvoice.fx_difference_pln != null && (
-                      <p>
-                        Różnica kursowa:{" "}
-                        <strong>
-                          {Number(editingInvoice.fx_difference_pln).toLocaleString("pl-PL", {
-                            minimumFractionDigits: 2,
-                          })}{" "}
-                          PLN
-                        </strong>
-                      </p>
-                    )}
-                  </div>
-                  <DialogFooter className="pt-4 sm:justify-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setEditDialogOpen(false);
-                        setEditingInvoice(null);
-                      }}
-                    >
-                      Anuluj
-                    </Button>
-                    <Button type="submit" disabled={updateInvoiceMutation.isPending}>
-                      {updateInvoiceMutation.isPending ? "Zapisywanie..." : "Zapisz zmiany"}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </Form>
+              <div className="flex min-h-0 flex-1 flex-col">
+                <Form {...editForm}>
+                  <form
+                    className="flex min-h-0 flex-1 flex-col overflow-hidden"
+                    onSubmit={editForm.handleSubmit((values) => {
+                      const conflict = findInvoiceNumberConflict(invoices, values.invoice_number, editingInvoice?.id);
+                      if (conflict) {
+                        toast.error(`Numer „${values.invoice_number}” jest już używany przez inną fakturę.`);
+                        return;
+                      }
+                      updateInvoiceMutation.mutate({ ...editingInvoice, ...values });
+                    })}
+                  >
+                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-6 py-4">
+                      <div className="space-y-4">
+                        <InvoiceDialogFormFields control={editForm.control} showNotes isCreate={false} />
+                        <div className="rounded-md border bg-background p-3 text-sm space-y-1">
+                          <p className="font-medium">Księgowanie PLN (NBP)</p>
+                          <p>
+                            Kwota PLN (wystawienie):{" "}
+                            <strong>
+                              {editingInvoice.amount_pln != null
+                                ? Number(editingInvoice.amount_pln).toLocaleString("pl-PL", { minimumFractionDigits: 2 })
+                                : "—"}
+                            </strong>
+                          </p>
+                          <p>
+                            Kurs NBP: {editingInvoice.nbp_mid_issue ?? "—"} (tabela{" "}
+                            {editingInvoice.nbp_table_date_issue || "—"})
+                          </p>
+                          {editingInvoice.fx_difference_pln != null && (
+                            <p>
+                              Różnica kursowa:{" "}
+                              <strong>
+                                {Number(editingInvoice.fx_difference_pln).toLocaleString("pl-PL", {
+                                  minimumFractionDigits: 2,
+                                })}{" "}
+                                PLN
+                              </strong>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter className="shrink-0 gap-2 border-t bg-background px-6 py-4 sm:justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setEditDialogOpen(false);
+                          setEditingInvoice(null);
+                        }}
+                      >
+                        Anuluj
+                      </Button>
+                      <Button type="submit" disabled={updateInvoiceMutation.isPending}>
+                        {updateInvoiceMutation.isPending ? "Zapisywanie..." : "Zapisz zmiany"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
+              </div>
             </DialogContent>
           </Dialog>
         )}
 
         <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
+          <DialogContent className="flex max-h-[min(90dvh,90vh)] max-w-2xl flex-col gap-0 overflow-hidden p-0">
+            <DialogHeader className="shrink-0 border-b border-border/60 px-6 pb-3 pt-6 pr-14 text-center sm:text-left">
               <DialogTitle>Dodaj nową fakturę</DialogTitle>
               <DialogDescription>
                 Wypełnij wymagane pola; po zapisie kwota w PLN zostanie uzupełniona według NBP z dnia wystawienia.
               </DialogDescription>
             </DialogHeader>
-            <Form {...addForm}>
-              <form
-                className="space-y-4 py-4"
-                onSubmit={addForm.handleSubmit((values) => {
-                  const conflict = findInvoiceNumberConflict(invoices, values.invoice_number, null);
-                  if (conflict) {
-                    toast.error(`Faktura o numerze „${values.invoice_number}” już jest w systemie (duplikat).`);
-                    return;
-                  }
-                  createInvoiceMutation.mutate(values);
-                })}
-              >
-                <InvoiceDialogFormFields control={addForm.control} showNotes={false} isCreate />
-                <DialogFooter className="pt-4 sm:justify-end">
-                  <Button type="button" variant="outline" onClick={() => setAddDialogOpen(false)}>
-                    Anuluj
-                  </Button>
-                  <Button type="submit" disabled={createInvoiceMutation.isPending}>
-                    {createInvoiceMutation.isPending ? "Dodawanie..." : "Dodaj fakturę"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
+            <div className="flex min-h-0 flex-1 flex-col">
+              <Form {...addForm}>
+                <form
+                  className="flex min-h-0 flex-1 flex-col overflow-hidden"
+                  onSubmit={addForm.handleSubmit((values) => {
+                    const conflict = findInvoiceNumberConflict(invoices, values.invoice_number, null);
+                    if (conflict) {
+                      toast.error(`Faktura o numerze „${values.invoice_number}” już jest w systemie (duplikat).`);
+                      return;
+                    }
+                    createInvoiceMutation.mutate(values);
+                  })}
+                >
+                  <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-6 py-4">
+                    <InvoiceDialogFormFields control={addForm.control} showNotes={false} isCreate />
+                  </div>
+                  <DialogFooter className="shrink-0 gap-2 border-t bg-background px-6 py-4 sm:justify-end">
+                    <Button type="button" variant="outline" onClick={() => setAddDialogOpen(false)}>
+                      Anuluj
+                    </Button>
+                    <Button type="submit" disabled={createInvoiceMutation.isPending}>
+                      {createInvoiceMutation.isPending ? "Dodawanie..." : "Dodaj fakturę"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
