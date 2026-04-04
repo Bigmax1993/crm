@@ -16,6 +16,7 @@ import { Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { displayInvoiceSeller } from '@/lib/invoice-schema';
 
 const normalizeContractorName = (name) => {
   if (!name) return name;
@@ -109,9 +110,10 @@ export default function Reports() {
     },
   });
 
-  const normalizedInvoices = invoices.map(inv => ({
+  const normalizedInvoices = invoices.map((inv) => ({
     ...inv,
-    contractor_name: normalizeContractorName(inv.contractor_name)
+    contractor_name: normalizeContractorName(inv.contractor_name),
+    _purchaseVendor: normalizeContractorName(displayInvoiceSeller(inv)),
   }));
 
   const allPayers = [...new Set(invoices.map(inv => normalizePayer(inv.payer)).filter(Boolean))].sort();
@@ -121,7 +123,7 @@ export default function Reports() {
     : normalizedInvoices.filter(inv => inv.invoice_type !== 'sales' && normalizePayer(inv.payer) === selectedPayer);
 
   const contractorSummary = filteredInvoices.reduce((acc, inv) => {
-    const name = inv.contractor_name || 'Nieznany';
+    const name = inv._purchaseVendor || 'Nieznany';
     if (!acc[name]) {
       acc[name] = { name, total: 0, count: 0, currency: inv.currency };
     }
@@ -139,7 +141,7 @@ export default function Reports() {
       if (isNaN(date.getTime())) return acc;
       const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const currency = inv.currency || 'PLN';
-      const contractor = inv.contractor_name || 'Nieznany';
+      const contractor = inv._purchaseVendor || 'Nieznany';
       const key = `${month}_${currency}`;
       if (!acc[key]) {
         acc[key] = { month, currency, total: 0, contractors: {} };
@@ -174,7 +176,7 @@ export default function Reports() {
     if (isNaN(date.getTime())) return acc;
     const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     const currency = inv.currency || 'PLN';
-    const contractor = inv.contractor_name || 'Nieznany';
+    const contractor = inv._purchaseVendor || 'Nieznany';
     const key = `${month}_${currency}`;
     if (!acc[key]) {
       acc[key] = { month, currency, total: 0, contractors: {} };
@@ -204,7 +206,7 @@ export default function Reports() {
     if (isNaN(date.getTime())) return acc;
     const year = date.getFullYear();
     const currency = inv.currency || 'PLN';
-    const contractor = inv.contractor_name || 'Nieznany';
+    const contractor = inv._purchaseVendor || 'Nieznany';
     const key = `${year}_${currency}`;
     if (!acc[key]) {
       acc[key] = { year: year.toString(), currency, total: 0, count: 0, contractors: {} };
@@ -230,7 +232,7 @@ export default function Reports() {
     const currency = inv.currency || 'PLN';
     const period = `${year}-Q${quarter}`;
     const key = `${period}_${currency}`;
-    const contractor = inv.contractor_name || 'Nieznany';
+    const contractor = inv._purchaseVendor || 'Nieznany';
     if (!acc[key]) {
       acc[key] = { period, currency, total: 0, count: 0, contractors: {} };
     }

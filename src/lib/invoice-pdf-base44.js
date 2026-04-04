@@ -14,6 +14,10 @@ export const INVOICE_INVOKE_LLM_JSON_SCHEMA = {
   type: "object",
   properties: {
     numer_faktury: { type: "string" },
+    nazwa_sprzedawcy: { type: "string" },
+    nip_sprzedawcy: { type: "string" },
+    nazwa_nabywcy: { type: "string" },
+    nip_nabywcy: { type: "string" },
     nazwa_kontrahenta: { type: "string" },
     nip_kontrahenta: { type: "string" },
     data_wystawienia: { type: "string" },
@@ -43,6 +47,8 @@ export const INVOICE_INVOKE_LLM_JSON_SCHEMA = {
       type: "object",
       properties: {
         invoice_number: { type: "number" },
+        seller_name: { type: "number" },
+        seller_nip: { type: "number" },
         contractor_name: { type: "number" },
         contractor_nip: { type: "number" },
         amount: { type: "number" },
@@ -62,8 +68,10 @@ export const INVOICE_INVOKE_LLM_JSON_SCHEMA = {
 function hasCoreInvoiceFields(parsed) {
   if (!parsed || typeof parsed !== "object") return false;
   const nr = String(parsed.numer_faktury ?? "").trim();
-  const naz = String(parsed.nazwa_kontrahenta ?? "").trim();
-  return Boolean(nr || naz);
+  const spr = String(parsed.nazwa_sprzedawcy ?? "").trim();
+  const nab = String(parsed.nazwa_nabywcy ?? "").trim();
+  const leg = String(parsed.nazwa_kontrahenta ?? "").trim();
+  return Boolean(nr || spr || nab || leg);
 }
 
 function buildInvoiceBase44Prompt(attemptIndex) {
@@ -128,7 +136,7 @@ export async function extractInvoiceFromPdfBase44(file) {
       if (result && typeof result === "object" && hasCoreInvoiceFields(result)) {
         return { parsed: result, attemptsUsed: attempt + 1 };
       }
-      lastError = new Error("Base44 nie zwróciło numeru faktury ani kontrahenta.");
+      lastError = new Error("Base44 nie zwróciło numeru faktury ani podstawowych danych podmiotów.");
     } catch (e) {
       lastError = e;
     }

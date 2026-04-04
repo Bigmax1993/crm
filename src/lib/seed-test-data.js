@@ -1,5 +1,6 @@
 import crmFixture from "@/fixtures/crm_fixture_data.json";
 import { pickInvoiceApiPayload } from "@/lib/invoice-fx";
+import { DEFAULT_INVOICE_PAYER } from "@/lib/invoice-schema";
 
 /** Eksport surowych danych (np. testy, podgląd). */
 export function getCrmFixture() {
@@ -131,9 +132,11 @@ export async function seedCrmTestData(base44, { skipExisting = true } = {}) {
     const status = mapInvoiceStatus(f.status);
     const isPaid = status === "paid";
 
+    const isSales = f.typ === "wystawiona";
     const inv = {
       invoice_number: f.numer,
-      contractor_name: contractorName,
+      seller_name: isSales ? DEFAULT_INVOICE_PAYER : contractorName,
+      contractor_name: isSales ? contractorName : DEFAULT_INVOICE_PAYER,
       amount: f.kwota_brutto,
       currency: f.waluta || "PLN",
       issue_date: f.data_wystawienia,

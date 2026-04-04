@@ -88,7 +88,8 @@ describe("Invoices — dialog dodawania (integracja)", () => {
 
     await waitFor(() => {
       expect(within(dialog).getByText("Podaj numer faktury")).toBeInTheDocument();
-      expect(within(dialog).getByText("Podaj kontrahenta")).toBeInTheDocument();
+      expect(within(dialog).getByText("Podaj sprzedawcę (wystawcę)")).toBeInTheDocument();
+      expect(within(dialog).getByText("Podaj kontrahenta (nabywcę)")).toBeInTheDocument();
     });
   });
 
@@ -102,8 +103,11 @@ describe("Invoices — dialog dodawania (integracja)", () => {
     fireEvent.change(within(dialog).getByLabelText(/numer faktury/i), {
       target: { value: "FV/TEST/01" },
     });
-    fireEvent.change(within(dialog).getByLabelText(/kontrahent/i), {
-      target: { value: "Firma Testowa Sp. z o.o." },
+    fireEvent.change(within(dialog).getByLabelText(/sprzedawca \(wystawca\)/i), {
+      target: { value: "Sprzedawca Test Sp. z o.o." },
+    });
+    fireEvent.change(within(dialog).getByLabelText(/kontrahent \(nabywca\)/i), {
+      target: { value: "Nabywca Test Sp. z o.o." },
     });
     fireEvent.change(within(dialog).getByLabelText(/^kwota$/i), {
       target: { value: "199.99" },
@@ -115,7 +119,8 @@ describe("Invoices — dialog dodawania (integracja)", () => {
     const payload = invoiceMocks.create.mock.calls[0][0];
     expect(payload).toMatchObject({
       invoice_number: "FV/TEST/01",
-      contractor_name: "Firma Testowa Sp. z o.o.",
+      seller_name: "Sprzedawca Test Sp. z o.o.",
+      contractor_name: "Nabywca Test Sp. z o.o.",
       amount: 199.99,
       currency: "PLN",
     });

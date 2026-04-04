@@ -12,6 +12,7 @@ import { Search, Hotel, Users, MapPin, Calendar, Plus, X, Trash2, Loader2 } from
 import { toast } from 'sonner';
 import { invoiceNumberMatches } from '@/lib/duplicate-detection';
 import { Checkbox } from '@/components/ui/checkbox';
+import { displayInvoiceSeller } from '@/lib/invoice-schema';
 
 export default function Hotels() {
   const [search, setSearch] = useState('');
@@ -101,7 +102,7 @@ export default function Hotels() {
     ...hotelInvoices.map(inv => ({
       id: inv.id,
       invoice_number: inv.invoice_number,
-      hotel_name: inv.hotel_name || inv.contractor_name,
+      hotel_name: inv.hotel_name || displayInvoiceSeller(inv),
       city: inv.city,
       stay_period: inv.stay_period,
       persons_count: inv.persons_count,

@@ -11,6 +11,7 @@ import { createPageUrl } from '@/utils';
 import { format } from 'date-fns';
 import ContactForm from '@/components/crm/ContactForm';
 import InteractionForm from '@/components/crm/InteractionForm';
+import { displayInvoiceSeller } from '@/lib/invoice-schema';
 
 export default function ContractorDetails() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -43,10 +44,21 @@ export default function ContractorDetails() {
     queryFn: () => base44.entities.Invoice.list('-created_date'),
   });
 
-  const contractorInvoices = invoices.filter(inv =>
-    inv.contractor_name?.toLowerCase().includes(contractor?.name?.toLowerCase() || '') ||
-    contractor?.name?.toLowerCase().includes(inv.contractor_name?.toLowerCase() || '')
-  );
+  const cn = (contractor?.name || "").toLowerCase().trim();
+  const contractorInvoices = invoices.filter((inv) => {
+    const seller = (displayInvoiceSeller(inv) || "").toLowerCase();
+    const buyer = (inv.contractor_name || "").toLowerCase();
+    if (contractor?.type === "supplier") {
+      return seller.includes(cn) || cn.includes(seller);
+    }
+    if (contractor?.type === "client") {
+      return buyer.includes(cn) || cn.includes(buyer);
+    }
+    return (
+      (seller && (seller.includes(cn) || cn.includes(seller))) ||
+      (buyer && (buyer.includes(cn) || cn.includes(buyer)))
+    );
+  });
 
   const createContactMutation = useMutation({
     mutationFn: (data) => base44.entities.Contact.create({ ...data, contractor_id: contractorId }),

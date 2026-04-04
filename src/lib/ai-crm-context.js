@@ -8,6 +8,7 @@ import {
   getExpiringCertifications,
 } from "@/lib/crm-local-store";
 import { offerSegmentLabel } from "@/lib/offer-segments";
+import { displayInvoiceSeller, displayInvoiceContractor } from "@/lib/invoice-schema";
 
 /**
  * Zbiera snapshot CRM (fixture + live Base44) pod prompty AI.
@@ -88,7 +89,8 @@ export async function buildCrmContextForAi(base44) {
       liczba: invoices.length,
       probka: invoices.slice(0, 45).map((i) => ({
         numer: i.invoice_number,
-        kontrahent: i.contractor_name,
+        sprzedawca: displayInvoiceSeller(i),
+        kontrahent_nabywca: displayInvoiceContractor(i),
         kwota: i.amount,
         waluta: i.currency,
         status: i.status,

@@ -11,6 +11,8 @@ import {
 
 const validBase = {
   invoice_number: "FV/1/2026",
+  seller_name: "Wystawca Sp. z o.o.",
+  seller_nip: "",
   contractor_name: "ACME",
   contractor_nip: "",
   amount: 100,
@@ -44,11 +46,13 @@ describe("invoiceFormSchema", () => {
     expect(r.success).toBe(true);
   });
 
-  it("wymaga numeru i kontrahenta", () => {
+  it("wymaga numeru, sprzedawcy i kontrahenta", () => {
     const r = invoiceFormSchema.safeParse({ ...validBase, invoice_number: "   " });
     expect(r.success).toBe(false);
     const r2 = invoiceFormSchema.safeParse({ ...validBase, contractor_name: "" });
     expect(r2.success).toBe(false);
+    const r3 = invoiceFormSchema.safeParse({ ...validBase, seller_name: "" });
+    expect(r3.success).toBe(false);
   });
 
   it("wymaga kwoty > 0", () => {
@@ -114,6 +118,7 @@ describe("invoiceFormSchema", () => {
     expect(r.success).toBe(true);
     const payload = pickInvoiceApiPayload(r.data);
     expect(payload.invoice_number).toBe(validBase.invoice_number);
+    expect(payload.seller_name).toBe(validBase.seller_name);
     expect(payload.contractor_name).toBe(validBase.contractor_name);
     expect(payload.contractor_nip).toBe("");
     expect(payload.amount).toBe(100);
@@ -142,6 +147,7 @@ describe("invoiceFormDefaults", () => {
     const r = invoiceFormSchema.safeParse({
       ...invoiceFormDefaults,
       invoice_number: "X",
+      seller_name: "Z",
       contractor_name: "Y",
       amount: 1,
     });
@@ -166,6 +172,23 @@ describe("invoiceToFormValues", () => {
     expect(v.currency).toBe("EUR");
     expect(v.issue_date).toBe("2026-03-01");
     expect(v.paid_at).toBe("2026-03-15");
+    expect(v.seller_name).toBe(DEFAULT_INVOICE_PAYER);
+    expect(v.contractor_name).toBe("C1");
+  });
+
+  it("FV zakupu bez seller_name: sprzedawca ze starego contractor_name", () => {
+    const v = invoiceToFormValues({
+      id: "p",
+      invoice_number: "N",
+      contractor_name: "Dostawca SA",
+      contractor_nip: "1111111111",
+      invoice_type: "purchase",
+      payer: DEFAULT_INVOICE_PAYER,
+      amount: 1,
+    });
+    expect(v.seller_name).toBe("Dostawca SA");
+    expect(v.seller_nip).toBe("1111111111");
+    expect(v.contractor_name).toBe(DEFAULT_INVOICE_PAYER);
   });
 
   it("dla null zwraca domyślny szkielet z pustym id", () => {
@@ -201,13 +224,15 @@ describe("invoiceToFormValues", () => {
     expect(v.position).toBe("Usługa");
   });
 
-  it("mapuje NIP kontrahenta", () => {
+  it("mapuje NIP nabywcy gdy są osobne pola sprzedawcy", () => {
     const v = invoiceToFormValues({
       id: "1",
       invoice_number: "N",
+      seller_name: "Sprzedawca",
       contractor_name: "C",
       contractor_nip: "5252445767",
       amount: 1,
+      invoice_type: "purchase",
     });
     expect(v.contractor_nip).toBe("5252445767");
   });

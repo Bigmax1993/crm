@@ -24,7 +24,9 @@ describe("invoice-heuristic-from-text (bez LLM)", () => {
     const row = heuristicInvoiceFromPdfText(raw, "test.pdf");
     expect(row).not.toBeNull();
     expect(row.invoice_number.length).toBeGreaterThan(0);
-    expect(row.contractor_nip).toBe("5252445767");
+    expect(row.seller_nip).toBe("5252445767");
+    expect(row.seller_name.length).toBeGreaterThan(0);
+    expect(row.contractor_name).toBe("");
     expect(row.amount).toBeGreaterThan(0);
   });
 

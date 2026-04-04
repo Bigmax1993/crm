@@ -67,10 +67,8 @@ export function parsePolishInvoiceXml(xmlString) {
   const vat = parseNumberLoose(firstText(doc, ["P_14_1", "P_14", "SumaVAT", "KwotaVAT"]));
   const gross = parseNumberLoose(firstText(doc, ["P_15", "KwotaBrutto", "DoZaplaty"]));
 
-  /** Faktura zakupu w CRM: kontrahent = sprzedawca / wystawca (Podmiot1), nie nabywca. */
   const sellerName = firstText(doc, ["Nazwa_1", "SprzedawcaNazwa", "Podmiot1Nazwa", "SellerName"]);
   const buyerName = firstText(doc, ["Nazwa_2", "NabywcaNazwa", "Podmiot2Nazwa", "BuyerName"]);
-  const contractor = sellerName || buyerName;
 
   const currency = firstText(doc, ["KodWaluty", "Currency", "Waluta"]) || "PLN";
 
@@ -82,8 +80,10 @@ export function parsePolishInvoiceXml(xmlString) {
 
   const record = {
     invoice_number: invoiceNumber || `XML-${Date.now()}`,
-    contractor_name: contractor || "Kontrahent (XML)",
-    contractor_nip: nipSeller || nipBuyer || "",
+    seller_name: sellerName || "",
+    seller_nip: nipSeller || "",
+    contractor_name: buyerName || "",
+    contractor_nip: nipBuyer || "",
     payer: buyerName || "",
     issue_date: issueDate ? issueDate.slice(0, 10) : "",
     payment_deadline: dueDate ? dueDate.slice(0, 10) : "",

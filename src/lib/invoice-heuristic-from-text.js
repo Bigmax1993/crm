@@ -181,8 +181,10 @@ export function heuristicInvoiceFromPdfText(rawText, fileName) {
 
   return {
     invoice_number: invoice_number || "",
-    contractor_name: contractor_name || "",
-    contractor_nip: nip || "",
+    seller_name: contractor_name || "",
+    seller_nip: nip || "",
+    contractor_name: "",
+    contractor_nip: "",
     amount: amount || 0,
     net_amount: null,
     vat_amount: null,

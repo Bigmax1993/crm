@@ -23,12 +23,38 @@ export function InvoiceDialogFormFields({ control, showNotes, isCreate }) {
       />
       <FormField
         control={control}
+        name="seller_name"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Sprzedawca (wystawca)</FormLabel>
+            <FormControl>
+              <Input {...field} placeholder="Firma wystawiająca fakturę — z bloku „Sprzedawca”" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={control}
+        name="seller_nip"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>NIP sprzedawcy</FormLabel>
+            <FormControl>
+              <Input {...field} value={field.value ?? ""} placeholder="NIP podmiotu ze „Sprzedawca”" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={control}
         name="contractor_name"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Kontrahent</FormLabel>
+            <FormLabel>Kontrahent (nabywca)</FormLabel>
             <FormControl>
-              <Input {...field} placeholder="Nazwa kontrahenta" />
+              <Input {...field} placeholder="Druga strona — z bloku „Nabywca” (nie sprzedawca)" />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -39,9 +65,9 @@ export function InvoiceDialogFormFields({ control, showNotes, isCreate }) {
         name="contractor_nip"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>NIP kontrahenta</FormLabel>
+            <FormLabel>NIP kontrahenta (nabywcy)</FormLabel>
             <FormControl>
-              <Input {...field} value={field.value ?? ""} placeholder="np. 5252445767 lub z myślnikami" />
+              <Input {...field} value={field.value ?? ""} placeholder="NIP podmiotu z „Nabywca”" />
             </FormControl>
             <FormMessage />
           </FormItem>

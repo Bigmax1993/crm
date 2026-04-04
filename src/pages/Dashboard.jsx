@@ -24,6 +24,7 @@ import { computeDashboardStats } from '@/lib/dashboard-stats';
 import { Progress } from '@/components/ui/progress';
 import { AiDashboardAlerts } from '@/components/ai/AiDashboardAlerts';
 import { SqlLocalPanel } from '@/components/dashboard/SqlLocalPanel';
+import { displayInvoiceSeller } from '@/lib/invoice-schema';
 
 export default function Dashboard() {
   const [selectedYears, setSelectedYears] = useState([]);
@@ -210,7 +211,7 @@ export default function Dashboard() {
   // Wszystkie kontrahenci i płatnicy
    const allContractors = useMemo(() => {
      const purchaseInvoices = invoices.filter(inv => inv.invoice_type !== 'sales');
-     return [...new Set(purchaseInvoices.map(inv => inv.contractor_name).filter(Boolean))].sort();
+     return [...new Set(purchaseInvoices.map((inv) => displayInvoiceSeller(inv)).filter(Boolean))].sort();
    }, [invoices]);
 
    const allPayers = useMemo(() => {
@@ -260,7 +261,8 @@ export default function Dashboard() {
     const currencies = {};
 
     filteredInvoices.forEach(inv => {
-      if (!inv.issue_date || !inv.contractor_name) return;
+      const supplier = displayInvoiceSeller(inv);
+      if (!inv.issue_date || !supplier) return;
 
       const date = new Date(inv.issue_date);
       if (isNaN(date.getTime())) return;
@@ -268,7 +270,7 @@ export default function Dashboard() {
       const month = format(date, 'yyyy-MM');
       if (!byMonth[month]) byMonth[month] = {};
       
-      const contractor = inv.contractor_name;
+      const contractor = supplier;
       const currency = inv.currency || 'PLN';
       
       // Zapisz walutę dla kontrahenta
@@ -359,7 +361,7 @@ export default function Dashboard() {
     ];
     const rows = invoiceList.map(inv => [
       escapeCSV(inv.invoice_number),
-      escapeCSV(inv.contractor_name),
+      escapeCSV(displayInvoiceSeller(inv)),
       escapeCSV(inv.currency || 'PLN'),
       inv.amount != null ? inv.amount : 0,                           // liczba
       escapeCSV(inv.status),
@@ -391,7 +393,7 @@ export default function Dashboard() {
       const groupedRows = [];
       const groups = {};
       filteredInvoices.forEach(inv => {
-        const key = `${inv.contractor_name}__${inv.currency || 'PLN'}`;
+        const key = `${displayInvoiceSeller(inv)}__${inv.currency || 'PLN'}`;
         if (!groups[key]) groups[key] = [];
         groups[key].push(inv);
       });
@@ -409,7 +411,7 @@ export default function Dashboard() {
         invoiceList.forEach(inv => {
           groupedRows.push([
             escapeCSV(inv.invoice_number),
-            escapeCSV(inv.contractor_name),
+            escapeCSV(displayInvoiceSeller(inv)),
             escapeCSV(inv.currency || 'PLN'),
             inv.amount != null ? inv.amount : 0,
             escapeCSV(inv.status),
@@ -441,7 +443,7 @@ export default function Dashboard() {
       // Indywidualne pliki per kontrahent — surowe faktury
       const groups = {};
       filteredInvoices.forEach(inv => {
-        const key = `${inv.contractor_name}__${inv.currency || 'PLN'}`;
+        const key = `${displayInvoiceSeller(inv)}__${inv.currency || 'PLN'}`;
         if (!groups[key]) groups[key] = [];
         groups[key].push(inv);
       });
@@ -611,7 +613,7 @@ export default function Dashboard() {
     const stats = {};
     
     filteredInvoices.forEach(inv => {
-      const contractor = inv.contractor_name;
+      const contractor = displayInvoiceSeller(inv);
       const currency = inv.currency || 'PLN';
       if (!contractor) return;
       if (inv.invoice_type === 'sales') return;
@@ -1269,7 +1271,7 @@ export default function Dashboard() {
                   <div key={inv.id} className="flex justify-between items-center border-b pb-2">
                     <div>
                       <p className="font-medium text-slate-900">{inv.invoice_number}</p>
-                      <p className="text-sm text-slate-500">{inv.contractor_name}</p>
+                      <p className="text-sm text-slate-500">{displayInvoiceSeller(inv)}</p>
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-slate-900">{inv.amount?.toFixed(2)} {inv.currency}</p>

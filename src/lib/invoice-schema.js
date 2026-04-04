@@ -39,6 +39,35 @@ export function replaceLegacyDefaultPayer(value) {
   return value;
 }
 
+/**
+ * Kolumna „Sprzedawca” / wystawca faktury — osobno od kontrahenta (nabywcy).
+ * Rekordy bez `seller_*`: zachowanie jak przed podziałem pól (zakup: stary contractor = dostawca).
+ */
+export function displayInvoiceSeller(inv) {
+  if (!inv) return "";
+  const type = inv.invoice_type === "sales" ? "sales" : "purchase";
+  const s = String(inv.seller_name ?? "").trim();
+  if (s) return s;
+  if (type === "purchase") return String(inv.contractor_name ?? "").trim();
+  return replaceLegacyDefaultPayer(inv.payer) || DEFAULT_INVOICE_PAYER;
+}
+
+/**
+ * Kolumna „Kontrahent” (nabywca w sensie dokumentu) — osobno od sprzedawcy.
+ */
+export function displayInvoiceContractor(inv) {
+  if (!inv) return "";
+  const type = inv.invoice_type === "sales" ? "sales" : "purchase";
+  const c = String(inv.contractor_name ?? "").trim();
+  const sellerKnown = String(inv.seller_name ?? "").trim();
+  if (sellerKnown || type === "sales") {
+    if (c) return c;
+    if (type === "purchase") return replaceLegacyDefaultPayer(inv.payer) || DEFAULT_INVOICE_PAYER;
+    return "";
+  }
+  return replaceLegacyDefaultPayer(inv.payer) || DEFAULT_INVOICE_PAYER;
+}
+
 /** Puste lub RRRR-MM-DD (input type="date") — także poprawność kalendarzowa. */
 const optionalYmd = z
   .string()
@@ -68,7 +97,12 @@ const optionalAmountEur = z
 
 export const invoiceFormSchema = z.object({
   invoice_number: z.string().trim().min(1, "Podaj numer faktury"),
-  contractor_name: z.string().trim().min(1, "Podaj kontrahenta"),
+  seller_name: z.string().trim().min(1, "Podaj sprzedawcę (wystawcę)"),
+  seller_nip: z.preprocess(
+    (v) => (v == null || v === undefined ? "" : String(v)),
+    z.string()
+  ).transform((s) => s.trim()),
+  contractor_name: z.string().trim().min(1, "Podaj kontrahenta (nabywcę)"),
   contractor_nip: z.preprocess(
     (v) => (v == null || v === undefined ? "" : String(v)),
     z.string()
@@ -98,6 +132,8 @@ export const invoiceUpdateFormSchema = invoiceFormSchema.extend({
 
 export const invoiceFormDefaults = {
   invoice_number: "",
+  seller_name: "",
+  seller_nip: "",
   contractor_name: "",
   contractor_nip: "",
   amount: "",
@@ -115,11 +151,24 @@ export const invoiceFormDefaults = {
 
 export function invoiceToFormValues(inv) {
   if (!inv) return { ...invoiceFormDefaults, id: "" };
+  const type = inv.invoice_type === "sales" ? "sales" : "purchase";
+  const hasExplicitSeller = String(inv.seller_name ?? "").trim() !== "";
+  const legacyPurchase = type === "purchase" && !hasExplicitSeller;
   return {
     id: inv.id,
     invoice_number: inv.invoice_number ?? "",
-    contractor_name: inv.contractor_name ?? "",
-    contractor_nip: inv.contractor_nip != null ? String(inv.contractor_nip).trim() : "",
+    seller_name:
+      String(inv.seller_name ?? "").trim() ||
+      (type === "purchase"
+        ? String(inv.contractor_name ?? "").trim()
+        : replaceLegacyDefaultPayer(inv.payer) || DEFAULT_PAYER),
+    seller_nip:
+      String(inv.seller_nip ?? "").trim() ||
+      (legacyPurchase ? String(inv.contractor_nip ?? "").trim() : ""),
+    contractor_name: legacyPurchase
+      ? replaceLegacyDefaultPayer(inv.payer) || DEFAULT_PAYER
+      : String(inv.contractor_name ?? "").trim(),
+    contractor_nip: legacyPurchase ? "" : String(inv.contractor_nip ?? "").trim(),
     amount: inv.amount != null && inv.amount !== "" ? inv.amount : "",
     amount_eur: inv.amount_eur != null && inv.amount_eur !== "" ? inv.amount_eur : "",
     currency: INVOICE_CURRENCIES.includes((inv.currency || "PLN").toUpperCase())

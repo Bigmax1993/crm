@@ -53,9 +53,11 @@ describe("pickInvoiceApiPayload (jednostkowe)", () => {
     expect(out.payer).toBe(DEFAULT_INVOICE_PAYER);
   });
 
-  it("przepuszcza contractor_name, notes i amount_eur", () => {
+  it("przepuszcza seller_name, contractor_name, notes i amount_eur", () => {
     const out = pickInvoiceApiPayload({
       invoice_number: "FV/2",
+      seller_name: "Sprzedawca SA",
+      seller_nip: "5252445767",
       contractor_name: "Firma SA",
       amount: 200,
       amount_eur: 44.5,
@@ -64,6 +66,8 @@ describe("pickInvoiceApiPayload (jednostkowe)", () => {
     });
     expect(out).toMatchObject({
       invoice_number: "FV/2",
+      seller_name: "Sprzedawca SA",
+      seller_nip: "5252445767",
       contractor_name: "Firma SA",
       amount: 200,
       amount_eur: 44.5,

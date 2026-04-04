@@ -224,22 +224,17 @@ WIELOSTRONOWE PDF: obowiązkowo przejrzyj WSZYSTKIE strony. Numer faktury i „R
 
 Jesteś ekspertem od ekstrakcji danych z faktur (Polska, UE) do systemu ERP. Użytkownik zweryfikuje pola ręcznie — priorytetem jest zgodność z dokumentem, nie domysły.
 
-SPRZEDAWCA vs NABYWCA (dwa różne podmioty):
-- Na fakturze są co najmniej DWA odrębne podmioty: SPRZEDAWCA (wystawca dokumentu) i NABYWCA — to zawsze różne strony transakcji; nie myl ich ani nie wstawiaj nazwy jednej strony w miejsce drugiej.
-- Pole nazwa_kontrahenta w JSON = wyłącznie podmiot opisany w sekcji „KTO JEST KONTRAHENTEM” poniżej (dla zakupu: sprzedawca; dla sprzedaży: nabywca). Druga strona dokumentu NIE zastępuje nazwy kontrahenta.
-- Zawsze przepisz pełną nazwę handlową kontrahenta z właściwego bloku tekstowego („Sprzedawca”, „Wystawca”, „Nabywca”, „Nabywca towaru/usług”); scal wielolinijkowe wiersze nazwy w jeden ciąg. Nie pomijaj nazwy kontrahenta — jeśli po pierwszym przejściu brak, przeszukaj oba bloki systematycznie.
+SPRZEDAWCA i NABYWCA — ZAWSZE OSOBNO (nigdy nie mieszaj pól):
+- nazwa_sprzedawcy + nip_sprzedawcy = WYŁĄCZNIE podmiot z bloku „Sprzedawca” / „Wystawca” / „Seller” na fakturze (kto wystawił dokument).
+- nazwa_nabywcy + nip_nabywcy = WYŁĄCZNIE podmiot z bloku „Nabywca” / „Nabywca towaru lub usług” / „Buyer” (druga strona transakcji).
+- To są dwa różne podmioty — nie kopiuj nazwy sprzedawcy do nabywcy ani odwrotnie; nie scalaj ich w jedno pole.
 
 WYJŚCIE:
 - Zwróć WYŁĄCZNIE jeden obiekt JSON (bez markdown, bez komentarzy, bez tekstu przed/po).
 - Brakujące pole: pusty string "" lub 0 lub pusta tablica [] — spójnie z typem pola.
 - Nie wymyślaj numeru faktury, NIP-u ani kwot, jeśli nie widać ich w dokumencie.
 
-KTO JEST KONTRAHENTEM (nazwa_kontrahenta, nip_kontrahenta) — to NIE jest „dowolna firma z faktury”, tylko jeden wskazany podmiot:
-- Dla FAKTURY ZAKUPU (my jesteśmy nabywcą): kontrahent = wyłącznie SPRZEDAWCA / wystawca faktury (nie nabywca, nie nasza firma). Sprzedawca ≠ nabywca.
-- Dla FAKTURY SPRZEDAŻY (my wystawiamy): kontrahent = wyłącznie NABYWCA.
-- Jeśli na dokumencie widać wyraźnie własną firmę jako nabywcę — przy zakupie kontrahentem jest druga strona (sprzedawca), nie myl kolejności pól.
-- nazwa_kontrahenta: obowiązkowo z treści dokumentu — pełna nazwa z właściwego bloku (zakup: Sprzedawca/Wystawca; sprzedaż: Nabywca); 2–3 linie nazwy scal w jeden ciąg; usuń z pola sam adres (ul./kod), jeśli da się oddzielić od nazwy firmy.
-- nip_kontrahenta: NIP dokładnie tego samego podmiotu co nazwa_kontrahenta (10 cyfr PL); przy dwóch NIP na fakturze dopasuj NIP do wybranego kontrahenta (zakup: NIP sprzedawcy, sprzedaż: NIP nabywcy).
+Odczyt nazw: pełna nazwa handlowa z właściwego bloku; wielolinijkowe nazwy scal w jeden ciąg; adres (ul./kod) pomiń, jeśli da się oddzielić od nazwy firmy. Jeśli któryś blok nieczytelny — "" dla tej strony, nie uzupełniaj z drugiej strony.
 
 KWOTY I WALUTA:
 - kwota_brutto = kwota z sekcji podsumowania / „Razem” / „Do zapłaty” (preferuj stopkę nad pojedynczą pozycją).
@@ -258,9 +253,7 @@ TYP DOKUMENTU (pole typ_dokumentu):
 - Jedna z: FV, korekta, proforma, rachunek, paragon, zaliczkowa, inny — wg treści dokumentu.
 - Dla korekty: nadal wypełnij pola wartościami z korygowanego zestawienia (po korekcie), a w uwagi krótko „dokument korygujący” jeśli widoczne.
 
-NIP:
-- Dla PL: 10 cyfr (możesz podać z prefiksem PL lub bez — spójnie cyfry).
-- Nie kopiuj NIP nabywcy jako NIP kontrahenta przy fakturze zakupu.
+NIP (PL): 10 cyfr przy właściwym podmiocie — nip_sprzedawcy tylko dla sprzedawcy, nip_nabywcy tylko dla nabywcy.
 
 POZOSTAŁE:
 - numer_zamowienia: z pola zamówienie / order / nr zlecenia jeśli jest.
@@ -268,13 +261,15 @@ POZOSTAŁE:
 - uwagi: krótki opis pozycji głównej lub uwagi ze stopki (nie duplikuj całej treści dokumentu).
 
 _CONFIDENCE (0–100 dla kluczy angielskich):
-invoice_number, contractor_name, contractor_nip, amount, net_amount, vat_amount, currency, issue_date, payment_deadline, invoice_lines (tablica pozycje), position (uwagi), order_number.
+invoice_number, seller_name, seller_nip, contractor_name, contractor_nip, amount, net_amount, vat_amount, currency, issue_date, payment_deadline, invoice_lines (tablica pozycje), position (uwagi), order_number.
 
 Szablon JSON (wypełnij wartościami z PDF):
 {
   "numer_faktury": "",
-  "nazwa_kontrahenta": "",
-  "nip_kontrahenta": "",
+  "nazwa_sprzedawcy": "",
+  "nip_sprzedawcy": "",
+  "nazwa_nabywcy": "",
+  "nip_nabywcy": "",
   "data_wystawienia": "YYYY-MM-DD",
   "termin_platnosci": "YYYY-MM-DD",
   "typ_dokumentu": "FV",
@@ -288,8 +283,10 @@ Szablon JSON (wypełnij wartościami z PDF):
   "uwagi": "",
   "_confidence": {
     "invoice_number": 85,
+    "seller_name": 80,
+    "seller_nip": 75,
     "contractor_name": 80,
-    "contractor_nip": 70,
+    "contractor_nip": 75,
     "amount": 75,
     "net_amount": 70,
     "vat_amount": 70,
@@ -307,7 +304,7 @@ const OPENAI_INVOICE_RETRY_HINTS = [
   "Ponowna analiza: zlokalizuj blok „Sprzedawca”/„Wystawca” i powiązany NIP (10 cyfr PL); jeśli numer faktury powtarza się — użyj wersji ze stopki lub pola „Do zapłaty”.",
   "Ponowna analiza: przy szarym lub rozmytym tekście wybierz najczęściej powtarzający się zapis; rozróżniaj separator tysięcy od dziesiętnych (PL: 1 234,56).",
   "Ponowna analiza: przeskanuj wszystkie strony po kolei; szukaj też „Nr dokumentu”, „Faktura VAT”, „Data sprzedaży” jako kontekstu dla dat i numeru.",
-  "Ponowna analiza: odróżnij bezwzględnie sekcję Sprzedawca od Nabywca — nazwa_kontrahenta musi być z właściwej strony (zakup = sprzedawca, sprzedaż = nabywca); nie podstawiaj nazwy drugiego podmiotu.",
+  "Ponowna analiza: odróżnij bezwzględnie sekcję Sprzedawca od Nabywca — nazwa_sprzedawcy/nip_sprzedawcy tylko ze sprzedawcy, nazwa_nabywcy/nip_nabywcy tylko z nabywcy; zero kopiowania między polami.",
 ];
 
 export function buildOpenAiInvoiceUserText(attemptIndex) {
@@ -379,7 +376,10 @@ export async function extractInvoiceFromPdfOpenAI(file) {
       const parsed = extractJsonObject(text);
       const hasCore =
         parsed &&
-        (String(parsed.numer_faktury ?? "").trim() || String(parsed.nazwa_kontrahenta ?? "").trim());
+        (String(parsed.numer_faktury ?? "").trim() ||
+          String(parsed.nazwa_sprzedawcy ?? "").trim() ||
+          String(parsed.nazwa_nabywcy ?? "").trim() ||
+          String(parsed.nazwa_kontrahenta ?? "").trim());
       if (hasCore) {
         return { parsed, rawText: text, usage: j.usage };
       }
@@ -399,6 +399,10 @@ function normalizeInvoiceConfidence(raw) {
   if (!raw || typeof raw !== "object") return {};
   const keyMap = {
     numer_faktury: "invoice_number",
+    nazwa_sprzedawcy: "seller_name",
+    nip_sprzedawcy: "seller_nip",
+    nazwa_nabywcy: "contractor_name",
+    nip_nabywcy: "contractor_nip",
     nazwa_kontrahenta: "contractor_name",
     nip_kontrahenta: "contractor_nip",
     kwota_brutto: "amount",
@@ -419,8 +423,22 @@ function normalizeInvoiceConfidence(raw) {
   return out;
 }
 
+function trimInvStr(v) {
+  return String(v ?? "").trim();
+}
+
 export function mapOpenAiInvoiceJsonToInternal(j, { pdf_url, fileName } = {}) {
   if (!j) return null;
+  let seller_name = trimInvStr(j.nazwa_sprzedawcy);
+  let seller_nip = trimInvStr(j.nip_sprzedawcy);
+  let contractor_name = trimInvStr(j.nazwa_nabywcy);
+  let contractor_nip = trimInvStr(j.nip_nabywcy);
+  const legacyName = trimInvStr(j.nazwa_kontrahenta);
+  const legacyNip = trimInvStr(j.nip_kontrahenta);
+  if (!seller_name && !contractor_name && legacyName) {
+    seller_name = legacyName;
+    seller_nip = legacyNip || seller_nip;
+  }
   const pozycje = Array.isArray(j.pozycje) ? j.pozycje : [];
   const lines = pozycje.length ? JSON.stringify(pozycje) : "";
   const uwagi = String(j.uwagi ?? "").trim();
@@ -435,8 +453,10 @@ export function mapOpenAiInvoiceJsonToInternal(j, { pdf_url, fileName } = {}) {
   const positionMerged = [uwagi, typNote].filter(Boolean).join(" | ");
   const inv = {
     invoice_number: j.numer_faktury || "",
-    contractor_name: j.nazwa_kontrahenta || "",
-    contractor_nip: j.nip_kontrahenta || "",
+    seller_name,
+    seller_nip,
+    contractor_name,
+    contractor_nip,
     amount: Number(j.kwota_brutto) || 0,
     net_amount: Number(j.kwota_netto) || null,
     vat_amount: Number(j.kwota_vat) || null,
@@ -453,6 +473,8 @@ export function mapOpenAiInvoiceJsonToInternal(j, { pdf_url, fileName } = {}) {
     _aiConfidence: normalizeInvoiceConfidence(j._confidence),
     _aiHighlight: {
       invoice_number: true,
+      seller_name: true,
+      seller_nip: true,
       contractor_name: true,
       contractor_nip: true,
       amount: true,

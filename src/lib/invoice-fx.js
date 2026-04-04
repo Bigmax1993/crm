@@ -91,6 +91,8 @@ export async function enrichInvoiceForSave(invoice, { recomputePaid = false } = 
 
 const API_KEYS = new Set([
   "invoice_number",
+  "seller_name",
+  "seller_nip",
   "contractor_name",
   "contractor_nip",
   "amount",

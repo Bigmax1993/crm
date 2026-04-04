@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Search, Truck, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { findDuplicateInvoice } from '@/lib/duplicate-detection';
-import { DEFAULT_INVOICE_PAYER } from '@/lib/invoice-schema';
+import { DEFAULT_INVOICE_PAYER, displayInvoiceSeller } from '@/lib/invoice-schema';
 
 export default function Transport() {
   const [search, setSearch] = useState('');
@@ -44,14 +44,14 @@ export default function Transport() {
     .map(c => c.name);
 
   // Filtruj faktury od kontrahentów transportowych
-  const transportInvoices = invoices.filter(inv => 
-    transportContractors.includes(inv.contractor_name)
+  const transportInvoices = invoices.filter((inv) =>
+    transportContractors.includes(displayInvoiceSeller(inv))
   );
 
-  const filteredInvoices = transportInvoices.filter(inv => {
+  const filteredInvoices = transportInvoices.filter((inv) => {
     const searchLower = search.toLowerCase();
     return (
-      inv.contractor_name?.toLowerCase().includes(searchLower) ||
+      displayInvoiceSeller(inv)?.toLowerCase().includes(searchLower) ||
       inv.invoice_number?.toLowerCase().includes(searchLower)
     );
   });
@@ -89,9 +89,17 @@ export default function Transport() {
       return;
     }
     createInvoiceMutation.mutate({
-      ...formData,
+      invoice_number: formData.invoice_number,
+      seller_name: formData.contractor_name,
+      contractor_name: formData.payer || DEFAULT_INVOICE_PAYER,
+      payer: formData.payer || DEFAULT_INVOICE_PAYER,
       amount: parseFloat(formData.amount),
-      category: 'standard'
+      currency: formData.currency,
+      issue_date: formData.issue_date,
+      payment_deadline: formData.payment_deadline,
+      status: formData.status,
+      invoice_type: "purchase",
+      category: "standard",
     });
   };
 
@@ -123,7 +131,7 @@ export default function Transport() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>Nazwa kontrahenta *</Label>
+                    <Label>Przewoźnik (sprzedawca na fakturze) *</Label>
                     <Input
                       required
                       value={formData.contractor_name}
@@ -254,7 +262,7 @@ export default function Transport() {
                 ) : (
                   filteredInvoices.map(inv => (
                     <TableRow key={inv.id}>
-                      <TableCell className="font-medium">{inv.contractor_name}</TableCell>
+                      <TableCell className="font-medium">{displayInvoiceSeller(inv)}</TableCell>
                       <TableCell>{inv.invoice_number}</TableCell>
                       <TableCell className="text-slate-600">{inv.payer || '-'}</TableCell>
                       <TableCell>

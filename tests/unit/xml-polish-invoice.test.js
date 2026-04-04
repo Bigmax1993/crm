@@ -10,7 +10,7 @@ describe("parsePolishInvoiceXml", () => {
     expect(parsePolishInvoiceXml('<?xml version="1.0"?><root></root>')).toEqual([]);
   });
 
-  it("wyciąga podstawowe pola z uproszczonego FA — kontrahent = sprzedawca (Nazwa_1)", () => {
+  it("wyciąga sprzedawcę i nabywcę osobno z uproszczonego FA", () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
     <Fa>
       <P_1>FV/UNIT/01</P_1>
@@ -24,8 +24,10 @@ describe("parsePolishInvoiceXml", () => {
     </Fa>`;
     const [row] = parsePolishInvoiceXml(xml);
     expect(row.invoice_number).toBe("FV/UNIT/01");
-    expect(row.contractor_name).toBe("Dostawca Sp. z o.o.");
-    expect(row.contractor_nip).toBe("5252445767");
+    expect(row.seller_name).toBe("Dostawca Sp. z o.o.");
+    expect(row.seller_nip).toBe("5252445767");
+    expect(row.contractor_name).toBe("Klient Testowy");
+    expect(row.contractor_nip).toBe("1234567890");
     expect(row.payer).toBe("Klient Testowy");
     expect(row.amount).toBeCloseTo(1230.5, 5);
     expect(row.currency).toBe("PLN");

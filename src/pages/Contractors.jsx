@@ -11,6 +11,7 @@ import { Search, Plus, Building2, Phone, Mail, ExternalLink } from 'lucide-react
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import ContractorForm from '@/components/crm/ContractorForm';
+import { displayInvoiceSeller } from '@/lib/invoice-schema';
 
 export default function Contractors() {
   const [search, setSearch] = useState('');
@@ -55,11 +56,22 @@ export default function Contractors() {
     return matchesSearch && matchesType;
   });
 
-  const getInvoiceStats = (contractorName) => {
-    const contractorInvoices = invoices.filter(inv => 
-      inv.contractor_name?.toLowerCase().includes(contractorName?.toLowerCase()) ||
-      contractorName?.toLowerCase().includes(inv.contractor_name?.toLowerCase())
-    );
+  const getInvoiceStats = (contractorName, contractorType) => {
+    const cn = (contractorName || "").toLowerCase().trim();
+    const contractorInvoices = invoices.filter((inv) => {
+      const seller = (displayInvoiceSeller(inv) || "").toLowerCase();
+      const buyer = (inv.contractor_name || "").toLowerCase();
+      if (contractorType === "supplier") {
+        return seller.includes(cn) || cn.includes(seller);
+      }
+      if (contractorType === "client") {
+        return buyer.includes(cn) || cn.includes(buyer);
+      }
+      return (
+        (seller && (seller.includes(cn) || cn.includes(seller))) ||
+        (buyer && (buyer.includes(cn) || cn.includes(buyer)))
+      );
+    });
     const total = contractorInvoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
     const unpaid = contractorInvoices.filter(inv => inv.status === 'unpaid').length;
     return { count: contractorInvoices.length, total, unpaid };
@@ -162,7 +174,7 @@ export default function Contractors() {
                   </TableRow>
                 ) : (
                   filteredContractors.map(contractor => {
-                    const stats = getInvoiceStats(contractor.name);
+                    const stats = getInvoiceStats(contractor.name, contractor.type);
                     return (
                       <TableRow key={contractor.id}>
                         <TableCell>

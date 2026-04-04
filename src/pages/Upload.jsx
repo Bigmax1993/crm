@@ -28,6 +28,7 @@ import { enrichInvoiceForSave, pickInvoiceApiPayload } from "@/lib/invoice-fx";
 import { findDuplicateInvoice, invoiceNumberMatches } from "@/lib/duplicate-detection";
 import { looksLikeBankReportName, looksLikeBankReportPlain } from "@/lib/invoice-report-detection";
 import { bulkCreateOrSequential, formatBase44Error } from "@/lib/base44-entity-save";
+import { displayInvoiceSeller, displayInvoiceContractor } from "@/lib/invoice-schema";
 
 function detectFormat(file) {
   const n = file.name.toLowerCase();
@@ -54,12 +55,24 @@ function ExtractionSourceBadge({ source }) {
 
 function matchProjectId(projects, invoice) {
   const cn = (invoice.contractor_name || "").toLowerCase().trim();
+  const sn = (invoice.seller_name || "").toLowerCase().trim();
   const order = (invoice.order_number || "").toLowerCase().trim();
   for (const p of projects) {
     const client = (p.client_name || "").toLowerCase().trim();
-    if (client && (cn.includes(client) || client.includes(cn))) return p.id;
+    if (
+      client &&
+      (cn.includes(client) ||
+        client.includes(cn) ||
+        sn.includes(client) ||
+        client.includes(sn))
+    )
+      return p.id;
     const oname = (p.object_name || "").toLowerCase().trim();
-    if (oname && (cn.includes(oname) || oname.includes(cn))) return p.id;
+    if (
+      oname &&
+      (cn.includes(oname) || oname.includes(cn) || sn.includes(oname) || oname.includes(sn))
+    )
+      return p.id;
     const nums = (p.invoice_numbers || "").toLowerCase();
     if (order && nums.includes(order)) return p.id;
     if (invoice.invoice_number && nums.includes(String(invoice.invoice_number).toLowerCase())) return p.id;
@@ -111,7 +124,10 @@ export default function Upload() {
       };
       results.push({
         invoice_number: getTagValue("invoice_number"),
+        seller_name: getTagValue("seller_name"),
+        seller_nip: getTagValue("seller_nip"),
         contractor_name: getTagValue("contractor_name"),
+        contractor_nip: getTagValue("contractor_nip"),
         amount: Math.abs(parseFloat(getTagValue("amount")) || 0),
         currency: getTagValue("currency") || "PLN",
         issue_date: getTagValue("issue_date"),
@@ -186,7 +202,14 @@ export default function Upload() {
             }
 
             const heur = heuristicInvoiceFromPdfText(plain, item.file.name);
-            if (heur && (heur.invoice_number?.trim() || heur.contractor_name?.trim() || heur.contractor_nip)) {
+            if (
+              heur &&
+              (heur.invoice_number?.trim() ||
+                heur.seller_name?.trim() ||
+                heur.contractor_name?.trim() ||
+                heur.seller_nip ||
+                heur.contractor_nip)
+            ) {
               return [
                 {
                   ...heur,
@@ -209,7 +232,12 @@ export default function Upload() {
               try {
                 const { parsed } = await extractInvoiceFromPdfOpenAI(item.file);
                 const mapped = mapFromParsed(parsed);
-                if (mapped && (mapped.invoice_number?.trim() || mapped.contractor_name?.trim())) {
+                if (
+                  mapped &&
+                  (mapped.invoice_number?.trim() ||
+                    mapped.seller_name?.trim() ||
+                    mapped.contractor_name?.trim())
+                ) {
                   return [
                     {
                       ...mapped,
@@ -231,7 +259,12 @@ export default function Upload() {
             try {
               const { parsed } = await extractInvoiceFromPdfBase44(item.file);
               const mapped = mapFromParsed(parsed);
-              if (mapped && (mapped.invoice_number?.trim() || mapped.contractor_name?.trim())) {
+              if (
+                mapped &&
+                (mapped.invoice_number?.trim() ||
+                  mapped.seller_name?.trim() ||
+                  mapped.contractor_name?.trim())
+              ) {
                 return [
                   {
                     ...mapped,
@@ -289,7 +322,10 @@ export default function Upload() {
         if (item.xmlData) {
           stubRows.push({
             invoice_number: "",
+            seller_name: "",
+            seller_nip: "",
             contractor_name: "",
+            contractor_nip: "",
             amount: 0,
             currency: "PLN",
             category: "standard",
@@ -301,7 +337,10 @@ export default function Upload() {
         } else {
           stubRows.push({
             invoice_number: "",
+            seller_name: "",
+            seller_nip: "",
             contractor_name: "",
+            contractor_nip: "",
             amount: 0,
             currency: "PLN",
             category: "standard",
@@ -402,11 +441,13 @@ export default function Upload() {
       toast.error("Brak pozycji do zapisu (wszystkie odrzucone?)");
       return;
     }
-    const incomplete = toSave.filter(
-      (i) => !String(i.invoice_number ?? "").trim() || !String(i.contractor_name ?? "").trim()
-    );
+    const incomplete = toSave.filter((i) => {
+      if (!String(i.invoice_number ?? "").trim()) return true;
+      if (!displayInvoiceSeller(i) || !displayInvoiceContractor(i)) return true;
+      return false;
+    });
     if (incomplete.length > 0) {
-      toast.error("Uzupełnij numer faktury i kontrahenta u wszystkich pozycji zapisanych do bazy.");
+      toast.error("Uzupełnij numer faktury, sprzedawcę i kontrahenta (nabywcę) u wszystkich pozycji zapisanych do bazy.");
       return;
     }
 
@@ -451,7 +492,17 @@ export default function Upload() {
       if (standardInvoices.length > 0) {
         const existingContractors = await base44.entities.Contractor.list();
         const contractorNames = new Set(existingContractors.map((c) => c.name?.toLowerCase()));
-        const uniqueContractors = [...new Set(standardInvoices.map((inv) => inv.contractor_name))].filter(Boolean);
+        const uniqueContractors = [
+          ...new Set(
+            standardInvoices.flatMap((inv) => {
+              const isSales = inv.is_own_company_seller === true;
+              const name = isSales
+                ? String(inv.contractor_name || "").trim()
+                : String(displayInvoiceSeller(inv) || "").trim();
+              return name ? [name] : [];
+            })
+          ),
+        ].filter(Boolean);
         const newContractors = uniqueContractors.filter((name) => !contractorNames.has(name.toLowerCase()));
         if (newContractors.length > 0) {
           const contractorRows = newContractors.map((name) => ({ name, type: "supplier", status: "active" }));
@@ -513,7 +564,7 @@ export default function Upload() {
           if (hotelStaysToCreate.some((s) => invoiceNumberMatches(s.invoice_number, inv.invoice_number))) continue;
           hotelStaysToCreate.push({
             invoice_number: inv.invoice_number,
-            hotel_name: inv.hotel_name || inv.contractor_name,
+            hotel_name: inv.hotel_name || displayInvoiceSeller(inv) || inv.contractor_name,
             city: inv.city,
             stay_period: inv.stay_period,
             persons_count: inv.persons_count,
@@ -574,7 +625,10 @@ export default function Upload() {
             pdf_url: inv.pdf_url,
             fileName: inv.fileName,
           });
-          if (mapped && (mapped.invoice_number?.trim() || mapped.contractor_name?.trim())) {
+          if (
+            mapped &&
+            (mapped.invoice_number?.trim() || mapped.seller_name?.trim() || mapped.contractor_name?.trim())
+          ) {
             extractionSource = "openai";
           }
         } catch (openErr) {
@@ -588,12 +642,18 @@ export default function Upload() {
           pdf_url: inv.pdf_url,
           fileName: inv.fileName,
         });
-        if (mapped && (mapped.invoice_number?.trim() || mapped.contractor_name?.trim())) {
+        if (
+          mapped &&
+          (mapped.invoice_number?.trim() || mapped.seller_name?.trim() || mapped.contractor_name?.trim())
+        ) {
           extractionSource = "base44";
         }
       }
-      if (!mapped || (!mapped.invoice_number?.trim() && !mapped.contractor_name?.trim())) {
-        throw new Error("AI nie zwróciło numeru faktury ani kontrahenta — sprawdź plik lub uzupełnij ręcznie.");
+      if (
+        !mapped ||
+        (!mapped.invoice_number?.trim() && !mapped.seller_name?.trim() && !mapped.contractor_name?.trim())
+      ) {
+        throw new Error("AI nie zwróciło numeru faktury ani podmiotów — sprawdź plik lub uzupełnij ręcznie.");
       }
       const updated = [...extractedData];
       updated[idx] = {
@@ -900,7 +960,37 @@ export default function Upload() {
                         </div>
                         <div>
                           <Label className="flex items-center flex-wrap gap-1">
-                            Kontrahent
+                            Sprzedawca (wystawca)
+                            {invoice._aiConfidence?.seller_name != null && (
+                              <span className="text-[10px] font-normal text-muted-foreground">
+                                AI {invoice._aiConfidence.seller_name}%
+                              </span>
+                            )}
+                          </Label>
+                          <Input
+                            className={cn(aiFieldClass(invoice, "seller_name"))}
+                            value={invoice.seller_name || ""}
+                            onChange={(e) => updateInvoice(idx, "seller_name", e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label className="flex items-center flex-wrap gap-1">
+                            NIP sprzedawcy
+                            {invoice._aiConfidence?.seller_nip != null && (
+                              <span className="text-[10px] font-normal text-muted-foreground">
+                                AI {invoice._aiConfidence.seller_nip}%
+                              </span>
+                            )}
+                          </Label>
+                          <Input
+                            className={cn(aiFieldClass(invoice, "seller_nip"))}
+                            value={invoice.seller_nip || ""}
+                            onChange={(e) => updateInvoice(idx, "seller_nip", e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label className="flex items-center flex-wrap gap-1">
+                            Kontrahent (nabywca)
                             {invoice._aiConfidence?.contractor_name != null && (
                               <span className="text-[10px] font-normal text-muted-foreground">
                                 AI {invoice._aiConfidence.contractor_name}%
@@ -915,7 +1005,7 @@ export default function Upload() {
                         </div>
                         <div>
                           <Label className="flex items-center flex-wrap gap-1">
-                            NIP
+                            NIP kontrahenta
                             {invoice._aiConfidence?.contractor_nip != null && (
                               <span className="text-[10px] font-normal text-muted-foreground">
                                 AI {invoice._aiConfidence.contractor_nip}%

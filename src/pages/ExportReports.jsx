@@ -23,6 +23,7 @@ import { getNbpTableAForBusinessDay, getMidFromTable } from "@/lib/nbp-rates";
 import { FileSpreadsheet, FileType, Loader2 } from "lucide-react";
 import { EXPORT_BRAND_EXCEL_ARGB, getExportReportTitle, EXPORT_ADDRESS, EXPORT_WEB } from "@/lib/brand-brief";
 import ExecutivePdfSurface from "@/components/export/ExecutivePdfSurface";
+import { displayInvoiceSeller } from "@/lib/invoice-schema";
 
 function styleHeader(row) {
   row.eachCell((cell) => {
@@ -123,7 +124,8 @@ export default function ExportReports() {
         if (typeof fx.kwotaPLN === "number") sumPln += fx.kwotaPLN;
         const row = s1.addRow({
           nr: inv.invoice_number,
-          kontrahent: inv.contractor_name,
+          kontrahent:
+            inv.invoice_type === "sales" ? inv.contractor_name : displayInvoiceSeller(inv) || inv.contractor_name,
           typ: inv.invoice_type === "sales" ? "sprzedaż" : "zakup",
           kwota: inv.amount,
           waluta: inv.currency || "PLN",
