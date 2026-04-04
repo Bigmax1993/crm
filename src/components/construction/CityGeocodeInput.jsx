@@ -4,13 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { searchPhotonPoland } from "@/lib/photon-geocode";
+import { searchCitySuggestionsPoland } from "@/lib/open-meteo-geocode";
 import { geocodeCityWithGpt } from "@/lib/geo-ai";
 import { isOpenAiConfigured } from "@/lib/openai-crm";
 import { toast } from "sonner";
 
 /**
- * Miasto z listą sugestii (Photon) + opcjonalnie uzupełnienie GPS przez OpenAI (geo-ai).
+ * Miasto z listą sugestii (Open-Meteo Geocoding, PL) + opcjonalnie GPS przez OpenAI (geo-ai).
  */
 export function CityGeocodeInput({ city, latitude, longitude, onPatch, disabled, id }) {
   const [open, setOpen] = useState(false);
@@ -34,7 +34,7 @@ export function CityGeocodeInput({ city, latitude, longitude, onPatch, disabled,
     debounceRef.current = setTimeout(async () => {
       setLoadingList(true);
       try {
-        const rows = await searchPhotonPoland(q);
+        const rows = await searchCitySuggestionsPoland(q);
         setResults(rows);
         setOpen(rows.length > 0);
         setHighlight(-1);
@@ -42,11 +42,7 @@ export function CityGeocodeInput({ city, latitude, longitude, onPatch, disabled,
         setResults([]);
         setOpen(false);
         const msg = e?.message || "";
-        toast.error(
-          msg.includes("Photon HTTP")
-            ? "Geokodowanie (Photon): serwer odrzucił zapytanie. Spróbuj ponownie za chwilę lub użyj przycisku OpenAI."
-            : msg || "Nie udało się pobrać sugestii miejscowości."
-        );
+        toast.error(msg || "Nie udało się pobrać sugestii miejscowości.");
       } finally {
         setLoadingList(false);
       }
@@ -180,7 +176,7 @@ export function CityGeocodeInput({ city, latitude, longitude, onPatch, disabled,
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Zacznij pisać (np. „Wroclaw”) — wybierz sugestię z listy, aby ustawić poprawną nazwę i GPS. Obiekt z wypełnionymi współrzędnymi pojawi się na{" "}
+        Zacznij pisać (np. „Wroc”) — wybierz sugestię z listy (baza Open-Meteo, tylko Polska), aby ustawić nazwę z ogonkami i GPS. Obiekt z współrzędnymi pojawi się na{" "}
         <strong>Mapie obiektów</strong>.
       </p>
 
