@@ -80,7 +80,6 @@ const NAV_GROUPS = NAV_GROUP_ORDER.map((g) => ({
     }))
     .filter((x) => x.icon && x.name && canAccessPage(x.page, null)),
 })).filter((g) => g.items.length > 0);
-}));
 
 function NavRailLink({ item, isActive, expanded }) {
   const Icon = item.icon;
@@ -176,7 +175,7 @@ export default function Layout({ children, currentPageName }) {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="min-h-screen bg-[hsl(40_7%_93%)] text-foreground dark:bg-background">
+      <div className="min-h-screen overflow-x-hidden bg-[hsl(40_7%_93%)] text-foreground dark:bg-background">
         {/* Mobile top bar */}
         <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between gap-2 border-b border-border bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:hidden">
           <div className="flex min-w-0 items-center gap-2">
@@ -220,7 +219,7 @@ export default function Layout({ children, currentPageName }) {
           </SheetContent>
         </Sheet>
 
-        <div className="flex min-h-screen">
+        <div className="flex min-h-screen min-w-0 overflow-x-hidden">
           {/* Desktop: rail — klik rozwija, mouseleave zwija */}
           <aside
             role="navigation"
@@ -308,7 +307,7 @@ export default function Layout({ children, currentPageName }) {
           </aside>
 
           {/* Canvas + toolbar */}
-          <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
             <header className="sticky top-0 z-20 hidden border-b border-border/80 bg-background/90 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/75 lg:flex lg:h-14 lg:items-center lg:justify-between lg:px-6">
               <div className="flex min-w-0 items-baseline gap-3">
                 <div className="hidden text-muted-foreground lg:block" aria-hidden>
@@ -328,8 +327,8 @@ export default function Layout({ children, currentPageName }) {
             {/* Toolbar mobile: placeholder spacing — real bar is fixed above */}
             <div className="h-14 shrink-0 lg:hidden" aria-hidden />
 
-            <main className="flex-1">
-              <div className="mx-auto w-full max-w-[1600px] px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
+            <main className="min-w-0 flex-1 overflow-x-hidden">
+              <div className="mx-auto w-full min-w-0 max-w-[1600px] px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
                 {children}
               </div>
             </main>

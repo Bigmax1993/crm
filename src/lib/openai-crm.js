@@ -215,7 +215,10 @@ export async function openaiDeleteFile(fileId) {
   }
 }
 
-const INVOICE_JSON_PROMPT = `Tryb MAKSYMALNEJ DOKŁADNOŚCI: traktuj PDF jak skan — czytaj sekcja po sekcji (nagłówek → sprzedawca → nabywca → pozycje → podsumowanie VAT → do zapłaty). Rozróżniaj O/0, l/1, przecinek dziesiętny od tysięcy (PL). Przy niepewności zostaw pole puste.
+/** Prompt JSON (OpenAI + Base44 InvokeLLM) — ten sam kształt co `mapOpenAiInvoiceJsonToInternal`. */
+export const INVOICE_JSON_PROMPT = `Tryb MAKSYMALNEJ DOKŁADNOŚCI: traktuj PDF jak skan — czytaj sekcja po sekcji (nagłówek → sprzedawca → nabywca → pozycje → podsumowanie VAT → do zapłaty). Rozróżniaj O/0, l/1, przecinek dziesiętny od tysięcy (PL). Przy niepewności zostaw pole puste.
+
+WIELOSTRONOWE PDF: obowiązkowo przejrzyj WSZYSTKIE strony. Numer faktury i „Razem” / „Do zapłaty” bywają na pierwszej lub ostatniej; tabela VAT i podsumowanie — zwykle pod listą pozycji. Przy kilku kwotach brutto wybierz tę z sekcji podsumowania / płatności, nie z pojedynczej pozycji.
 
 Jesteś ekspertem od ekstrakcji danych z faktur (Polska, UE) do systemu ERP. Użytkownik zweryfikuje pola ręcznie — priorytetem jest zgodność z dokumentem, nie domysły.
 
@@ -290,6 +293,23 @@ Szablon JSON (wypełnij wartościami z PDF):
   }
 }`;
 
+const OPENAI_INVOICE_RETRY_HINTS = [
+  "Ponowna analiza: sprawdź ostatnią stronę (podsumowanie VAT, „Razem”, „Do zapłaty”) oraz nagłówek pod kątem numeru faktury / „FV”.",
+  "Ponowna analiza: zlokalizuj blok „Sprzedawca”/„Wystawca” i powiązany NIP (10 cyfr PL); jeśli numer faktury powtarza się — użyj wersji ze stopki lub pola „Do zapłaty”.",
+  "Ponowna analiza: przy szarym lub rozmytym tekście wybierz najczęściej powtarzający się zapis; rozróżniaj separator tysięcy od dziesiętnych (PL: 1 234,56).",
+  "Ponowna analiza: przeskanuj wszystkie strony po kolei; szukaj też „Nr dokumentu”, „Faktura VAT”, „Data sprzedaży” jako kontekstu dla dat i numeru.",
+];
+
+export function buildOpenAiInvoiceUserText(attemptIndex) {
+  if (attemptIndex === 0) return INVOICE_JSON_PROMPT;
+  const hint = OPENAI_INVOICE_RETRY_HINTS[Math.min(attemptIndex - 1, OPENAI_INVOICE_RETRY_HINTS.length - 1)];
+  return `${INVOICE_JSON_PROMPT}
+
+---
+
+${hint}`;
+}
+
 /**
  * Ekstrakcja faktury z PDF przez OpenAI (plik → chat z załącznikiem).
  */
@@ -310,6 +330,7 @@ export async function extractInvoiceFromPdfOpenAI(file) {
     let lastText = "";
     let lastUsage = null;
     for (let attempt = 0; attempt < 3; attempt++) {
+      const userPrompt = buildOpenAiInvoiceUserText(attempt);
       const res = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -324,7 +345,7 @@ export async function extractInvoiceFromPdfOpenAI(file) {
             {
               role: "user",
               content: [
-                { type: "text", text: INVOICE_JSON_PROMPT },
+                { type: "text", text: userPrompt },
                 { type: "file", file: { file_id: fileId } },
               ],
             },

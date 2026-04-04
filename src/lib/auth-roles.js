@@ -29,7 +29,8 @@ export function roleFromUser(user) {
 export function canAccessPage(pageName, role) {
   if (!ADMIN_ONLY_PAGES.has(pageName)) return true;
   if (isAdminUiEnabled()) return true;
-  if (role == null) return false;
+  /** Brak roli (np. Base44 bez metadanych) — w demo pełny dostęp; admin-only tylko przy jawnej roli user. */
+  if (role == null) return true;
   return role === ROLE.ADMIN;
 }
 

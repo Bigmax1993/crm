@@ -13,6 +13,7 @@ import { Search, Plus, X, Trash2, Loader2, Building, Pencil, Image as ImageIcon,
 import { ConstructionOffersAi } from '@/components/ai/ConstructionOffersAi';
 import { OFFER_SEGMENT_OPTIONS, offerSegmentLabel } from '@/lib/offer-segments';
 import { getSiteExtension, patchSiteExtension } from '@/lib/crm-local-store';
+import { getUploadFilePublicUrl } from '@/lib/upload-file-url';
 
 function emptyLocalMeta() {
   return {
@@ -183,8 +184,9 @@ export default function Construction() {
 
     const reader = new FileReader();
     reader.onload = async () => {
-      const { url } = await base44.integrations.Core.UploadFile({ file: reader.result });
-      setFormData({ ...formData, photo_documentation: url });
+      const uploadRes = await base44.integrations.Core.UploadFile({ file: reader.result });
+      const url = getUploadFilePublicUrl(uploadRes);
+      if (url) setFormData({ ...formData, photo_documentation: url });
     };
     reader.readAsArrayBuffer(file);
   };

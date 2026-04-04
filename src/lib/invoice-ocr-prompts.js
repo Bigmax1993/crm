@@ -1,6 +1,6 @@
 /**
  * Prompty OCR (Base44 InvokeLLM) dla importu faktur PDF.
- * VITE_OCR_LLM_ATTEMPTS: 3–10, domyślnie 6 (więcej prób = silniejszy konsensus, wyższy koszt API).
+ * Liczba prób na PDF: getInvoiceBase44AttemptCount() (stałe 5).
  */
 function clampAttempts(n) {
   if (!Number.isFinite(n) || n < 3) return 6;
@@ -64,4 +64,27 @@ ${INVOICE_OCR_PROMPT_BASE}`;
 
 export function pickInvoiceOcrPrompt(attemptIndexZeroBased) {
   return attemptIndexZeroBased % 2 === 0 ? INVOICE_OCR_PROMPT_BASE : INVOICE_OCR_PROMPT_DEEP;
+}
+
+/** Fragment do kolejnych prób InvokeLLM (bez duplikacji całego INVOICE_JSON_PROMPT). */
+export const INVOICE_OCR_SCAN_ADDENDUM = `Dodatkowe reguły dla skanów i słabej czytelności:
+Lokalizuj najpierw BLOKI (nagłówek, sprzedawca, nabywca, tabela, podsumowanie VAT, „do zapłaty”, rachunek bankowy), potem czytaj pole po polu.
+Nie zamieniaj O na 0 ani l na 1 w numerze faktury — przy wątpliwości porównaj powtórzenia numeru w dokumencie.
+Tabele: każdy wiersz pozycji osobno; nie łącz komórek w jeden tekst, jeśli da się odczytać kolumny.
+Pieczątki: nie traktuj ich jako głównej nazwy kontrahenta — preferuj blok „Sprzedawca” / „Wystawca”.
+Wielowalutowość: kwota_brutto musi być w walucie z „Do zapłaty” / podsumowania.
+Format PL kwot: przecinek = dziesiętne, kropka lub spacja = tysiące (np. 1 234,56 zł).`;
+
+/** Trzecia fala — maksymalny nacisk na wielostronicowość i spójność kwot. */
+export const INVOICE_OCR_SCAN_ADDENDUM_DEEP = `TRYB GŁĘBOKI (kolejna próba OCR):
+- Przejrzyj KAŻDĄ stronę od początku do końca; korekty i duplikaty numerów — wybierz wersję ze strony podsumowania / ostatniej z tabelą VAT.
+- numer_faktury: szukaj też „Nr”, „Nr dokumentu”, „Faktura nr”, „FV”, „Dowód ks.”; jeśli kilka wariantów — ten przy logo lub w stopce płatności.
+- nazwa_kontrahenta: pełna nazwa firmy ze „Sprzedawca” (nie skrót z pieczątki), bez adresu w tym polu jeśli da się oddzielić.
+- NIP: dokładnie 10 cyfr (PL); jeśli widzisz „NIP” przy nabywcy i sprzedawcy — dla zakupu bierz NIP sprzedawcy.
+- kwota_brutto: musi odpowiadać „Razem brutto” / „Do zapłaty” / ostatniemu wierszowi podsumowania; jeśli VAT w wierszach — suma netto+VAT powinna się zgadzać (tolerancja zaokrągleń groszowych).
+- Przy niskim kontraście lub szumie: wybierz wariant tekstu powtarzający się co najmniej dwa razy w dokumencie dla tego samego pola.`;
+
+/** Stała liczba prób Base44 OCR na jeden PDF faktury (wzmocniony konsensus). */
+export function getInvoiceBase44AttemptCount() {
+  return 5;
 }

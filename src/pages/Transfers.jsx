@@ -10,6 +10,8 @@ import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { toast } from 'sonner';
 import { transferFingerprint } from '@/lib/duplicate-detection';
+import { getUploadFilePublicUrl } from '@/lib/upload-file-url';
+import { parseCSV } from '@/lib/transfers-parse';
 
 export default function Transfers() {
   const [files, setFiles] = useState([]);
@@ -25,26 +27,6 @@ export default function Transfers() {
 
   const handleFileChange = (e) => {
     setFiles(Array.from(e.target.files));
-  };
-
-  const extractInvoiceNumber = (text) => {
-    if (!text) return '';
-    const patterns = [
-      /[A-Z]{1,5}\/\d{1,4}\/\d{2,4}/i,
-      /\d{1,4}\/\d{2,4}/,
-      /FV[- ]?\d{1,10}/i,
-      /F[- ]?\d{1,10}/i,
-      /\d{5,10}/,
-      /FAKTURA[- ]?NR[- ]?\d{1,6}\/\d{4}/i,
-      /INV[- ]?\d{4}[- ]?\d{1,6}/i,
-      /#\d{5,10}/
-    ];
-    
-    for (const pattern of patterns) {
-      const match = text.match(pattern);
-      if (match) return match[0];
-    }
-    return '';
   };
 
   const cleanTransfersWithLLM = async (transfers) => {
@@ -121,122 +103,6 @@ Zwróć wyłącznie poprawny JSON ze schematem.`;
     return result?.cleaned_transfers || transfers;
   };
 
-  const parseCSV = (text) => {
-    const lines = text.split('\n').filter(l => l.trim());
-    if (lines.length < 1) return [];
-    
-    // Check if it's bank statement format (no clear header, semicolon separated)
-    const firstLine = lines[0];
-    const isBankStatement = firstLine.includes('EUR;') || firstLine.includes('PLN;') || 
-                           (firstLine.split(';').length >= 5 && !firstLine.toLowerCase().includes('kontrahent'));
-    
-    if (isBankStatement) {
-      // Parse bank statement format
-      const results = [];
-      
-      for (const line of lines) {
-        const parts = line.split(';');
-        if (parts.length < 5) continue;
-        
-        // Skip commission/fee lines
-        if (line.includes('PROWIZJA') || line.includes('Opłata za prowadzenie')) continue;
-        
-        // Try to extract: date, description, contractor, account, amount
-        let date = parts[0]?.trim();
-        let description = parts[1]?.trim() || '';
-        let contractor = '';
-        let accountNumber = '';
-        let amount = 0;
-        let currency = 'PLN';
-        
-        // Find currency in the line
-        if (line.includes('EUR')) currency = 'EUR';
-        
-        // Extract contractor name and account from description
-        const descParts = description.split(';');
-        for (let i = 0; i < descParts.length; i++) {
-          const part = descParts[i].trim();
-          
-          // Look for company name patterns
-          if (part.match(/[A-Z][a-z]+.*(?:sp\.|S\.A\.|GmbH|Poland|POLAND)/i)) {
-            contractor = part;
-          }
-          
-          // Look for account numbers (IBAN or Polish format)
-          if (part.match(/[A-Z]{2}\d{2}|^\d{2}\s?\d{4}/)) {
-            accountNumber = part;
-          }
-        }
-        
-        // Extract amount (negative values from parts)
-        for (let i = parts.length - 1; i >= 0; i--) {
-          const part = parts[i].replace(/\s/g, '');
-          if (part.match(/^-?\d+[,.]?\d*$/)) {
-            const value = parseFloat(part.replace(',', '.'));
-            if (value < 0) {
-              amount = Math.abs(value);
-              break;
-            }
-          }
-        }
-        
-        // Convert date format from DD.MM.YYYY to YYYY-MM-DD
-        if (date && date.match(/\d{2}\.\d{2}\.\d{4}/)) {
-          const [day, month, year] = date.split('.');
-          date = `${year}-${month}-${day}`;
-        }
-        
-        if (amount > 0 && contractor) {
-          const transfer = {
-            contractor_name: contractor,
-            amount: amount,
-            currency: currency,
-            transfer_date: date || '',
-            title: description,
-            account_number: accountNumber,
-            payer: 'KANBUD Sp. z o.o. Sp.k.',
-            invoice_number: extractInvoiceNumber(description)
-          };
-          
-          results.push(transfer);
-        }
-      }
-      
-      return results;
-    }
-    
-    // Standard CSV with headers
-    if (lines.length < 2) return [];
-    const headers = lines[0].split(';').map(h => h.trim().replace(/"/g, ''));
-    const results = [];
-    
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(';').map(v => v.trim().replace(/"/g, ''));
-      const row = {};
-      headers.forEach((h, idx) => {
-        row[h] = values[idx] || '';
-      });
-      
-      const transfer = {
-        contractor_name: row['Kontrahent'] || row['Nazwa kontrahenta'] || row['Kontrahent'] || '',
-        amount: Math.abs(parseFloat((row['Kwota'] || row['Kwota przelewu'] || '0').replace(',', '.').replace(/[^\d.-]/g, ''))),
-        currency: row['Waluta'] || row['Waluta przelewu'] || 'PLN',
-        transfer_date: row['Data'] || row['Data przelewu'] || '',
-        title: row['Tytul'] || row['Tytuł przelewu'] || row['Tytuł płatności'] || row['Opis'] || '',
-        account_number: row['Numer konta'] || row['Nr konta'] || '',
-        payer: 'KANBUD Sp. z o.o. Sp.k.'
-      };
-      
-      transfer.invoice_number = row['Numer faktury'] || row['Faktura'] || extractInvoiceNumber(transfer.title);
-      
-      if (transfer.amount > 0) {
-        results.push(transfer);
-      }
-    }
-    
-    return results;
-  };
-
   const processTransfers = async () => {
     if (files.length === 0) return;
 
@@ -253,8 +119,15 @@ Zwróć wyłącznie poprawny JSON ze schematem.`;
           const cleaned = await cleanTransfersWithLLM(transfers);
           allTransfers.push(...cleaned);
         } else if (file.name.endsWith('.pdf')) {
-          const { file_url } = await base44.integrations.Core.UploadFile({ file });
-          
+          const uploadRes = await base44.integrations.Core.UploadFile({ file });
+          const fileUrl = getUploadFilePublicUrl(uploadRes);
+          if (!fileUrl) {
+            throw new Error(
+              uploadRes?.message ||
+                "Upload PDF nie zwrócił adresu pliku — sprawdź integrację Base44 (tak samo jak przy uploadzie faktur)."
+            );
+          }
+
           const prompt = `Przeanalizuj dokument (potwierdzenie przelewu, wycinek z bankowości) i wyekstrahuj JEDEN zestaw pól — zwróć wyłącznie JSON zgodny ze schemą (bez markdown).
 
 contractor_name: nazwa odbiorcy (beneficjenta), nie nadawcy. Jeśli widzisz nadawcę i odbiorcę — bierz odbiorcę płatności.
@@ -286,7 +159,7 @@ Nie uzupełniaj pól domyślnymi wartościami z pamięci — tylko treść dokum
 
           const result = await base44.integrations.Core.InvokeLLM({
             prompt,
-            file_urls: [file_url],
+            file_urls: [fileUrl],
             response_json_schema: schema
           });
 
@@ -391,8 +264,13 @@ Nie uzupełniaj pól domyślnymi wartościami z pamięci — tylko treść dokum
       queryClient.invalidateQueries(['transfers']);
 
     } catch (error) {
-      console.error('Error:', error);
-      alert('Błąd podczas przetwarzania plików');
+      console.error("Error:", error);
+      const msg =
+        error?.data?.message ||
+        error?.response?.data?.message ||
+        error?.message ||
+        "Błąd podczas przetwarzania plików";
+      toast.error(msg);
     } finally {
       setProcessing(false);
     }

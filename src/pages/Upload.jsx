@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
@@ -17,19 +17,39 @@ import {
   mapOpenAiInvoiceJsonToInternal,
   isOpenAiConfigured,
 } from "@/lib/openai-crm";
-import { extractPlainTextFromPdf } from "@/lib/invoice-pdf-plain-text";
+import { extractInvoiceFromPdfBase44 } from "@/lib/invoice-pdf-base44";
+import { extractPlainTextFromPdfWithOcrFallback } from "@/lib/invoice-pdf-plain-text";
 import { heuristicInvoiceFromPdfText } from "@/lib/invoice-heuristic-from-text";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { toast } from "sonner";
 import { enrichInvoiceForSave, pickInvoiceApiPayload } from "@/lib/invoice-fx";
 import { findDuplicateInvoice, invoiceNumberMatches } from "@/lib/duplicate-detection";
+import { looksLikeBankReportName, looksLikeBankReportPlain } from "@/lib/invoice-report-detection";
+import { bulkCreateOrSequential, formatBase44Error } from "@/lib/base44-entity-save";
+
 function detectFormat(file) {
   const n = file.name.toLowerCase();
   if (n.endsWith(".xml")) return "xml";
   if (n.endsWith(".pdf")) return "pdf";
   return "unknown";
+}
+
+function ExtractionSourceBadge({ source }) {
+  const labels = {
+    heuristic: "Heurystyka",
+    openai: "OpenAI",
+    base44: "Base44 OCR",
+    xml: "XML",
+    manual: "Ręcznie / nieodczytane",
+  };
+  if (!source) return null;
+  return (
+    <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-muted text-muted-foreground border border-border whitespace-nowrap">
+      {labels[source] ?? source}
+    </span>
+  );
 }
 
 function matchProjectId(projects, invoice) {
@@ -62,6 +82,9 @@ export default function Upload() {
   const [error, setError] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const [reAiLoading, setReAiLoading] = useState(null);
+  const [checkingReports, setCheckingReports] = useState(false);
+  const [reportDialog, setReportDialog] = useState(null);
+  const reportResolveRef = useRef(null);
   const navigate = useNavigate();
 
   const { data: projects = [] } = useQuery({
@@ -121,7 +144,7 @@ export default function Upload() {
     e.target.value = "";
   };
 
-  const processInvoices = async () => {
+  const executeProcessInvoices = async () => {
     if (files.length === 0) return;
 
     setProcessing(true);
@@ -149,6 +172,7 @@ export default function Upload() {
               ...r,
               fileName: item.file.name,
               format: "xml",
+              _extractionSource: "xml",
             }));
           }
           if (item.skipped) return [];
@@ -156,7 +180,7 @@ export default function Upload() {
           if (item.format === "pdf") {
             let plain = "";
             try {
-              plain = await extractPlainTextFromPdf(item.file);
+              plain = await extractPlainTextFromPdfWithOcrFallback(item.file);
             } catch (pdfErr) {
               console.warn("PDF tekst (pdf.js):", pdfErr);
             }
@@ -169,42 +193,76 @@ export default function Upload() {
                   project_id: matchProjectId(projects, heur),
                   _pdfFileRef: item.file,
                   _heuristicOcr: true,
+                  _extractionSource: "heuristic",
                 },
               ];
             }
 
+            const mapFromParsed = (parsed) =>
+              mapOpenAiInvoiceJsonToInternal(parsed, {
+                pdf_url: "",
+                fileName: item.file.name,
+              });
+
+            let openAiErr = null;
             if (isOpenAiConfigured()) {
               try {
                 const { parsed } = await extractInvoiceFromPdfOpenAI(item.file);
-                const mapped = mapOpenAiInvoiceJsonToInternal(parsed, {
-                  pdf_url: "",
-                  fileName: item.file.name,
-                });
-                if (mapped && (mapped.invoice_number || mapped.contractor_name)) {
+                const mapped = mapFromParsed(parsed);
+                if (mapped && (mapped.invoice_number?.trim() || mapped.contractor_name?.trim())) {
                   return [
                     {
                       ...mapped,
                       project_id: matchProjectId(projects, mapped),
                       _pdfFileRef: item.file,
+                      _extractionSource: "openai",
                     },
                   ];
                 }
-                toast.message(`OpenAI: brak rozpoznanej faktury w „${item.file.name}” — uzupełnij ręcznie.`);
-                return [];
+                toast.message(
+                  `OpenAI: brak rozpoznanej faktury w „${item.file.name}” — próbuję OCR Base44…`
+                );
               } catch (openErr) {
+                openAiErr = openErr;
                 console.warn("OpenAI PDF extraction:", openErr);
-                toast.error(`OpenAI (${item.file.name}): ${openErr.message || "błąd"}`);
-                return [];
               }
             }
 
-            if (plain.length < 40) {
+            try {
+              const { parsed } = await extractInvoiceFromPdfBase44(item.file);
+              const mapped = mapFromParsed(parsed);
+              if (mapped && (mapped.invoice_number?.trim() || mapped.contractor_name?.trim())) {
+                return [
+                  {
+                    ...mapped,
+                    project_id: matchProjectId(projects, mapped),
+                    _pdfFileRef: item.file,
+                    _extractionSource: "base44",
+                  },
+                ];
+              }
+            } catch (b44Err) {
+              console.warn("Base44 PDF invoice:", b44Err);
+              if (!isOpenAiConfigured()) {
+                toast.error(`Base44 OCR (${item.file.name}): ${b44Err.message || "błąd"}`);
+              }
+            }
+
+            if (openAiErr) {
+              toast.error(`OpenAI (${item.file.name}): ${openAiErr.message || "błąd"}`);
+            }
+
+            if (looksLikeBankReportName(item.file.name) || looksLikeBankReportPlain(plain)) {
               toast.warning(
-                `PDF „${item.file.name}”: mało tekstu (często skan obrazu) — potrzebny klucz OpenAI albo plik XML.`
+                `„${item.file.name}” wygląda na raport lub wyciąg (nie typową fakturę VAT) — pola mogą być puste; rozważ Import przelewów lub uzupełnij ręcznie.`
+              );
+            } else if (plain.length < 40) {
+              toast.warning(
+                `PDF „${item.file.name}”: mało tekstu (często skan) — spróbuj „Popraw z AI” (OpenAI lub Base44) albo plik XML.`
               );
             } else {
               toast.warning(
-                `PDF „${item.file.name}”: heurystyka bez LLM nic nie wyciągnęła — OpenAI (Ustawienia AI) lub ręcznie.`
+                `PDF „${item.file.name}”: heurystyka nic nie wyciągnęła — „Popraw z AI” (OpenAI / Base44) lub ręcznie.`
               );
             }
             return [];
@@ -238,6 +296,7 @@ export default function Upload() {
             fileName: item.file.name,
             format: "xml",
             _manualStub: true,
+            _extractionSource: "manual",
           });
         } else {
           stubRows.push({
@@ -251,6 +310,7 @@ export default function Upload() {
             format: "pdf",
             _pdfFileRef: item.file,
             _manualStub: true,
+            _extractionSource: "manual",
           });
         }
       }
@@ -274,10 +334,12 @@ export default function Upload() {
       setExtractedData(deduplicatedResults);
       setStep("review");
       if (deduplicatedResults.length === 0) {
-        toast.warning("Brak faktur do weryfikacji — sprawdź pliki, XML lub klucz OpenAI (PDF).");
+        toast.warning(
+          "Brak faktur do weryfikacji — sprawdź pliki, XML lub użyj AI (OpenAI w ustawieniach albo OCR Base44 przy imporcie PDF)."
+        );
       } else if (deduplicatedResults.every((r) => r._manualStub)) {
         toast.warning(
-          "Nie udało się odczytać plików automatycznie — uzupełnij pola ręcznie lub użyj „Popraw z AI” (PDF + klucz OpenAI)."
+          "Nie udało się odczytać plików automatycznie — uzupełnij pola ręcznie lub użyj „Popraw z AI” (OpenAI lub OCR Base44)."
         );
       } else if (deduplicatedResults.some((r) => r._manualStub)) {
         toast.success(
@@ -295,6 +357,43 @@ export default function Upload() {
     } finally {
       setProcessing(false);
     }
+  };
+
+  const processInvoices = async () => {
+    if (files.length === 0) return;
+
+    const pdfFiles = files.filter((f) => detectFormat(f) === "pdf");
+    if (pdfFiles.length > 0) {
+      setCheckingReports(true);
+      const suspiciousNames = [];
+      try {
+        for (const f of pdfFiles) {
+          let plain = "";
+          try {
+            plain = await extractPlainTextFromPdfWithOcrFallback(f);
+          } catch {
+            /* ignore */
+          }
+          if (looksLikeBankReportName(f.name) || looksLikeBankReportPlain(plain)) {
+            suspiciousNames.push(f.name);
+          }
+        }
+      } finally {
+        setCheckingReports(false);
+      }
+      const unique = [...new Set(suspiciousNames)];
+      if (unique.length > 0) {
+        const proceed = await new Promise((resolve) => {
+          reportResolveRef.current = resolve;
+          setReportDialog({ names: unique });
+        });
+        setReportDialog(null);
+        reportResolveRef.current = null;
+        if (!proceed) return;
+      }
+    }
+
+    await executeProcessInvoices();
   };
 
   const saveInvoices = async () => {
@@ -355,9 +454,8 @@ export default function Upload() {
         const uniqueContractors = [...new Set(standardInvoices.map((inv) => inv.contractor_name))].filter(Boolean);
         const newContractors = uniqueContractors.filter((name) => !contractorNames.has(name.toLowerCase()));
         if (newContractors.length > 0) {
-          await base44.entities.Contractor.bulkCreate(
-            newContractors.map((name) => ({ name, type: "supplier", status: "active" }))
-          );
+          const contractorRows = newContractors.map((name) => ({ name, type: "supplier", status: "active" }));
+          await bulkCreateOrSequential(base44.entities.Contractor, contractorRows, (r) => r.name || "kontrahent");
         }
       }
 
@@ -374,6 +472,9 @@ export default function Upload() {
           _aiHighlight: _ah,
           _aiConfidence: _ac,
           _pdfFileRef: _pdfRef,
+          _extractionSource: _exSrc,
+          _manualStub: _stub,
+          _heuristicOcr: _heur,
           ...rest
         } = data;
         const normalizedPayer = normalizePayer(data.payer);
@@ -401,7 +502,7 @@ export default function Upload() {
         invoicesToSave.push(pickInvoiceApiPayload(enriched));
       }
 
-      await base44.entities.Invoice.bulkCreate(invoicesToSave);
+      await bulkCreateOrSequential(base44.entities.Invoice, invoicesToSave);
 
       if (hotelInvoices.length > 0) {
         const existingStays = await base44.entities.HotelStay.list();
@@ -424,7 +525,7 @@ export default function Upload() {
           });
         }
         if (hotelStaysToCreate.length > 0) {
-          await base44.entities.HotelStay.bulkCreate(hotelStaysToCreate);
+          await bulkCreateOrSequential(base44.entities.HotelStay, hotelStaysToCreate, (r) => r.invoice_number || "hotel");
         }
       }
 
@@ -434,7 +535,12 @@ export default function Upload() {
       navigate(createPageUrl("Invoices"));
     } catch (err) {
       console.error("Error:", err);
-      toast.error("Błąd podczas zapisywania faktur");
+      const short = formatBase44Error(err);
+      toast.error(
+        short
+          ? `Błąd podczas zapisywania faktur: ${short}`
+          : "Błąd podczas zapisywania faktur (sprawdź konsolę przeglądarki F12)."
+      );
     } finally {
       setProcessing(false);
     }
@@ -457,19 +563,37 @@ export default function Upload() {
       toast.error("Brak pliku PDF w pamięci — dodaj plik ponownie i przetwórz.");
       return;
     }
-    if (!isOpenAiConfigured()) {
-      toast.error("Brak klucza OpenAI (VITE_OPENAI_API_KEY lub Ustawienia AI)");
-      return;
-    }
     setReAiLoading(idx);
     try {
-      const { parsed } = await extractInvoiceFromPdfOpenAI(file);
-      const mapped = mapOpenAiInvoiceJsonToInternal(parsed, {
-        pdf_url: inv.pdf_url,
-        fileName: inv.fileName,
-      });
-      if (!mapped || (!mapped.invoice_number && !mapped.contractor_name)) {
-        throw new Error("AI nie zwróciło kompletnych danych");
+      let mapped = null;
+      let extractionSource = null;
+      if (isOpenAiConfigured()) {
+        try {
+          const { parsed } = await extractInvoiceFromPdfOpenAI(file);
+          mapped = mapOpenAiInvoiceJsonToInternal(parsed, {
+            pdf_url: inv.pdf_url,
+            fileName: inv.fileName,
+          });
+          if (mapped && (mapped.invoice_number?.trim() || mapped.contractor_name?.trim())) {
+            extractionSource = "openai";
+          }
+        } catch (openErr) {
+          console.warn("OpenAI re-extract:", openErr);
+          toast.message(openErr?.message ? `OpenAI: ${openErr.message.slice(0, 120)} — próbuję Base44…` : "Próbuję OCR Base44…");
+        }
+      }
+      if (!extractionSource) {
+        const { parsed } = await extractInvoiceFromPdfBase44(file);
+        mapped = mapOpenAiInvoiceJsonToInternal(parsed, {
+          pdf_url: inv.pdf_url,
+          fileName: inv.fileName,
+        });
+        if (mapped && (mapped.invoice_number?.trim() || mapped.contractor_name?.trim())) {
+          extractionSource = "base44";
+        }
+      }
+      if (!mapped || (!mapped.invoice_number?.trim() && !mapped.contractor_name?.trim())) {
+        throw new Error("AI nie zwróciło numeru faktury ani kontrahenta — sprawdź plik lub uzupełnij ręcznie.");
       }
       const updated = [...extractedData];
       updated[idx] = {
@@ -477,11 +601,12 @@ export default function Upload() {
         project_id: matchProjectId(projects, mapped) || inv.project_id,
         _pdfFileRef: file,
         _rejected: false,
+        _extractionSource: extractionSource,
       };
       setExtractedData(updated);
       toast.success("Formularz uzupełniony ponownie przez AI");
     } catch (e) {
-      toast.error(e?.message || "Błąd OpenAI");
+      toast.error(e?.message || "Błąd AI (OpenAI / Base44)");
     } finally {
       setReAiLoading(null);
     }
@@ -500,7 +625,7 @@ export default function Upload() {
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-2">Import faktur PDF / XML</h1>
           <p className="text-muted-foreground">
-            PDF: najpierw tekst z pliku + heurystyka (bez LLM); skany lub trudne layouty — OpenAI (opcjonalnie); XML: JPK-FA / e-faktura lokalnie
+            PDF: warstwa tekstowa lub OCR Tesseract (skany); heurystyka; potem OpenAI lub Base44/LLM; XML: JPK-FA / e-faktura lokalnie
           </p>
         </motion.div>
 
@@ -517,6 +642,83 @@ export default function Upload() {
             </div>
             <DialogFooter>
               <Button onClick={() => setError(null)}>OK</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={!!reportDialog}
+          onOpenChange={(open) => {
+            if (!open) {
+              setReportDialog(null);
+              if (reportResolveRef.current) {
+                const r = reportResolveRef.current;
+                reportResolveRef.current = null;
+                r(false);
+              }
+            }
+          }}
+        >
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-600" />
+                Plik wygląda na raport lub wyciąg bankowy
+              </DialogTitle>
+              <DialogDescription>
+                Import faktur VAT jest do dokumentów sprzedaży/zakupu. Te pliki mogą nie zawierać pól typowej
+                faktury:
+              </DialogDescription>
+            </DialogHeader>
+            <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
+              {reportDialog?.names.map((n) => (
+                <li key={n} className="break-all">
+                  {n}
+                </li>
+              ))}
+            </ul>
+            <p className="text-sm text-muted-foreground">
+              Możesz kontynuować OCR (wynik może być pusty), przejść do importu przelewów (CSV/PDF) lub anulować.
+            </p>
+            <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between sm:space-x-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const r = reportResolveRef.current;
+                  reportResolveRef.current = null;
+                  setReportDialog(null);
+                  r?.(false);
+                }}
+              >
+                Anuluj
+              </Button>
+              <div className="flex flex-wrap gap-2 justify-end w-full sm:w-auto">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    const r = reportResolveRef.current;
+                    reportResolveRef.current = null;
+                    setReportDialog(null);
+                    r?.(false);
+                    navigate(createPageUrl("Transfers"));
+                  }}
+                >
+                  Import przelewów
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    const r = reportResolveRef.current;
+                    reportResolveRef.current = null;
+                    setReportDialog(null);
+                    r?.(true);
+                  }}
+                >
+                  Kontynuuj import faktury
+                </Button>
+              </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -561,8 +763,17 @@ export default function Upload() {
                   )}
                 </div>
 
-                <Button onClick={processInvoices} disabled={files.length === 0 || processing} className="w-full">
-                  {processing ? (
+                <Button
+                  onClick={processInvoices}
+                  disabled={files.length === 0 || processing || checkingReports}
+                  className="w-full"
+                >
+                  {checkingReports ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sprawdzanie typów plików…
+                    </>
+                  ) : processing ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Przetwarzanie...
@@ -637,13 +848,16 @@ export default function Upload() {
                     className={`border rounded-lg p-4 ${invoice._rejected ? "opacity-50 bg-muted" : "bg-card"}`}
                   >
                     <div className="flex flex-wrap justify-between gap-2 mb-3">
-                      <h4 className="font-semibold">
-                        {invoice.fileName} — {invoice.format?.toUpperCase()}
-                        {invoice._rejected && <span className="text-destructive ml-2">(odrzucona)</span>}
+                      <h4 className="font-semibold flex flex-wrap items-center gap-2">
+                        <span>
+                          {invoice.fileName} — {invoice.format?.toUpperCase()}
+                          {invoice._rejected && <span className="text-destructive ml-2">(odrzucona)</span>}
+                        </span>
+                        {!invoice._rejected && <ExtractionSourceBadge source={invoice._extractionSource} />}
                       </h4>
                       {!invoice._rejected && (
                         <div className="flex flex-wrap gap-2">
-                          {invoice._pdfFileRef && isOpenAiConfigured() && (
+                          {invoice._pdfFileRef && (
                             <Button
                               type="button"
                               variant="secondary"

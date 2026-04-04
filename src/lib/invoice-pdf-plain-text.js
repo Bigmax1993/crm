@@ -25,3 +25,39 @@ export async function extractPlainTextFromPdf(file) {
   }
   return parts.join("\n").replace(/\s+/g, " ").trim();
 }
+
+/** Heurystyka: czy wygląda na skan / pustą warstwę tekstu (wtedy warto uruchomić Tesseract). */
+export function pdfTextLooksLikeScanned(plain) {
+  const t = String(plain || "").trim();
+  if (t.length < 120) return true;
+  const alnum = (t.match(/[A-Za-zĄąĆćĘęŁłŃńÓóŚśŹźŻż0-9]/g) || []).length;
+  if (alnum < 55) return true;
+  return false;
+}
+
+/**
+ * Najpierw warstwa tekstowa (pdf.js); przy skanie — OCR Tesseract na renderze stron (pol+eng).
+ * W środowisku bez `window` / `document` (testy Node) zwraca tylko warstwę tekstową.
+ */
+export async function extractPlainTextFromPdfWithOcrFallback(file) {
+  let plain = "";
+  try {
+    plain = await extractPlainTextFromPdf(file);
+  } catch (e) {
+    console.warn("PDF tekst (pdf.js):", e);
+  }
+
+  if (!pdfTextLooksLikeScanned(plain)) return plain;
+  if (typeof window === "undefined" || typeof document === "undefined") return plain;
+
+  try {
+    const { ocrPdfFileToPlainText } = await import("@/lib/invoice-pdf-ocr-tesseract");
+    const ocr = await ocrPdfFileToPlainText(file);
+    if (!ocr) return plain;
+    if (!plain.trim()) return ocr;
+    return `${plain}\n\n${ocr}`;
+  } catch (e) {
+    console.warn("PDF OCR (Tesseract):", e);
+    return plain;
+  }
+}

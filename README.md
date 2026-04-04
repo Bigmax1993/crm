@@ -11,7 +11,7 @@ Aplikacja webowa **CRM** (faktury, projekty, kontrahenci, cash flow, raporty) z 
 | Backend / BaaS | Base44 (`@base44/sdk`, plugin Vite) |
 | Stan zapytań | TanStack React Query |
 | Wykresy / PDF | Recharts, jsPDF, html2canvas |
-| AI | OpenAI Chat Completions API (`gpt-4o` / `gpt-4o-mini`) |
+| AI / OCR skanów | OpenAI Chat Completions API; **Tesseract.js** (pol+eng) na obrazkach stron PDF |
 
 ## Wymagania
 
@@ -29,10 +29,19 @@ npm install
 Utwórz plik **`.env.local`** (lub `.env`) w katalogu głównym:
 
 ```env
+# Opcja A — backend w przeglądarce (SQLite sql.js, bez Base44):
+# Nie ustawiaj VITE_BASE44_APP_ID albo wymuś:
+# VITE_USE_LOCAL_CRM=true
+
+# Opcja B — backend Base44 (chmura):
 VITE_BASE44_APP_ID=twoj_app_id
 VITE_BASE44_APP_BASE_URL=https://twoja-aplikacja.base44.app
+
+# AI (OCR faktur, przelewy, czat) — w trybie lokalnym wymagane do funkcji Core.UploadFile / InvokeLLM:
 VITE_OPENAI_API_KEY=sk-...
 ```
+
+**Tryb lokalny:** gdy **`VITE_BASE44_APP_ID`** jest pusty, aplikacja używa tabeli **`crm_sql_entity`** w tej samej bazie **sql.js** co fixture (`localStorage` → `fakturowo_sqljs_v1`). Faktury, budowy, kontrahenci, przelewy itd. zapisują się lokalnie. Aby **wymusić** tryb lokalny mimo ustawionego app id: `VITE_USE_LOCAL_CRM=true`. Aby **wymusić** Base44: `VITE_USE_LOCAL_CRM=false`.
 
 ```bash
 npm run dev

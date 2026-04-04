@@ -31,6 +31,7 @@ import {
 } from '@/lib/invoice-schema';
 import { toast } from 'sonner';
 import { findInvoiceNumberConflict } from '@/lib/duplicate-detection';
+import { getUploadFilePublicUrl } from '@/lib/upload-file-url';
 
 const MONTHS_PL = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
 
@@ -162,7 +163,9 @@ export default function Invoices() {
 
   const uploadTransferMutation = useMutation({
     mutationFn: async ({ invoiceId, file }) => {
-      const { url } = await base44.integrations.Core.UploadFile({ file });
+      const uploadRes = await base44.integrations.Core.UploadFile({ file });
+      const url = getUploadFilePublicUrl(uploadRes);
+      if (!url) throw new Error("Upload nie zwrócił adresu pliku.");
       await base44.entities.Invoice.update(invoiceId, { transfer_confirmation_url: url });
       return url;
     },

@@ -9,6 +9,20 @@ const SQL_WASM_URL = `${import.meta.env.BASE_URL}sql-wasm.wasm`;
 let db = null;
 let initPromise = null;
 
+/** Migracja: starsze snapshoty localStorage bez tabeli encji CRM. */
+function ensureCrmSqlEntityTable(database) {
+  database.run(`
+    CREATE TABLE IF NOT EXISTS crm_sql_entity (
+      kind TEXT NOT NULL,
+      id TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (kind, id)
+    )
+  `);
+}
+
 export const initDB = async () => {
   if (db) return db;
   if (!initPromise) {
@@ -24,7 +38,7 @@ export const initDB = async () => {
           const buffer = Uint8Array.from(JSON.parse(saved));
           db = new SQL.Database(buffer);
           db.run("PRAGMA foreign_keys = ON;");
-           
+          ensureCrmSqlEntityTable(db);
           console.log("✅ Baza wczytana z localStorage");
         } catch (e) {
            
@@ -188,6 +202,8 @@ function applySchema(database) {
       data_aktualizacji TEXT
     )
   `);
+
+  ensureCrmSqlEntityTable(database);
 };
 
 function applySeed(database, data) {
