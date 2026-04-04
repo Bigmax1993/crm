@@ -231,6 +231,8 @@ KTO JEST KONTRAHENTEM (nazwa_kontrahenta, nip_kontrahenta):
 - Dla FAKTURY ZAKUPU (my jesteśmy nabywcą): kontrahent = SPRZEDAWCA / wystawca faktury (nie nabywca, nie nasza firma).
 - Dla FAKTURY SPRZEDAŻY (my wystawiamy): kontrahent = NABYWCA.
 - Jeśli na dokumencie widać wyraźnie własną firmę (nabywca ze stałej bazy) jako jedną ze stron — druga strona transakcji to kontrahent dla zakupu.
+- nazwa_kontrahenta: zawsze czytaj z dokumentu — pełna nazwa podmiotu z bloku Sprzedawca lub Nabywca (wg reguł wyżej); jeśli nazwa jest w 2–3 liniach pod nagłówkiem, połącz je w jeden ciąg (bez adresu ul./kodu, jeśli da się oddzielić).
+- nip_kontrahenta: NIP tego samego podmiotu co nazwa_kontrahenta (10 cyfr PL przy kontrahencie z dokumentu).
 
 KWOTY I WALUTA:
 - kwota_brutto = kwota z sekcji podsumowania / „Razem” / „Do zapłaty” (preferuj stopkę nad pojedynczą pozycją).

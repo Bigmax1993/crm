@@ -60,16 +60,17 @@ export function parsePolishInvoiceXml(xmlString) {
   const invoiceNumber = firstText(doc, ["P_1", "NrFa", "InvoiceNumber", "NumerFaktury"]);
   const issueDate = firstText(doc, ["P_6", "DataWystawienia", "IssueDate"]);
   const dueDate = firstText(doc, ["DataZaplaty", "TerminPlatnosci", "PlatnoscTermin", "P_21", "DueDate"]);
-  const nipSeller = firstText(doc, ["NIP_1", "NIP", "SprzedawcaNIP"]);
+  const nipSeller = firstText(doc, ["NIP_1", "NIP", "SprzedawcaNIP", "Podmiot1NIP"]);
   const nipBuyer = firstText(doc, ["NIP_2", "NabywcaNIP", "Podmiot2NIP"]);
 
   const net = parseNumberLoose(firstText(doc, ["P_13_1", "P_13", "SumaNetto", "KwotaNetto"]));
   const vat = parseNumberLoose(firstText(doc, ["P_14_1", "P_14", "SumaVAT", "KwotaVAT"]));
   const gross = parseNumberLoose(firstText(doc, ["P_15", "KwotaBrutto", "DoZaplaty"]));
 
-  const contractor =
-    firstText(doc, ["Nazwa_2", "NabywcaNazwa", "Podmiot2Nazwa", "BuyerName"]) ||
-    firstText(doc, ["Nazwa_1", "SprzedawcaNazwa", "Podmiot1Nazwa"]);
+  /** Faktura zakupu w CRM: kontrahent = sprzedawca / wystawca (Podmiot1), nie nabywca. */
+  const sellerName = firstText(doc, ["Nazwa_1", "SprzedawcaNazwa", "Podmiot1Nazwa", "SellerName"]);
+  const buyerName = firstText(doc, ["Nazwa_2", "NabywcaNazwa", "Podmiot2Nazwa", "BuyerName"]);
+  const contractor = sellerName || buyerName;
 
   const currency = firstText(doc, ["KodWaluty", "Currency", "Waluta"]) || "PLN";
 
@@ -82,7 +83,8 @@ export function parsePolishInvoiceXml(xmlString) {
   const record = {
     invoice_number: invoiceNumber || `XML-${Date.now()}`,
     contractor_name: contractor || "Kontrahent (XML)",
-    contractor_nip: nipBuyer || nipSeller || "",
+    contractor_nip: nipSeller || nipBuyer || "",
+    payer: buyerName || "",
     issue_date: issueDate ? issueDate.slice(0, 10) : "",
     payment_deadline: dueDate ? dueDate.slice(0, 10) : "",
     amount: gross || net + vat || net,
@@ -92,7 +94,6 @@ export function parsePolishInvoiceXml(xmlString) {
     invoice_lines: lines.length ? JSON.stringify(lines) : "",
     position: lines.map((l) => l.nazwa).filter(Boolean).join("; ") || (isJpk ? "JPK-FA / e-faktura" : "Import XML"),
     category: "standard",
-    payer: "",
     _sourceXml: true,
   };
 

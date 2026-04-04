@@ -105,17 +105,77 @@ export function extractSellerHint(text) {
 }
 
 /**
+ * Blok sprzedawcy → nazwa firmy (wiele linii), do faktury zakupu jako kontrahent.
+ */
+export function extractContractorNameFromInvoiceText(text) {
+  const t = String(text || "");
+  const startRe = /\b(sprzedawca|wystawca|dostawca|seller|vendor)\b\s*[:.]?\s*/i;
+  const sm = startRe.exec(t);
+  if (!sm) return extractSellerHint(t);
+
+  const from = sm.index + sm[0].length;
+  const tail = t.slice(from);
+  const endRe = /\b(nabywca|nabywcy|odbiorca|buyer|customer|dane\s+nabywcy)\b/i;
+  const em = endRe.exec(tail);
+  const block = (em ? tail.slice(0, em.index) : tail.slice(0, 1400)).trim();
+
+  const lines = block
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\s*[-•*]\s*/, "").trim())
+    .filter(Boolean);
+
+  const parts = [];
+  for (const line of lines) {
+    if (/^nip\s*[:\s]?\d/i.test(line)) break;
+    if (/^regon\b/i.test(line)) break;
+    if (/^krs\b/i.test(line)) break;
+    if (/^(ul\.?|al\.?|os\.)\s+/i.test(line) && line.length < 70) {
+      if (parts.length > 0) break;
+      continue;
+    }
+    if (/^\d{2}-?\d{3}\s+[a-ząćęłńóśźż]/i.test(line) && line.length < 55) {
+      if (parts.length > 0) break;
+      continue;
+    }
+    if (/^tel\.?:?\s*\d/i.test(line)) break;
+    if (/^e-?mail/i.test(line)) break;
+    if (/^[\d\s\-/.]{8,}$/.test(line) && !/[a-ząćęłńóśźż]/i.test(line)) continue;
+    if (line.length < 2) continue;
+    parts.push(line);
+    if (parts.join(" ").length >= 200) break;
+    if (parts.length >= 4) break;
+  }
+
+  const name = parts.join(" ").replace(/\s+/g, " ").trim().slice(0, 240);
+  return name || extractSellerHint(t);
+}
+
+/** NIP sprzedawcy — pierwszy poprawny NIP w sekcji Sprzedawca (przed Nabywca), inaczej jak wcześniej. */
+export function extractNipNearSeller(text) {
+  const t = String(text || "");
+  const sm = /\b(sprzedawca|wystawca)\b/i.exec(t);
+  if (!sm) return extractNip(t);
+  const from = sm.index;
+  const tail = t.slice(from + 10);
+  const em = /\b(nabywca|nabywcy|buyer|dane\s+nabywcy)\b/i.exec(tail);
+  const end = em ? from + 10 + em.index : Math.min(from + 2000, t.length);
+  const region = t.slice(from, end);
+  const nip = extractNip(region);
+  return nip || extractNip(t);
+}
+
+/**
  * @returns {object|null} pola zbliżone do wewnętrznego wiersza faktury lub null
  */
 export function heuristicInvoiceFromPdfText(rawText, fileName) {
   const text = String(rawText || "").trim();
   if (text.length < 30) return null;
 
-  const nip = extractNip(text);
+  const nip = extractNipNearSeller(text);
   const invoice_number = extractInvoiceNumber(text);
   const amount = extractGrossAmount(text);
   const issue_date = extractIssueDate(text);
-  const contractor_name = extractSellerHint(text);
+  const contractor_name = extractContractorNameFromInvoiceText(text);
 
   if (!invoice_number && !contractor_name && !nip) return null;
 

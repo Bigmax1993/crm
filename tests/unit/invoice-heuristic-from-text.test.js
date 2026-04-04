@@ -4,6 +4,8 @@ import {
   extractInvoiceNumber,
   extractGrossAmount,
   heuristicInvoiceFromPdfText,
+  extractContractorNameFromInvoiceText,
+  extractNipNearSeller,
 } from "@/lib/invoice-heuristic-from-text";
 
 describe("invoice-heuristic-from-text (bez LLM)", () => {
@@ -24,6 +26,31 @@ describe("invoice-heuristic-from-text (bez LLM)", () => {
     expect(row.invoice_number.length).toBeGreaterThan(0);
     expect(row.contractor_nip).toBe("5252445767");
     expect(row.amount).toBeGreaterThan(0);
+  });
+
+  it("extractContractorNameFromInvoiceText — kilka linii pod Sprzedawca", () => {
+    const raw = `
+      Faktura nr X/1/2025
+      Sprzedawca
+      FIRMA WIELOLINIOWA Spółka z o.o.
+      część nazwy druga linia
+      NIP 7791011327
+      Nabywca
+      Inny podmiot SA
+    `;
+    const name = extractContractorNameFromInvoiceText(raw);
+    expect(name.toLowerCase()).toContain("firma wieloliniowa");
+    expect(name.toLowerCase()).toContain("część nazwy");
+  });
+
+  it("extractNipNearSeller — NIP nabywcy nie zasłania NIP sprzedawcy", () => {
+    const raw = `
+      Sprzedawca ABC
+      NIP 7791011327
+      Nabywca XYZ
+      NIP 5252445767
+    `;
+    expect(extractNipNearSeller(raw)).toBe("7791011327");
   });
 
   it("extractInvoiceNumber — wzorzec FV/", () => {

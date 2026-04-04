@@ -16,10 +16,11 @@ export const INVOICE_OCR_PROMPT_BASE = `Jesteś ekspertem OCR faktur i dokument�
 
 WYJŚCIE: jeden obiekt JSON zgodny ze schemą (tablica invoices). Bez markdown.
 
-KONTRAHENT (contractor_name, contractor_nip):
+KONTRAHENT (contractor_name, contractor_nip) — zawsze z treści dokumentu:
 - Przy FAKTURZE ZAKUPU: kontrahent = sprzedawca / wystawca (nie nabywca, nie własna firma jeśli to nasza strona jako nabywca).
 - Przy FAKTURZE SPRZEDAŻY (is_own_company_seller=true): kontrahent = nabywca (Twoja firma wystawia dokument).
-- NIP: 10 cyfr dla PL; brak w dokumencie → pusty string.
+- Pełna nazwa firmy z bloku Sprzedawca/Nabywca (w razie kilku linii — scal w jedną nazwę, pomiń sam adres jeśli da się oddzielić).
+- NIP: 10 cyfr dla PL dla tego samego podmiotu co kontrahent; brak w dokumencie → pusty string.
 
 KWOTY: amount = brutto z podsumowania / „Do zapłaty” / „Razem”. net_amount, vat_amount ze stopki VAT; jeśli nie da się odczytać — 0. Waluta ISO (PLN, EUR, …).
 - Rozróżnij format PL: przecinek jako separator dziesiętny, kropka lub spacja jako tysiące (np. 1 234,56).
