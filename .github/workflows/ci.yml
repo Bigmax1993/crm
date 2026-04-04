@@ -1,0 +1,41 @@
+# CI dla gałęzi roboczych i pull requestów (main buduje i publikuje osobno: github-pages.yml).
+name: CI
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches-ignore:
+      - main
+      - master
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: TypeScript (jsconfig)
+        run: npm run typecheck
+
+      - name: Vitest
+        run: npm run test:run
+
+      - name: Produkcja — build Vite
+        run: npm run build
+        env:
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/

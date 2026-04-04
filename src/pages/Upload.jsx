@@ -26,7 +26,11 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { toast } from "sonner";
 import { enrichInvoiceForSave, pickInvoiceApiPayload } from "@/lib/invoice-fx";
-import { findDuplicateInvoice, invoiceNumberMatches } from "@/lib/duplicate-detection";
+import {
+  findDuplicateInvoice,
+  invoiceNumberMatches,
+  normalizeInvoiceNumberKey,
+} from "@/lib/duplicate-detection";
 import { looksLikeBankReportName, looksLikeBankReportPlain } from "@/lib/invoice-report-detection";
 import { bulkCreateOrSequential, formatBase44Error } from "@/lib/base44-entity-save";
 import { displayInvoiceSeller, displayInvoiceContractor } from "@/lib/invoice-schema";
@@ -357,22 +361,81 @@ export default function Upload() {
         }
       });
 
-      setExtractedData(deduplicatedResults);
+      let existingInvoices = [];
+      try {
+        existingInvoices = await base44.entities.Invoice.list();
+      } catch (listErr) {
+        console.warn("Invoice.list (duplikaty przy imporcie):", listErr);
+        toast.warning(
+          "Nie udało się pobrać faktur z bazy — duplikaty nie zostały sprawdzone. Możesz kontynuować; przy zapisie nadal obowiązuje kontrola."
+        );
+      }
+
+      const seenNormInBatch = new Set();
+      const withDupFlags = deduplicatedResults.map((inv) => ({ ...inv }));
+
+      for (let i = 0; i < withDupFlags.length; i++) {
+        const inv = withDupFlags[i];
+        const num = String(inv.invoice_number ?? "").trim();
+        if (!num) continue;
+
+        const inDb = existingInvoices.length ? findDuplicateInvoice(existingInvoices, inv) : null;
+        if (inDb) {
+          withDupFlags[i] = {
+            ...inv,
+            _rejected: true,
+            _systemDuplicate: true,
+            _duplicateReason: `Numer faktury „${num}” jest już w systemie — pozycja odrzucona z importu.`,
+          };
+          continue;
+        }
+
+        const norm = normalizeInvoiceNumberKey(num);
+        if (seenNormInBatch.has(norm)) {
+          withDupFlags[i] = {
+            ...inv,
+            _rejected: true,
+            _systemDuplicate: false,
+            _duplicateReason: `Numer „${num}” występuje więcej niż raz w tej paczce — pozostawiono pierwsze wystąpienie.`,
+          };
+        } else {
+          seenNormInBatch.add(norm);
+        }
+      }
+
+      const systemDup = withDupFlags.filter((r) => r._systemDuplicate).length;
+      const batchDup = withDupFlags.filter((r) => r._duplicateReason && !r._systemDuplicate).length;
+
+      setExtractedData(withDupFlags);
       setStep("review");
-      if (deduplicatedResults.length === 0) {
+
+      if (systemDup > 0) {
+        toast.error(
+          systemDup === 1
+            ? "1 faktura ma numer już zapisany w systemie — została automatycznie odrzucona (szczegóły na karcie)."
+            : `${systemDup} faktur ma numery już w systemie — zostały automatycznie odrzucone.`
+        );
+      }
+      if (batchDup > 0) {
+        toast.message(
+          `${batchDup} pozycji odrzuconych: ten sam numer faktury wielokrotnie w tej paczce — do zapisu zostaje pierwsze wystąpienie.`
+        );
+      }
+
+      if (withDupFlags.length === 0) {
         toast.warning(
           "Brak faktur do weryfikacji — sprawdź pliki, XML lub użyj AI (OpenAI w ustawieniach albo OCR Base44 przy imporcie PDF)."
         );
-      } else if (deduplicatedResults.every((r) => r._manualStub)) {
+      } else if (withDupFlags.every((r) => r._manualStub)) {
         toast.warning(
           "Nie udało się odczytać plików automatycznie — uzupełnij pola ręcznie lub użyj „Popraw z AI” (OpenAI lub OCR Base44)."
         );
-      } else if (deduplicatedResults.some((r) => r._manualStub)) {
+      } else if (withDupFlags.some((r) => r._manualStub)) {
         toast.success(
-          `Wyekstrahowano ${deduplicatedResults.length} pozycji — część do uzupełnienia ręcznie; PDF/XML możesz poprawić „Popraw z AI”.`
+          `Wyekstrahowano ${withDupFlags.length} pozycji — część do uzupełnienia ręcznie; PDF/XML możesz poprawić „Popraw z AI”.`
         );
       } else {
-        toast.success(`Wyekstrahowano ${deduplicatedResults.length} pozycji do weryfikacji`);
+        toast.success(`Wyekstrahowano ${withDupFlags.length} pozycji do weryfikacji`);
       }
     } catch (err) {
       console.error("Error:", err);
@@ -516,6 +579,8 @@ export default function Upload() {
           _extractionSource: _exSrc,
           _manualStub: _stub,
           _heuristicOcr: _heur,
+          _systemDuplicate: _sysDup,
+          _duplicateReason: _dupReason,
           ...rest
         } = data;
         const normalizedPayer = normalizePayer(data.payer);
@@ -953,10 +1018,18 @@ export default function Upload() {
                       <h4 className="font-semibold flex flex-wrap items-center gap-2">
                         <span>
                           {invoice.fileName} — {invoice.format?.toUpperCase()}
-                          {invoice._rejected && <span className="text-destructive ml-2">(odrzucona)</span>}
+                          {invoice._rejected && (
+                            <span className="text-destructive ml-2">
+                              (odrzucona
+                              {invoice._systemDuplicate ? " — duplikat w bazie" : ""})
+                            </span>
+                          )}
                         </span>
                         {!invoice._rejected && <ExtractionSourceBadge source={invoice._extractionSource} />}
                       </h4>
+                      {invoice._rejected && invoice._duplicateReason && (
+                        <p className="text-sm text-destructive w-full">{invoice._duplicateReason}</p>
+                      )}
                       {!invoice._rejected && (
                         <div className="flex flex-wrap gap-2">
                           {(invoice._pdfFileRef ||

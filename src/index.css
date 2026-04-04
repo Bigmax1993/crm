@@ -105,3 +105,33 @@
     text-rendering: optimizeLegibility;
   }
 }
+
+@layer components {
+  /**
+   * Desktopowy rail (ciemny): po rozwinięciu widać suwak po prawej stronie listy menu.
+   * (scrollbar-gutter zapobiega „skakaniu” szerokości przy pojawianiu się paska)
+   */
+  .rail-nav-scrollbar {
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(100 116 139) rgb(30 41 55);
+  }
+
+  .rail-nav-scrollbar::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  .rail-nav-scrollbar::-webkit-scrollbar-track {
+    background: rgb(15 23 42);
+  }
+
+  .rail-nav-scrollbar::-webkit-scrollbar-thumb {
+    background: rgb(100 116 139);
+    border-radius: 6px;
+    border: 2px solid rgb(15 23 42);
+  }
+
+  .rail-nav-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgb(148 163 184);
+  }
+}

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -28,14 +28,13 @@ import {
   invoiceUpdateFormSchema,
   invoiceFormDefaults,
   invoiceToFormValues,
-  DEFAULT_INVOICE_PAYER,
-  replaceLegacyDefaultPayer,
   displayInvoiceSeller,
   displayInvoiceContractor,
 } from '@/lib/invoice-schema';
 import { toast } from 'sonner';
 import { findInvoiceNumberConflict } from '@/lib/duplicate-detection';
 import { getUploadFilePublicUrl } from '@/lib/upload-file-url';
+import { ensureContractorsForInvoice } from '@/lib/invoice-contractor-sync';
 
 const MONTHS_PL = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
 
@@ -88,7 +87,6 @@ export default function Invoices() {
        editForm.reset(invoiceToFormValues(editingInvoice));
      }
    }, [editDialogOpen, editingInvoice, editForm]);
-   const topScrollRef = useRef(null);
    const tableScrollRef = useRef(null);
    const stickyScrollRef = useRef(null);
    const cardRef = useRef(null);
@@ -166,9 +164,11 @@ export default function Invoices() {
       const payload = { ...data, project_id: data.project_id ? data.project_id : null };
       const enriched = await enrichInvoiceForSave(payload, { recomputePaid: payload.status === 'paid' });
       await base44.entities.Invoice.update(data.id, pickInvoiceApiPayload(enriched));
+      await ensureContractorsForInvoice(base44, { ...enriched, id: data.id });
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['invoices']);
+      queryClient.invalidateQueries(['contractors']);
       setEditDialogOpen(false);
       setEditingInvoice(null);
     },
@@ -199,10 +199,13 @@ export default function Invoices() {
     mutationFn: async (data) => {
       const payload = { ...data, project_id: data.project_id ? data.project_id : null };
       const enriched = await enrichInvoiceForSave(payload, { recomputePaid: payload.status === 'paid' });
-      return base44.entities.Invoice.create(pickInvoiceApiPayload(enriched));
+      const created = await base44.entities.Invoice.create(pickInvoiceApiPayload(enriched));
+      await ensureContractorsForInvoice(base44, { ...enriched, ...created });
+      return created;
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['invoices']);
+      queryClient.invalidateQueries(['contractors']);
       setAddDialogOpen(false);
       addForm.reset(invoiceFormDefaults);
     },
@@ -283,6 +286,13 @@ export default function Invoices() {
 
       return matchesSearch && matchesStatus && matchesType && matchesMonth;
     });
+
+  useLayoutEffect(() => {
+    const tableEl = tableScrollRef.current;
+    const stickyEl = stickyScrollRef.current;
+    if (!showStickyScroll || !tableEl || !stickyEl) return;
+    stickyEl.scrollLeft = tableEl.scrollLeft;
+  }, [showStickyScroll, filteredInvoices.length, search, activeTab, activeMonthTab, statusFilter]);
 
   const handleSelectAll = (checked) => {
     if (checked) {
@@ -472,8 +482,8 @@ export default function Invoices() {
 
 
   return (
-    <div className="w-full p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="w-full min-w-0 p-6">
+      <div className="mx-auto max-w-7xl min-w-0">
         <div className="mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-4xl font-bold text-foreground mb-2">Faktury</h1>
@@ -638,12 +648,14 @@ export default function Invoices() {
             <div
               ref={tableScrollRef}
               onScroll={() => {
-                if (topScrollRef.current) topScrollRef.current.scrollLeft = tableScrollRef.current.scrollLeft;
                 if (stickyScrollRef.current) stickyScrollRef.current.scrollLeft = tableScrollRef.current.scrollLeft;
               }}
-              className="overflow-x-auto"
+              className="min-w-0 overflow-x-auto overscroll-x-contain"
             >
-              <Table style={{ minWidth: `${INVOICES_TABLE_MIN_WIDTH_PX}px` }}>
+              <Table
+                wrapperClassName="overflow-visible"
+                style={{ minWidth: `${INVOICES_TABLE_MIN_WIDTH_PX}px` }}
+              >
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-12">
@@ -855,12 +867,8 @@ export default function Invoices() {
                 <div
                   ref={stickyScrollRef}
                   onScroll={() => { if (tableScrollRef.current) tableScrollRef.current.scrollLeft = stickyScrollRef.current.scrollLeft; }}
-                  className="fixed bottom-0 overflow-x-auto bg-background border-t shadow-md z-50"
-                  style={{
-                    left: 'calc(16rem)',
-                    right: 0,
-                    height: '14px'
-                  }}
+                  className="fixed bottom-0 left-0 right-0 z-50 overflow-x-auto border-t bg-background shadow-md lg:left-[72px]"
+                  style={{ height: "17px" }}
                 >
                   <div style={{ height: "1px", minWidth: `${INVOICES_TABLE_MIN_WIDTH_PX}px` }} />
                 </div>

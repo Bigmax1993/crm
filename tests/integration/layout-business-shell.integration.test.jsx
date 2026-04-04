@@ -83,7 +83,7 @@ describe("Layout — powłoka biznesowa (Power BI)", () => {
     expect(screen.queryByRole("button", { name: /wyloguj/i })).not.toBeInTheDocument();
   });
 
-  it("desktop rail: klik rozwija, mouseLeave zwija", async () => {
+  it("desktop rail: klik rozwija; mouseLeave nie zwija; klik w tło treści zwija", async () => {
     render(<App />);
     await screen.findByText(/Fakturowo · workspace/i);
     const rail = screen.getByRole("navigation", { name: "Menu główne" });
@@ -91,6 +91,10 @@ describe("Layout — powłoka biznesowa (Power BI)", () => {
     fireEvent.click(rail);
     expect(rail).toHaveAttribute("data-rail-expanded", "true");
     fireEvent.mouseLeave(rail);
+    expect(rail).toHaveAttribute("data-rail-expanded", "true");
+    const main = document.querySelector("main");
+    expect(main).toBeTruthy();
+    fireEvent.pointerDown(main);
     expect(rail).toHaveAttribute("data-rail-expanded", "false");
   });
 });

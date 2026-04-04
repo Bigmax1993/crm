@@ -28,7 +28,6 @@ import {
   Truck,
   PanelLeft,
   ListChecks,
-  Shield,
 } from "lucide-react";
 import { AppLogo } from "@/components/brand/AppLogo";
 import { EXPORT_ADDRESS, EXPORT_WEB } from "@/lib/brand-brief";
@@ -80,6 +79,47 @@ const NAV_GROUPS = NAV_GROUP_ORDER.map((g) => ({
     }))
     .filter((x) => x.icon && x.name && canAccessPage(x.page, null)),
 })).filter((g) => g.items.length > 0);
+
+/**
+ * Klik w obszar treści (nie w sidebar): zwijamy rail tylko gdy nie trafiono w element interaktywny
+ * (link, przycisk, pole, menu Radix itd.).
+ */
+function shouldCollapseRailOnCanvasPointerDown(target) {
+  if (!(target instanceof Element)) return false;
+  if (target.closest("[data-rail-aside]")) return false;
+  if (
+    target.closest(
+      [
+        "a[href]",
+        "button:not([disabled])",
+        "input:not([disabled])",
+        "textarea:not([disabled])",
+        "select:not([disabled])",
+        "option",
+        "label",
+        "summary",
+        "[role='button']",
+        "[role='menuitem']",
+        "[role='menuitemcheckbox']",
+        "[role='option']",
+        "[role='combobox']",
+        "[role='listbox']",
+        "[role='tab']",
+        "[role='switch']",
+        "[role='checkbox']",
+        "[role='radio']",
+        "[role='slider']",
+        "[role='searchbox']",
+        "[role='spinbutton']",
+        "[contenteditable='true']",
+        "[data-rail-ignore-outside-click]",
+      ].join(",")
+    )
+  ) {
+    return false;
+  }
+  return true;
+}
 
 function NavRailLink({ item, isActive, expanded }) {
   const Icon = item.icon;
@@ -154,7 +194,7 @@ function MobileNavList({ currentPageName, onItemClick, groups = NAV_GROUPS }) {
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = React.useState(false);
-  /** Desktop: zwinięty rail (ikony); klik w sidebar rozwija; opuszczenie myszą zwija. */
+  /** Desktop: zwinięty rail (ikony); klik w sidebar rozwija; zwija się po kliknięciu w „puste” miejsce treści. */
   const [railExpanded, setRailExpanded] = React.useState(false);
 
   React.useEffect(() => {
@@ -220,13 +260,13 @@ export default function Layout({ children, currentPageName }) {
         </Sheet>
 
         <div className="flex min-h-screen min-w-0 overflow-x-hidden">
-          {/* Desktop: rail — klik rozwija, mouseleave zwija */}
+          {/* Desktop: rail — klik rozwija; zwinięcie tylko z obszaru treści (patrz canvas onPointerDown) */}
           <aside
             role="navigation"
             aria-label="Menu główne"
+            data-rail-aside
             data-rail-expanded={railExpanded ? "true" : "false"}
             onClick={() => setRailExpanded(true)}
-            onMouseLeave={() => setRailExpanded(false)}
             className={cn(
               "relative z-30 hidden shrink-0 flex-col overflow-hidden border-r border-slate-800/90 bg-slate-950 text-slate-200 transition-[width] duration-200 ease-out lg:flex",
               railExpanded ? "w-[min(100vw,17.5rem)]" : "w-[72px]"
@@ -252,7 +292,12 @@ export default function Layout({ children, currentPageName }) {
                 </div>
               ) : null}
             </div>
-            <nav className="flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden px-2.5 py-3">
+            <nav
+              className={cn(
+                "flex flex-1 flex-col gap-1 overflow-x-hidden px-2.5 py-3",
+                railExpanded ? "rail-nav-scrollbar min-h-0 overflow-y-auto" : "overflow-y-auto"
+              )}
+            >
               {NAV_GROUPS.map((group, gi) => (
                 <div key={group.id} className="flex flex-col gap-1">
                   {gi > 0 ? (
@@ -306,8 +351,15 @@ export default function Layout({ children, currentPageName }) {
             </div>
           </aside>
 
-          {/* Canvas + toolbar */}
-          <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
+          {/* Canvas + toolbar — klik w nieinteraktywne tło zamyka rozwinięty rail */}
+          <div
+            className="flex min-w-0 flex-1 flex-col overflow-x-hidden"
+            onPointerDown={(e) => {
+              if (!railExpanded) return;
+              if (!shouldCollapseRailOnCanvasPointerDown(e.target)) return;
+              setRailExpanded(false);
+            }}
+          >
             <header className="sticky top-0 z-20 hidden border-b border-border/80 bg-background/90 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/75 lg:flex lg:h-14 lg:items-center lg:justify-between lg:px-6">
               <div className="flex min-w-0 items-baseline gap-3">
                 <div className="hidden text-muted-foreground lg:block" aria-hidden>
