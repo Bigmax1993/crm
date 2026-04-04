@@ -1,4 +1,5 @@
 import { format, parseISO, isValid } from "date-fns";
+import { replaceLegacyDefaultPayer } from "@/lib/invoice-schema";
 import { resolveMidForCurrencyOnDate, getNbpTableAForBusinessDay, getMidFromTable } from "@/lib/nbp-rates";
 
 function num(v) {
@@ -128,7 +129,10 @@ const API_KEYS = new Set([
 export function pickInvoiceApiPayload(obj) {
   const out = {};
   for (const k of API_KEYS) {
-    if (obj[k] !== undefined) out[k] = obj[k];
+    if (obj[k] === undefined) continue;
+    let v = obj[k];
+    if (k === "payer" && v != null) v = replaceLegacyDefaultPayer(v);
+    out[k] = v;
   }
   return out;
 }

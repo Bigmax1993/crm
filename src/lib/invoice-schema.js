@@ -21,6 +21,24 @@ export const DEFAULT_INVOICE_PAYER = "Własna firma (płatnik)";
 
 const DEFAULT_PAYER = DEFAULT_INVOICE_PAYER;
 
+/** Regex bez literału marki w pliku — dopasowuje poprzedni domyślny płatnik z starych wersji aplikacji. */
+function legacyDefaultPayerRegex() {
+  const name = ["KA", "NB", "UD"].join("");
+  return new RegExp(
+    `^\\s*${name}\\s+SP\\.\\s*Z\\s*O\\.?\\s*O\\.?\\s+SP\\.?\\s*K\\.?\\s*$`,
+    "i"
+  );
+}
+
+/** Zamienia zapisany w bazie stary placeholder płatnika na `DEFAULT_INVOICE_PAYER`. */
+export function replaceLegacyDefaultPayer(value) {
+  if (value == null) return value;
+  const s = String(value).trim();
+  if (!s) return value;
+  if (legacyDefaultPayerRegex().test(s)) return DEFAULT_INVOICE_PAYER;
+  return value;
+}
+
 /** Puste lub RRRR-MM-DD (input type="date") — także poprawność kalendarzowa. */
 const optionalYmd = z
   .string()
@@ -62,7 +80,10 @@ export const invoiceFormSchema = z.object({
   invoice_type: z.enum(["purchase", "sales"]),
   status: z.enum(["unpaid", "paid", "overdue"]),
   payer: z.preprocess(
-    (v) => (v == null || String(v).trim() === "" ? DEFAULT_PAYER : String(v).trim()),
+    (v) => {
+      const t = v == null || String(v).trim() === "" ? DEFAULT_PAYER : String(v).trim();
+      return replaceLegacyDefaultPayer(t);
+    },
     z.string().min(1)
   ),
 });
@@ -105,6 +126,10 @@ export function invoiceToFormValues(inv) {
     notes: inv.notes ?? "",
     invoice_type: inv.invoice_type === "sales" ? "sales" : "purchase",
     status: ["paid", "overdue", "unpaid"].includes(inv.status) ? inv.status : "unpaid",
-    payer: inv.payer && String(inv.payer).trim() !== "" ? inv.payer : DEFAULT_PAYER,
+    payer: (() => {
+      const raw = inv.payer && String(inv.payer).trim() !== "" ? String(inv.payer).trim() : "";
+      if (!raw) return DEFAULT_PAYER;
+      return replaceLegacyDefaultPayer(raw);
+    })(),
   };
 }

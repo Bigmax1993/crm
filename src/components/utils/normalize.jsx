@@ -1,6 +1,9 @@
+import { replaceLegacyDefaultPayer } from "@/lib/invoice-schema";
+
 export const normalizePayer = (payer) => {
   if (!payer) return payer;
-  
+  payer = replaceLegacyDefaultPayer(payer);
+
   return payer
     .toUpperCase()
     .replace(/SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ/g, 'SP. Z O.O.')

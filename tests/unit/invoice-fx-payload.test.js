@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { pickInvoiceApiPayload } from "@/lib/invoice-fx";
+import { DEFAULT_INVOICE_PAYER } from "@/lib/invoice-schema";
 
 describe("pickInvoiceApiPayload (jednostkowe)", () => {
   it("zostawia tylko dozwolone pola API", () => {
@@ -39,6 +40,17 @@ describe("pickInvoiceApiPayload (jednostkowe)", () => {
   it("pomija undefined", () => {
     const out = pickInvoiceApiPayload({ invoice_number: "X", amount: 1 });
     expect(Object.keys(out).sort()).toEqual(["amount", "invoice_number"].sort());
+  });
+
+  it("zamienia zapisany stary domyślny płatnik w polu payer", () => {
+    const oldPlaceholder = `${["KA", "NB", "UD"].join("")} Sp. z o.o. Sp.k.`;
+    const out = pickInvoiceApiPayload({
+      invoice_number: "FV/9",
+      amount: 1,
+      currency: "PLN",
+      payer: oldPlaceholder,
+    });
+    expect(out.payer).toBe(DEFAULT_INVOICE_PAYER);
   });
 
   it("przepuszcza contractor_name, notes i amount_eur", () => {

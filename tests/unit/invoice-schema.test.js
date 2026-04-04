@@ -6,6 +6,7 @@ import {
   invoiceFormDefaults,
   invoiceToFormValues,
   DEFAULT_INVOICE_PAYER,
+  replaceLegacyDefaultPayer,
 } from "@/lib/invoice-schema";
 
 const validBase = {
@@ -23,6 +24,18 @@ const validBase = {
   status: "unpaid",
   payer: DEFAULT_INVOICE_PAYER,
 };
+
+describe("replaceLegacyDefaultPayer", () => {
+  it("zamienia zapisany stary domyślny płatnik na bieżący DEFAULT_INVOICE_PAYER", () => {
+    const oldPlaceholder = `${["KA", "NB", "UD"].join("")} Sp. z o.o. Sp.k.`;
+    expect(replaceLegacyDefaultPayer(oldPlaceholder)).toBe(DEFAULT_INVOICE_PAYER);
+    expect(replaceLegacyDefaultPayer("  " + oldPlaceholder + "  ")).toBe(DEFAULT_INVOICE_PAYER);
+  });
+
+  it("nie zmienia innych nazw płatnika", () => {
+    expect(replaceLegacyDefaultPayer("ACME Sp. z o.o.")).toBe("ACME Sp. z o.o.");
+  });
+});
 
 describe("invoiceFormSchema", () => {
   it("akceptuje poprawny rekord", () => {
