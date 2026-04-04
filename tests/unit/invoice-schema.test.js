@@ -12,6 +12,7 @@ import {
 const validBase = {
   invoice_number: "FV/1/2026",
   contractor_name: "ACME",
+  contractor_nip: "",
   amount: 100,
   amount_eur: null,
   currency: "PLN",
@@ -114,6 +115,7 @@ describe("invoiceFormSchema", () => {
     const payload = pickInvoiceApiPayload(r.data);
     expect(payload.invoice_number).toBe(validBase.invoice_number);
     expect(payload.contractor_name).toBe(validBase.contractor_name);
+    expect(payload.contractor_nip).toBe("");
     expect(payload.amount).toBe(100);
     expect(payload.currency).toBe("PLN");
     expect(payload.notes).toBe("");
@@ -197,5 +199,16 @@ describe("invoiceToFormValues", () => {
     expect(v.amount_eur).toBe(2.5);
     expect(v.notes).toBe("Uwaga");
     expect(v.position).toBe("Usługa");
+  });
+
+  it("mapuje NIP kontrahenta", () => {
+    const v = invoiceToFormValues({
+      id: "1",
+      invoice_number: "N",
+      contractor_name: "C",
+      contractor_nip: "5252445767",
+      amount: 1,
+    });
+    expect(v.contractor_nip).toBe("5252445767");
   });
 });

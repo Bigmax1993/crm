@@ -26,6 +26,7 @@ describe("InvoiceDialogFormFields", () => {
     render(<Harness showNotes={false} isCreate />);
     expect(screen.getByText("Numer faktury")).toBeInTheDocument();
     expect(screen.getByText("Kontrahent")).toBeInTheDocument();
+    expect(screen.getByText("NIP kontrahenta")).toBeInTheDocument();
     expect(screen.getAllByText(/Kwota/).length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText("Waluta")).toBeInTheDocument();
     expect(screen.getByText(/jeśli od razu opłacona/)).toBeInTheDocument();

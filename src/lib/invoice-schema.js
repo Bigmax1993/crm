@@ -69,6 +69,10 @@ const optionalAmountEur = z
 export const invoiceFormSchema = z.object({
   invoice_number: z.string().trim().min(1, "Podaj numer faktury"),
   contractor_name: z.string().trim().min(1, "Podaj kontrahenta"),
+  contractor_nip: z.preprocess(
+    (v) => (v == null || v === undefined ? "" : String(v)),
+    z.string()
+  ).transform((s) => s.trim()),
   amount: amountPositive,
   amount_eur: optionalAmountEur,
   currency: z.enum(INVOICE_CURRENCIES, { message: "Wybierz walutę" }),
@@ -95,6 +99,7 @@ export const invoiceUpdateFormSchema = invoiceFormSchema.extend({
 export const invoiceFormDefaults = {
   invoice_number: "",
   contractor_name: "",
+  contractor_nip: "",
   amount: "",
   amount_eur: "",
   currency: "PLN",
@@ -114,6 +119,7 @@ export function invoiceToFormValues(inv) {
     id: inv.id,
     invoice_number: inv.invoice_number ?? "",
     contractor_name: inv.contractor_name ?? "",
+    contractor_nip: inv.contractor_nip != null ? String(inv.contractor_nip).trim() : "",
     amount: inv.amount != null && inv.amount !== "" ? inv.amount : "",
     amount_eur: inv.amount_eur != null && inv.amount_eur !== "" ? inv.amount_eur : "",
     currency: INVOICE_CURRENCIES.includes((inv.currency || "PLN").toUpperCase())

@@ -37,6 +37,20 @@ import { getUploadFilePublicUrl } from '@/lib/upload-file-url';
 
 const MONTHS_PL = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
 
+const INVOICES_TABLE_MIN_WIDTH_PX = 1700;
+
+/** Wyświetlanie NIP w tabeli: 10 cyfr → format 3-3-3-2. */
+function formatContractorNipForTable(nip) {
+  if (nip == null) return "";
+  const s = String(nip).trim();
+  if (!s) return "";
+  const digits = s.replace(/\D/g, "");
+  if (digits.length === 10) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8)}`;
+  }
+  return s;
+}
+
 export default function Invoices() {
    const [activeTab, setActiveTab] = useState('all');
    const [activeMonthTab, setActiveMonthTab] = useState('all_months');
@@ -199,10 +213,19 @@ export default function Invoices() {
 
   const filteredInvoices = invoices
     .filter(inv => {
-      const matchesSearch = search === '' || 
-        (inv.invoice_number && inv.invoice_number.toLowerCase().includes(search.toLowerCase())) ||
-        (inv.contractor_name && inv.contractor_name.toLowerCase().includes(search.toLowerCase())) ||
-        (inv.position && inv.position.toLowerCase().includes(search.toLowerCase()));
+      const q = search.toLowerCase();
+      const searchDigits = search.replace(/\D/g, "");
+      const nipRaw = inv.contractor_nip != null ? String(inv.contractor_nip) : "";
+      const nipDigits = nipRaw.replace(/\D/g, "");
+      const matchesNip =
+        nipRaw &&
+        (nipRaw.toLowerCase().includes(q) || (searchDigits.length > 0 && nipDigits.includes(searchDigits)));
+      const matchesSearch =
+        search === "" ||
+        (inv.invoice_number && inv.invoice_number.toLowerCase().includes(q)) ||
+        (inv.contractor_name && inv.contractor_name.toLowerCase().includes(q)) ||
+        matchesNip ||
+        (inv.position && inv.position.toLowerCase().includes(q));
 
       const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
       const matchesType = activeTab === 'all' || inv.invoice_type === activeTab;
@@ -246,10 +269,11 @@ export default function Invoices() {
 
   const exportToCSV = (collective = true) => {
     if (collective) {
-      const headers = ['Numer faktury', 'Kontrahent', 'Pozycja', 'Kwota', 'Waluta', 'Data wystawienia', 'Termin płatności', 'Status'];
+      const headers = ['Numer faktury', 'Kontrahent', 'NIP kontrahenta', 'Pozycja', 'Kwota', 'Waluta', 'Data wystawienia', 'Termin płatności', 'Status'];
       const rows = filteredInvoices.map(inv => [
         escapeCSV(inv.invoice_number || ''),
         escapeCSV(inv.contractor_name || ''),
+        escapeCSV(formatContractorNipForTable(inv.contractor_nip) || ''),
         escapeCSV(inv.position || ''),
         escapeCSV(inv.amount || ''),
         escapeCSV(inv.currency || ''),
@@ -270,6 +294,7 @@ export default function Invoices() {
         const rows = [
           ['Numer faktury', escapeCSV(inv.invoice_number || '')],
           ['Kontrahent', escapeCSV(inv.contractor_name || '')],
+          ['NIP kontrahenta', escapeCSV(formatContractorNipForTable(inv.contractor_nip) || '')],
           ['Kwota', escapeCSV(inv.amount || '')],
           ['Waluta', escapeCSV(inv.currency || '')],
           ['Data wystawienia', escapeCSV(inv.issue_date && isValidDate(inv.issue_date) ? format(new Date(inv.issue_date), 'dd.MM.yyyy') : '')],
@@ -304,6 +329,7 @@ export default function Invoices() {
         xml += '  <invoice>\n';
         xml += `    <invoice_number>${escapeXML(inv.invoice_number)}</invoice_number>\n`;
         xml += `    <contractor_name>${escapeXML(inv.contractor_name)}</contractor_name>\n`;
+        xml += `    <contractor_nip>${escapeXML(formatContractorNipForTable(inv.contractor_nip) || "")}</contractor_nip>\n`;
         xml += `    <amount>${escapeXML(inv.amount)}</amount>\n`;
         xml += `    <currency>${escapeXML(inv.currency)}</currency>\n`;
         xml += `    <issue_date>${escapeXML(inv.issue_date)}</issue_date>\n`;
@@ -323,6 +349,7 @@ export default function Invoices() {
         let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<invoice>\n';
         xml += `  <invoice_number>${escapeXML(inv.invoice_number)}</invoice_number>\n`;
         xml += `  <contractor_name>${escapeXML(inv.contractor_name)}</contractor_name>\n`;
+        xml += `  <contractor_nip>${escapeXML(formatContractorNipForTable(inv.contractor_nip) || "")}</contractor_nip>\n`;
         xml += `  <amount>${escapeXML(inv.amount)}</amount>\n`;
         xml += `  <currency>${escapeXML(inv.currency)}</currency>\n`;
         xml += `  <issue_date>${escapeXML(inv.issue_date)}</issue_date>\n`;
@@ -356,10 +383,11 @@ export default function Invoices() {
       
       doc.text(`Numer: ${inv.invoice_number || '-'}`, 14, y);
       doc.text(`Kontrahent: ${inv.contractor_name || '-'}`, 14, y + 5);
-      doc.text(`Kwota: ${inv.amount?.toFixed(2) || '-'} ${inv.currency || ''}`, 14, y + 10);
-      doc.text(`Status: ${inv.status === 'paid' ? 'Opłacono' : inv.status === 'overdue' ? 'Przeterminowano' : 'Nieopłacono'}`, 14, y + 15);
+      doc.text(`NIP: ${formatContractorNipForTable(inv.contractor_nip) || '-'}`, 14, y + 10);
+      doc.text(`Kwota: ${inv.amount?.toFixed(2) || '-'} ${inv.currency || ''}`, 14, y + 15);
+      doc.text(`Status: ${inv.status === 'paid' ? 'Opłacono' : inv.status === 'overdue' ? 'Przeterminowano' : 'Nieopłacono'}`, 14, y + 20);
       
-      y += 25;
+      y += 30;
     });
     
     doc.save(`faktury_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
@@ -464,7 +492,7 @@ export default function Invoices() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
-                    placeholder="Szukaj po numerze lub kontrahenta..."
+                    placeholder="Szukaj po numerze, kontrahencie lub NIP..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="pl-10"
@@ -506,7 +534,7 @@ export default function Invoices() {
               }}
               className="overflow-x-auto"
             >
-              <Table style={{minWidth: '1580px'}}>
+              <Table style={{ minWidth: `${INVOICES_TABLE_MIN_WIDTH_PX}px` }}>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-12">
@@ -518,6 +546,7 @@ export default function Invoices() {
                     <TableHead>Numer faktury</TableHead>
                     <TableHead>Sprzedawca</TableHead>
                     <TableHead>Kontrahent</TableHead>
+                    <TableHead>NIP kontrahenta</TableHead>
                     <TableHead>Pozycja</TableHead>
                     <TableHead>Kwota dokumentu</TableHead>
                     <TableHead>Kwota EUR</TableHead>
@@ -532,13 +561,13 @@ export default function Invoices() {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={13} className="text-center py-8 text-slate-500">
+                      <TableCell colSpan={14} className="text-center py-8 text-slate-500">
                         Ładowanie...
                       </TableCell>
                     </TableRow>
                   ) : filteredInvoices.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={13} className="text-center py-8 text-slate-500">
+                      <TableCell colSpan={14} className="text-center py-8 text-slate-500">
                         Brak faktur
                       </TableCell>
                     </TableRow>
@@ -579,6 +608,9 @@ export default function Invoices() {
                            {inv.invoice_type === 'sales'
                              ? inv.contractor_name
                              : replaceLegacyDefaultPayer(inv.payer) || DEFAULT_INVOICE_PAYER}
+                         </TableCell>
+                         <TableCell className="whitespace-nowrap font-mono text-sm text-slate-700">
+                           {formatContractorNipForTable(inv.contractor_nip) || "—"}
                          </TableCell>
                          <TableCell className="text-slate-600 text-sm">{inv.position || '-'}</TableCell>
                          <TableCell className="whitespace-nowrap">
@@ -704,7 +736,7 @@ export default function Invoices() {
                     height: '14px'
                   }}
                 >
-                  <div style={{ height: '1px', minWidth: '1580px' }} />
+                  <div style={{ height: "1px", minWidth: `${INVOICES_TABLE_MIN_WIDTH_PX}px` }} />
                 </div>
                 )}
 

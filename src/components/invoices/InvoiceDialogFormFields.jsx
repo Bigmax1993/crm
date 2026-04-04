@@ -34,6 +34,19 @@ export function InvoiceDialogFormFields({ control, showNotes, isCreate }) {
           </FormItem>
         )}
       />
+      <FormField
+        control={control}
+        name="contractor_nip"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>NIP kontrahenta</FormLabel>
+            <FormControl>
+              <Input {...field} value={field.value ?? ""} placeholder="np. 5252445767 lub z myślnikami" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
       <div className="grid grid-cols-3 gap-4">
         <FormField
           control={control}
