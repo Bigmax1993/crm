@@ -100,7 +100,7 @@ To jest próba ${attemptIndex + 1} z serii — jeśli wcześniej pola były pust
 
 /**
  * Ekstrakcja faktury z PDF przez Base44 (upload + InvokeLLM z plikiem).
- * Kilka prób z twardszym promptem dla skanów (domyślnie 4 na fakturę — getInvoicePdfOcrAttemptCount).
+ * Kilka prób z twardszym promptem dla skanów (domyślnie 5 na fakturę — getInvoicePdfOcrAttemptCount).
  */
 export async function extractInvoiceFromPdfBase44(file) {
   const uploadRes = await base44.integrations.Core.UploadFile({ file });

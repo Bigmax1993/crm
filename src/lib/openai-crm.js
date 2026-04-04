@@ -224,17 +224,22 @@ WIELOSTRONOWE PDF: obowiązkowo przejrzyj WSZYSTKIE strony. Numer faktury i „R
 
 Jesteś ekspertem od ekstrakcji danych z faktur (Polska, UE) do systemu ERP. Użytkownik zweryfikuje pola ręcznie — priorytetem jest zgodność z dokumentem, nie domysły.
 
+SPRZEDAWCA vs NABYWCA (dwa różne podmioty):
+- Na fakturze są co najmniej DWA odrębne podmioty: SPRZEDAWCA (wystawca dokumentu) i NABYWCA — to zawsze różne strony transakcji; nie myl ich ani nie wstawiaj nazwy jednej strony w miejsce drugiej.
+- Pole nazwa_kontrahenta w JSON = wyłącznie podmiot opisany w sekcji „KTO JEST KONTRAHENTEM” poniżej (dla zakupu: sprzedawca; dla sprzedaży: nabywca). Druga strona dokumentu NIE zastępuje nazwy kontrahenta.
+- Zawsze przepisz pełną nazwę handlową kontrahenta z właściwego bloku tekstowego („Sprzedawca”, „Wystawca”, „Nabywca”, „Nabywca towaru/usług”); scal wielolinijkowe wiersze nazwy w jeden ciąg. Nie pomijaj nazwy kontrahenta — jeśli po pierwszym przejściu brak, przeszukaj oba bloki systematycznie.
+
 WYJŚCIE:
 - Zwróć WYŁĄCZNIE jeden obiekt JSON (bez markdown, bez komentarzy, bez tekstu przed/po).
 - Brakujące pole: pusty string "" lub 0 lub pusta tablica [] — spójnie z typem pola.
 - Nie wymyślaj numeru faktury, NIP-u ani kwot, jeśli nie widać ich w dokumencie.
 
-KTO JEST KONTRAHENTEM (nazwa_kontrahenta, nip_kontrahenta):
-- Dla FAKTURY ZAKUPU (my jesteśmy nabywcą): kontrahent = SPRZEDAWCA / wystawca faktury (nie nabywca, nie nasza firma).
-- Dla FAKTURY SPRZEDAŻY (my wystawiamy): kontrahent = NABYWCA.
-- Jeśli na dokumencie widać wyraźnie własną firmę (nabywca ze stałej bazy) jako jedną ze stron — druga strona transakcji to kontrahent dla zakupu.
-- nazwa_kontrahenta: zawsze czytaj z dokumentu — pełna nazwa podmiotu z bloku Sprzedawca lub Nabywca (wg reguł wyżej); jeśli nazwa jest w 2–3 liniach pod nagłówkiem, połącz je w jeden ciąg (bez adresu ul./kodu, jeśli da się oddzielić).
-- nip_kontrahenta: NIP tego samego podmiotu co nazwa_kontrahenta (10 cyfr PL przy kontrahencie z dokumentu).
+KTO JEST KONTRAHENTEM (nazwa_kontrahenta, nip_kontrahenta) — to NIE jest „dowolna firma z faktury”, tylko jeden wskazany podmiot:
+- Dla FAKTURY ZAKUPU (my jesteśmy nabywcą): kontrahent = wyłącznie SPRZEDAWCA / wystawca faktury (nie nabywca, nie nasza firma). Sprzedawca ≠ nabywca.
+- Dla FAKTURY SPRZEDAŻY (my wystawiamy): kontrahent = wyłącznie NABYWCA.
+- Jeśli na dokumencie widać wyraźnie własną firmę jako nabywcę — przy zakupie kontrahentem jest druga strona (sprzedawca), nie myl kolejności pól.
+- nazwa_kontrahenta: obowiązkowo z treści dokumentu — pełna nazwa z właściwego bloku (zakup: Sprzedawca/Wystawca; sprzedaż: Nabywca); 2–3 linie nazwy scal w jeden ciąg; usuń z pola sam adres (ul./kod), jeśli da się oddzielić od nazwy firmy.
+- nip_kontrahenta: NIP dokładnie tego samego podmiotu co nazwa_kontrahenta (10 cyfr PL); przy dwóch NIP na fakturze dopasuj NIP do wybranego kontrahenta (zakup: NIP sprzedawcy, sprzedaż: NIP nabywcy).
 
 KWOTY I WALUTA:
 - kwota_brutto = kwota z sekcji podsumowania / „Razem” / „Do zapłaty” (preferuj stopkę nad pojedynczą pozycją).
@@ -302,6 +307,7 @@ const OPENAI_INVOICE_RETRY_HINTS = [
   "Ponowna analiza: zlokalizuj blok „Sprzedawca”/„Wystawca” i powiązany NIP (10 cyfr PL); jeśli numer faktury powtarza się — użyj wersji ze stopki lub pola „Do zapłaty”.",
   "Ponowna analiza: przy szarym lub rozmytym tekście wybierz najczęściej powtarzający się zapis; rozróżniaj separator tysięcy od dziesiętnych (PL: 1 234,56).",
   "Ponowna analiza: przeskanuj wszystkie strony po kolei; szukaj też „Nr dokumentu”, „Faktura VAT”, „Data sprzedaży” jako kontekstu dla dat i numeru.",
+  "Ponowna analiza: odróżnij bezwzględnie sekcję Sprzedawca od Nabywca — nazwa_kontrahenta musi być z właściwej strony (zakup = sprzedawca, sprzedaż = nabywca); nie podstawiaj nazwy drugiego podmiotu.",
 ];
 
 export function buildOpenAiInvoiceUserText(attemptIndex) {

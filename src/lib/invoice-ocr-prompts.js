@@ -1,8 +1,8 @@
 /**
  * Prompty OCR (InvokeLLM / OpenAI) dla importu faktur PDF.
- * Liczba prób na jeden plik: getInvoicePdfOcrAttemptCount() — domyślnie 4, opcjonalnie VITE_OCR_LLM_ATTEMPTS (1–10).
+ * Liczba prób na jeden plik: getInvoicePdfOcrAttemptCount() — domyślnie 5, opcjonalnie VITE_OCR_LLM_ATTEMPTS (1–10).
  */
-const DEFAULT_INVOICE_PDF_OCR_ATTEMPTS = 4;
+const DEFAULT_INVOICE_PDF_OCR_ATTEMPTS = 5;
 
 function clampOcrAttemptsEnv(n) {
   if (!Number.isFinite(n) || n < 1) return null;
@@ -27,11 +27,13 @@ export const INVOICE_OCR_PROMPT_BASE = `Jesteś ekspertem OCR faktur i dokument�
 
 WYJŚCIE: jeden obiekt JSON zgodny ze schemą (tablica invoices). Bez markdown.
 
-KONTRAHENT (contractor_name, contractor_nip) — zawsze z treści dokumentu:
-- Przy FAKTURZE ZAKUPU: kontrahent = sprzedawca / wystawca (nie nabywca, nie własna firma jeśli to nasza strona jako nabywca).
-- Przy FAKTURZE SPRZEDAŻY (is_own_company_seller=true): kontrahent = nabywca (Twoja firma wystawia dokument).
-- Pełna nazwa firmy z bloku Sprzedawca/Nabywca (w razie kilku linii — scal w jedną nazwę, pomiń sam adres jeśli da się oddzielić).
-- NIP: 10 cyfr dla PL dla tego samego podmiotu co kontrahent; brak w dokumencie → pusty string.
+SPRZEDAWCA vs NABYWCA vs KONTRAHENT (contractor_name, contractor_nip):
+- Na fakturze są co najmniej DWA odrębne podmioty: SPRZEDAWCA (wystawca) i NABYWCA — to zawsze różne strony transakcji; nie zamieniaj ich miejscami i nie scalaj w jedną nazwę.
+- W polu contractor_name trafia wyłącznie podmiot „kontrahent” w sensie biznesowym poniżej — nigdy nazwa drugiej strony (nabywcy przy zakupie, sprzedawcy przy sprzedaży).
+- Przy FAKTURZE ZAKUPU: kontrahent = SPRZEDAWCA / wystawca (nie nabywca, nie własna firma jeśli to nasza strona jako nabywca).
+- Przy FAKTURZE SPRZEDAŻY (is_own_company_seller=true): kontrahent = NABYWCA (Twoja firma wystawia dokument).
+- Obowiązkowo odczytaj z PDF pełną nazwę handlową kontrahenta z właściwego bloku (nagłówki „Sprzedawca”, „Wystawca”, „Nabywca”, „Nabywca towaru/usług”); wielolinijkowe nazwy scal w jeden ciąg; pomiń sam adres (ul./kod), jeśli da się oddzielić od nazwy. Nie kończ na samym numerze faktury — jeśli nazwa niepewna, przeszukaj oba bloki.
+- NIP: 10 cyfr dla PL dla tego samego podmiotu co contractor_name; brak w dokumencie → pusty string. Przy dwóch NIP na dokumencie dopasuj NIP do wybranego kontrahenta (zakup: NIP sprzedawcy).
 
 KWOTY: amount = brutto z podsumowania / „Do zapłaty” / „Razem”. net_amount, vat_amount ze stopki VAT; jeśli nie da się odczytać — 0. Waluta ISO (PLN, EUR, …).
 - Rozróżnij format PL: przecinek jako separator dziesiętny, kropka lub spacja jako tysiące (np. 1 234,56).
@@ -61,11 +63,11 @@ Wielostronicowy PDF: czytaj wszystkie strony; sumy i numery biorą się ze stron
 /** Druga fala promptów — nacisk na skany, słabą czytelność i pułapki OCR. */
 export const INVOICE_OCR_PROMPT_DEEP = `TRYB MAKSYMALNEJ DOKŁADNOŚCI OCR (skany, zdjęcia, niska rozdzielczość, szare tło):
 
-Postępuj jak profesjonalny operator OCR: lokalizuj najpierw BLOKI (nagłówek, sprzedawca, nabywca, tabela, podsumowanie VAT, „do zapłaty”, rachunek bankowy), potem czytaj pole po polu.
+Postępuj jak profesjonalny operator OCR: lokalizuj najpierw OSOBNO blok SPRZEDAWCA i blok NABYWCA (dwa różne podmioty), potem tabela, podsumowanie VAT, „do zapłaty”, rachunek bankowy — czytaj pole po polu.
 - Nie zamieniaj O na 0 ani l na 1 w numerze faktury — jeśli niepewne, porównaj z powtórzeniami numeru w dokumencie.
 - Tabele: każdy wiersz pozycji osobno; nie łącz komórek w jeden tekst jeśli da się odczytać kolumny.
 - Szary lub przekoszony tekst: wybierz wariant najczęściej powtarzający się w dokumencie dla tego pola.
-- Pieczątki i stemple: nie traktuj ich jako głównej nazwy kontrahenta — preferuj blok „Sprzedawca” / „Wystawca”.
+- Pieczątki i stemple: nie traktuj ich jako głównej nazwy kontrahenta — preferuj drukowany blok „Sprzedawca” / „Wystawca” / „Nabywca” (wg reguł kontrahenta powyżej).
 - Wielowalutowość: jeśli są dwie waluty, kwoty główne w polu amount muszą być w walucie „Do zapłaty”.
 
 Potem stosuj te same reguły wyjścia JSON co poniżej.
@@ -80,10 +82,10 @@ export function pickInvoiceOcrPrompt(attemptIndexZeroBased) {
 
 /** Fragment do kolejnych prób InvokeLLM (bez duplikacji całego INVOICE_JSON_PROMPT). */
 export const INVOICE_OCR_SCAN_ADDENDUM = `Dodatkowe reguły dla skanów i słabej czytelności:
-Lokalizuj najpierw BLOKI (nagłówek, sprzedawca, nabywca, tabela, podsumowanie VAT, „do zapłaty”, rachunek bankowy), potem czytaj pole po polu.
+Lokalizuj najpierw BLOKI: nagłówek, potem OSOBNO sprzedawca i nabywca (dwa różne podmioty), tabela, podsumowanie VAT, „do zapłaty”, rachunek bankowy — potem czytaj pole po polu.
 Nie zamieniaj O na 0 ani l na 1 w numerze faktury — przy wątpliwości porównaj powtórzenia numeru w dokumencie.
 Tabele: każdy wiersz pozycji osobno; nie łącz komórek w jeden tekst, jeśli da się odczytać kolumny.
-Pieczątki: nie traktuj ich jako głównej nazwy kontrahenta — preferuj blok „Sprzedawca” / „Wystawca”.
+Pieczątki: nie traktuj ich jako głównej nazwy kontrahenta — preferuj drukowany blok „Sprzedawca” / „Wystawca” / „Nabywca” (kontrahent wg typu FV: zakup = sprzedawca, sprzedaż = nabywca).
 Wielowalutowość: kwota_brutto musi być w walucie z „Do zapłaty” / podsumowania.
 Format PL kwot: przecinek = dziesiętne, kropka lub spacja = tysiące (np. 1 234,56 zł).`;
 
@@ -91,8 +93,8 @@ Format PL kwot: przecinek = dziesiętne, kropka lub spacja = tysiące (np. 1 234
 export const INVOICE_OCR_SCAN_ADDENDUM_DEEP = `TRYB GŁĘBOKI (kolejna próba OCR):
 - Przejrzyj KAŻDĄ stronę od początku do końca; korekty i duplikaty numerów — wybierz wersję ze strony podsumowania / ostatniej z tabelą VAT.
 - numer_faktury: szukaj też „Nr”, „Nr dokumentu”, „Faktura nr”, „FV”, „Dowód ks.”; jeśli kilka wariantów — ten przy logo lub w stopce płatności.
-- nazwa_kontrahenta: pełna nazwa firmy ze „Sprzedawca” (nie skrót z pieczątki), bez adresu w tym polu jeśli da się oddzielić.
-- NIP: dokładnie 10 cyfr (PL); jeśli widzisz „NIP” przy nabywcy i sprzedawcy — dla zakupu bierz NIP sprzedawcy.
+- nazwa_kontrahenta: pełna nazwa z właściwego bloku — przy zakupie ze „Sprzedawca”/„Wystawca”, przy sprzedaży z „Nabywca” (nie skrót z pieczątki, nie nazwa drugiej strony), bez adresu w tym polu jeśli da się oddzielić.
+- NIP: dokładnie 10 cyfr (PL) tego samego podmiotu co nazwa_kontrahenta; przy dwóch NIP na dokumencie dla faktury zakupu bierz NIP sprzedawcy, dla sprzedaży NIP nabywcy.
 - kwota_brutto: musi odpowiadać „Razem brutto” / „Do zapłaty” / ostatniemu wierszowi podsumowania; jeśli VAT w wierszach — suma netto+VAT powinna się zgadzać (tolerancja zaokrągleń groszowych).
 - Przy niskim kontraście lub szumie: wybierz wariant tekstu powtarzający się co najmniej dwa razy w dokumencie dla tego samego pola.`;
 

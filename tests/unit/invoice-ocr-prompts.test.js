@@ -8,9 +8,9 @@ import {
 } from "@/lib/invoice-ocr-prompts";
 
 describe("invoice-ocr-prompts", () => {
-  it("getInvoicePdfOcrAttemptCount — domyślnie 4 próby na fakturę", () => {
-    expect(getInvoicePdfOcrAttemptCount()).toBe(4);
-    expect(getInvoiceBase44AttemptCount()).toBe(4);
+  it("getInvoicePdfOcrAttemptCount — domyślnie 5 prób na fakturę", () => {
+    expect(getInvoicePdfOcrAttemptCount()).toBe(5);
+    expect(getInvoiceBase44AttemptCount()).toBe(5);
   });
 
   it("OCR_LLM_ATTEMPTS jest liczbą dodatnią", () => {
