@@ -64,11 +64,12 @@ describe("geo-ai helpers", () => {
 
   it("geokoduje miejscowość i używa cache", async () => {
     hoisted.openaiChatCompletions.mockResolvedValueOnce({
-      text: '{"city":"Krosno Odrzańskie","country_iso2":"PL","lat":52.054,"lon":15.098,"confidence":0.95}',
+      text: '{"city":"Krosno Odrzańskie","official_name_pl":"Krosno Odrzańskie","country_iso2":"PL","lat":52.054,"lon":15.098,"confidence":0.95}',
     });
     const first = await geocodeCityWithGpt("Krosno Odrzańskie", "PL");
     const second = await geocodeCityWithGpt("Krosno Odrzańskie", "PL");
     expect(first.source).toBe("gpt");
+    expect(first.official_name_pl).toBe("Krosno Odrzańskie");
     expect(second.source).toBe("cache");
     expect(hoisted.openaiChatCompletions).toHaveBeenCalledTimes(1);
   });

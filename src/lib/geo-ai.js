@@ -110,12 +110,17 @@ export async function geocodeCityWithGpt(city, countryIso2 = "PL") {
   const key = cacheKey(normCity, normCountry);
   const cached = cache[key];
   if (cached && Number.isFinite(cached.lat) && Number.isFinite(cached.lon)) {
-    return { ...cached, source: "cache" };
+    return {
+      ...cached,
+      official_name_pl: cached.official_name_pl || cached.city || normCity,
+      source: "cache",
+    };
   }
 
   const prompt = `Podaj geolokalizację miejscowości w Europie. Zwróć WYŁĄCZNIE JSON:
 {
   "city": "${normCity}",
+  "official_name_pl": "oficjalna nazwa po polsku z polskimi znakami (np. Wrocław gdy użytkownik pisał Wroclaw)",
   "country_iso2": "${normCountry}",
   "lat": liczba,
   "lon": liczba,
@@ -125,15 +130,17 @@ Jeśli nie masz pewności, i miejscowość jest wieloznaczna, wybierz najbardzie
 
   const { text } = await openaiChatCompletions({
     messages: [{ role: "user", content: prompt }],
-    max_tokens: 180,
+    max_tokens: 220,
     temperature: 0,
   });
   const parsed = extractJsonObject(text) || {};
   const point = toPoint(parsed.lat, parsed.lon);
   if (!point) return null;
 
+  const officialPl = String(parsed.official_name_pl || "").trim();
   const row = {
     city: normCity,
+    official_name_pl: officialPl || normCity,
     country_iso2: normalizeCountry(parsed.country_iso2 || normCountry) || normCountry,
     lat: point.lat,
     lon: point.lon,

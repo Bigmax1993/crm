@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Search, Plus, X, Trash2, Loader2, Building, Pencil, Image as ImageIcon, Upload as UploadIcon } from 'lucide-react';
 import { ConstructionOffersAi } from '@/components/ai/ConstructionOffersAi';
+import { CityGeocodeInput } from '@/components/construction/CityGeocodeInput';
 import { OFFER_SEGMENT_OPTIONS, offerSegmentLabel } from '@/lib/offer-segments';
 import { getSiteExtension, patchSiteExtension } from '@/lib/crm-local-store';
 import { getUploadFilePublicUrl } from '@/lib/upload-file-url';
@@ -219,11 +220,13 @@ export default function Construction() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <Label>Miasto *</Label>
-                    <Input
-                      value={formData.city}
-                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      required
+                    <CityGeocodeInput
+                      id="construction-site-city"
+                      city={formData.city}
+                      latitude={formData.latitude}
+                      longitude={formData.longitude}
+                      onPatch={(partial) => setFormData((prev) => ({ ...prev, ...partial }))}
+                      disabled={createMutation.isPending || updateMutation.isPending}
                     />
                   </div>
                   <div>

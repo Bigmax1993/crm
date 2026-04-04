@@ -132,7 +132,7 @@ export default function ProjectsMap() {
             </div>
             {withCoords.length === 0 && (
               <p className="p-4 text-sm text-muted-foreground">
-                Brak projektów ze współrzędnymi. Uzupełnij szerokość i długość geograficzną w module Projektów.
+                Brak projektów ze współrzędnymi. W module <strong>Budowa</strong> wybierz miejscowość z listy sugestii lub uzupełnij szer. / dł. geograficzną — zapisany obiekt pojawi się tutaj.
               </p>
             )}
           </CardContent>
