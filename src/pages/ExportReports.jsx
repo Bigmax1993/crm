@@ -109,7 +109,7 @@ export default function ExportReports() {
         { header: "KursNBP", key: "mid", width: 12 },
         { header: "DataKursu", key: "tdate", width: 14 },
         { header: "KwotaPLN", key: "pln", width: 14 },
-        { header: "Status", key: "status", width: 12 },
+        { header: "Stan", key: "status", width: 12 },
         { header: "Data wystawienia", key: "issue", width: 14 },
         { header: "Termin płatności", key: "due", width: 14 },
         { header: "RoznicaKursowaPLN", key: "fx", width: 16 },
@@ -183,7 +183,7 @@ export default function ExportReports() {
         .forEach(([w, v]) => s1b.addRow({ w, c: v.count, s: v.sum }));
       s1b.addRow({ w: "SUMA PLN (przeliczenie NBP)", c: "", s: sumPln }).font = { bold: true };
 
-      const s2 = wb.addWorksheet("Koszty per projekt");
+      const s2 = wb.addWorksheet("Koszty według projektu");
       s2.columns = [
         { header: "Projekt", key: "p", width: 28 },
         { header: "Budżet", key: "b", width: 14 },
@@ -219,7 +219,7 @@ export default function ExportReports() {
       const t2 = s2.addRow({ p: "SUMA CAŁKOWITA", b: sumB, k: sumK, pct: "", a: "" });
       t2.font = { bold: true };
 
-      const s3 = wb.addWorksheet("Cash flow");
+      const s3 = wb.addWorksheet("Przepływy");
       s3.columns = [
         { header: "Miesiąc", key: "m", width: 12 },
         { header: "Wpływy", key: "w", width: 14 },
@@ -370,8 +370,8 @@ export default function ExportReports() {
             <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
               <li>Faktury (NBP: kwota oryginał, waluta, kurs, data kursu, PLN) + autofilter</li>
               <li>Podsumowanie_walut oraz Roznice_kursowe (per faktura)</li>
-              <li>Koszty per projekt z alertem budżetu (PLN NBP)</li>
-              <li>Cash flow miesięczny z saldem narastającym</li>
+              <li>Koszty według projektu z alertem budżetu (PLN NBP)</li>
+              <li>Przepływy miesięczne z saldem narastającym</li>
               <li>Bilans należności vs zobowiązania</li>
               <li>Wiersz SUMA CAŁKOWITA w każdym arkuszu; suma zbiorcza w PLN</li>
               <li>Nagłówki: granat #1F4E79, biały tekst</li>
@@ -389,7 +389,7 @@ export default function ExportReports() {
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Karty KPI, wykres słupkowy cash flow, tabela top projektów — render w przeglądarce (Segoe UI), potem zapis do PDF —
+              Karty KPI, wykres słupkowy przepływów, tabela najlepszych projektów — render w przeglądarce (Segoe UI), potem zapis do PDF —
               poprawne polskie litery.
             </p>
             <Button variant="secondary" onClick={exportPdf} disabled={!!busy} className="gap-2">

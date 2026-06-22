@@ -124,7 +124,7 @@ export default function FinancialForecasts() {
         <Tabs defaultValue="cashflow" className="w-full">
           <TabsList className="flex h-auto min-h-9 w-full flex-wrap justify-start gap-1 bg-background p-1">
             <TabsTrigger value="cashflow" className="text-xs sm:text-sm">
-              Cash flow
+              Przepływy pieniężne
             </TabsTrigger>
             <TabsTrigger value="season" className="text-xs sm:text-sm">
               Sezonowość
@@ -133,7 +133,7 @@ export default function FinancialForecasts() {
               Ryzyko EUR
             </TabsTrigger>
             <TabsTrigger value="pipeline" className="text-xs sm:text-sm">
-              Pipeline
+              Lejek ofert
             </TabsTrigger>
             <TabsTrigger value="margin" className="text-xs sm:text-sm">
               Rentowność
@@ -141,9 +141,9 @@ export default function FinancialForecasts() {
           </TabsList>
 
           <TabsContent value="cashflow" className="mt-4">
-            <ForecastErrorBoundary moduleName="Cash flow etapowy">
+            <ForecastErrorBoundary moduleName="Przepływy etapowe">
               <ForecastModuleChrome
-                title="MODUŁ 1 — Cash flow etapowy"
+                title="MODUŁ 1 — Przepływy pieniężne etapowe"
                 description="Saldo startowe z konta (PLN) + przyszłe i zaległe przepływy z faktur wg terminów płatności / zaksięgowanych zapłat."
                 updatedAt={updatedAt}
                 loading={false}
@@ -151,16 +151,16 @@ export default function FinancialForecasts() {
                 onExportPdf={() =>
                   exportPrognozyPdf(
                     `Fakturowo_prognoza_cf_${horizon}d.pdf`,
-                    `Cash flow ${horizon} dni`,
-                    ["Tydzień", "Wpływy", "Wydatki", "Saldo", "Status"],
+                    `Przepływy ${horizon} dni`,
+                    ["Tydzień", "Wpływy", "Wydatki", "Saldo", "Stan"],
                     cash.rows.map((r) => [r.weekStart, r.wplywy, r.wydatki, r.saldo, r.status])
                   )
                 }
                 onExportExcel={() =>
                   exportPrognozyExcel(
                     `Fakturowo_prognoza_cf_${horizon}d.xlsx`,
-                    "Cash flow",
-                    ["Tydzień", "Wpływy", "Wydatki", "Saldo", "Status"],
+                    "Przepływy pieniężne",
+                    ["Tydzień", "Wpływy", "Wydatki", "Saldo", "Stan"],
                     cash.rows.map((r) => [r.weekStart, r.wplywy, r.wydatki, r.saldo, r.status])
                   )
                 }
@@ -252,7 +252,7 @@ export default function FinancialForecasts() {
                       <TableHead className="text-right">Wpływy</TableHead>
                       <TableHead className="text-right">Wydatki</TableHead>
                       <TableHead className="text-right">Saldo</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead>Stan</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -271,7 +271,13 @@ export default function FinancialForecasts() {
                         <TableCell className="text-right text-sm">{formatPln(r.wplywy, { min: 0, max: 0 })}</TableCell>
                         <TableCell className="text-right text-sm">{formatPln(r.wydatki, { min: 0, max: 0 })}</TableCell>
                         <TableCell className="text-right text-sm font-medium">{formatPln(r.saldo, { min: 0, max: 0 })}</TableCell>
-                        <TableCell className="text-xs capitalize">{r.status}</TableCell>
+                        <TableCell className="text-xs">
+                          {r.status === "critical"
+                            ? "krytyczny"
+                            : r.status === "warn"
+                              ? "ostrzeżenie"
+                              : "w normie"}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -470,7 +476,7 @@ export default function FinancialForecasts() {
                       <TableHead className="text-right">EUR brutto</TableHead>
                       <TableHead className="text-right">Kurs</TableHead>
                       <TableHead className="text-right">PLN</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead>Stan</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -507,9 +513,9 @@ export default function FinancialForecasts() {
           </TabsContent>
 
           <TabsContent value="pipeline" className="mt-4">
-            <ForecastErrorBoundary moduleName="Pipeline">
+            <ForecastErrorBoundary moduleName="Lejek ofert">
               <ForecastModuleChrome
-                title="MODUŁ 4 — Pipeline projektów (oferty)"
+                title="MODUŁ 4 — Lejek projektów (oferty)"
                 description="Projekty w fazie „oferta” — prawdopodobieństwo wygranej i trzy scenariusze przychodu/kosztu/zysku."
                 updatedAt={updatedAt}
                 loading={false}
@@ -517,7 +523,7 @@ export default function FinancialForecasts() {
                 onExportPdf={() =>
                   exportPrognozyPdf(
                     "Fakturowo_prognoza_pipeline.pdf",
-                    "Pipeline",
+                    "Lejek ofert",
                     ["Oferta", "P%", "Budżet", "Zysk"],
                     pipeline.items.map((i) => [i.nazwa, i.pwin * 100, i.budzet, i.zysk])
                   )
@@ -525,7 +531,7 @@ export default function FinancialForecasts() {
                 onExportExcel={() =>
                   exportPrognozyExcel(
                     "Fakturowo_prognoza_pipeline.xlsx",
-                    "Pipeline",
+                    "Lejek ofert",
                     ["Oferta", "P%", "Budżet", "Zysk"],
                     pipeline.items.map((i) => [i.nazwa, i.pwin * 100, i.budzet, i.zysk])
                   )
@@ -548,14 +554,14 @@ export default function FinancialForecasts() {
                         <p>Koszty: {formatPln(sc.koszty, { min: 0, max: 0 })}</p>
                         <p className="font-semibold">Zysk: {formatPln(sc.zysk, { min: 0, max: 0 })}</p>
                         <p className="text-muted-foreground text-xs">
-                          Wpływ CF (śr. / mc, 12 mc): {formatPln(sc.cfMies, { min: 0, max: 0 })}
+                          Wpływ przepływów (śr. / mc, 12 mc): {formatPln(sc.cfMies, { min: 0, max: 0 })}
                         </p>
                       </CardContent>
                     </Card>
                   ))}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Ważona wartość pipeline: <strong>{formatPln(pipeline.weightedPipeline, { min: 0, max: 0 })}</strong>
+                  Ważona wartość lejka: <strong>{formatPln(pipeline.weightedPipeline, { min: 0, max: 0 })}</strong>
                 </p>
                 <div className="space-y-6">
                   {pipeline.items.map((item) => (
@@ -598,9 +604,9 @@ export default function FinancialForecasts() {
                       <YAxis tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                       <Tooltip formatter={(v) => formatPln(v, { min: 0, max: 0 })} />
                       <Legend />
-                      <Line type="monotone" dataKey="pes" name="CF skumulowany — pesymistyczny" stroke="#dc2626" dot={false} />
-                      <Line type="monotone" dataKey="baz" name="CF skumulowany — bazowy" stroke="#2563eb" dot={false} />
-                      <Line type="monotone" dataKey="opt" name="CF skumulowany — optymistyczny" stroke="#16a34a" dot={false} />
+                      <Line type="monotone" dataKey="pes" name="Przepływ skumulowany — pesymistyczny" stroke="#dc2626" dot={false} />
+                      <Line type="monotone" dataKey="baz" name="Przepływ skumulowany — bazowy" stroke="#2563eb" dot={false} />
+                      <Line type="monotone" dataKey="opt" name="Przepływ skumulowany — optymistyczny" stroke="#16a34a" dot={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 </motion.div>

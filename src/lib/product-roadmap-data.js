@@ -109,7 +109,7 @@ export const ROADMAP_PHASES = [
   },
   {
     id: "scoring-holding-cf",
-    title: "Scoring kontrahenta i cash flow holdingu",
+    title: "Scoring kontrahenta i przepływy pieniężne holdingu",
     summary:
       "Ocena ryzyka (reguły, opcjonalnie BIG) oraz konsolidacja przepływów w grupie z przesunięciami między spółkami.",
     items: [
@@ -120,9 +120,9 @@ export const ROADMAP_PHASES = [
         priority: "could",
       },
       {
-        title: "Konsolidacja cash flow dla holdingu",
+        title: "Konsolidacja przepływów pieniężnych dla holdingu",
         detail:
-          "Osobna warstwa analityczna: cash flow skonsolidowany dla grupy oraz przesunięcia między spółkami (wewnętrzne rozliczenia, finansowanie, dywidendy) pokazywane osobno od przepływów operacyjnych poszczególnych jednostek — żeby widok grupy nie mylił się z „pojedynczą spółką”.",
+          "Osobna warstwa analityczna: przepływy pieniężne skonsolidowane dla grupy oraz przesunięcia między spółkami (wewnętrzne rozliczenia, finansowanie, dywidendy) pokazywane osobno od przepływów operacyjnych poszczególnych jednostek — żeby widok grupy nie mylił się z „pojedynczą spółką”.",
         priority: "should",
       },
     ],

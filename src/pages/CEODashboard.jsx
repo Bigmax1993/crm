@@ -184,7 +184,7 @@ export default function CEODashboard() {
     <div className="w-full p-4 md:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl md:text-4xl font-bold text-foreground">Dashboard CEO</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground">Pulpit CEO</h1>
           <p className="text-muted-foreground mt-1">Podsumowanie finansowe i operacyjne</p>
           <p className="text-xs text-muted-foreground mt-2 max-w-3xl">
             KPI u góry: należności i zobowiązania — FV otwarte (PLN wg wystawienia); wynik — tylko opłacone FV (PLN jak cash
@@ -267,7 +267,7 @@ export default function CEODashboard() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Cash flow narastający</CardTitle>
+              <CardTitle>Przepływy pieniężne narastająco</CardTitle>
               <CardDescription className="text-xs">{financeMetricSummary("cashflowMonthlyPaidPln")}</CardDescription>
             </CardHeader>
             <CardContent className="h-80">
@@ -313,7 +313,7 @@ export default function CEODashboard() {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Top 5 projektów wg rentowności</CardTitle>
+                <CardTitle>5 najlepszych projektów wg rentowności</CardTitle>
                 <CardDescription className="text-xs">{financeMetricSummary("projectProfitabilityMixedPln")}</CardDescription>
               </CardHeader>
               <CardContent>
@@ -338,7 +338,7 @@ export default function CEODashboard() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Top 5 — jedna metoda (tylko opłacone)</CardTitle>
+                <CardTitle>5 najlepszych — tylko opłacone FV</CardTitle>
                 <CardDescription className="text-xs">{financeMetricSummary("resultByProjectPaidPln")}</CardDescription>
               </CardHeader>
               <CardContent>
@@ -366,14 +366,14 @@ export default function CEODashboard() {
         <Card>
           <CardHeader className="space-y-4">
             <div className="flex flex-col gap-1">
-              <CardTitle>Wydatki per projekt</CardTitle>
+              <CardTitle>Wydatki według projektu</CardTitle>
               <CardDescription className="text-xs">
                 {financeMetricSummary("projectExpensesByPeriodPln")}
               </CardDescription>
             </div>
             <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-end">
               <div className="w-full sm:min-w-[240px] sm:flex-1 space-y-2">
-                <Label>Projekt (market)</Label>
+                <Label>Projekt (rynek)</Label>
                 <Select
                   value={selectedProjectId || "none"}
                   onValueChange={(v) => setSelectedProjectId(v === "none" ? "" : v)}

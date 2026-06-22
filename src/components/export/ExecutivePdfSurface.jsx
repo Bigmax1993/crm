@@ -73,7 +73,7 @@ function CashFlowBars({ rows }) {
 
   if (!slice.length) {
     return (
-      <div style={{ color: MUTED, fontSize: 12, padding: "8px 0" }}>Brak danych cash flow (brak opłaconych FV w okresie).</div>
+      <div style={{ color: MUTED, fontSize: 12, padding: "8px 0" }}>Brak danych przepływów (brak opłaconych FV w okresie).</div>
     );
   }
 
@@ -188,7 +188,7 @@ const ExecutivePdfSurface = forwardRef(function ExecutivePdfSurfaceInner(
           border: `1px solid ${BORDER}`,
         }}
       >
-        <SectionTitle>Cash flow — ostatnie miesiące (skrót)</SectionTitle>
+        <SectionTitle>Przepływy — ostatnie miesiące (skrót)</SectionTitle>
         <CashFlowBars rows={cashRows} />
       </div>
 

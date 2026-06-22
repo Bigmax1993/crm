@@ -43,7 +43,7 @@ import {
 } from "@/lib/ai-financial-chat-persistence";
 
 const SHORTCUT_BUTTONS = [
-  { label: "Cash flow", text: "Podsumuj cash flow i ryzyka z danych CRM." },
+  { label: "Przepływy pieniężne", text: "Podsumuj przepływy pieniężne i ryzyka z danych CRM." },
   { label: "Przeterminowane", text: "Ile faktur jest przeterminowanych i na jaką kwotę?" },
   { label: "Marże projektów", text: "Które projekty mają najniższą marżę, a które najwyższą? Oprzyj się na danych z systemu." },
   { label: "Ryzyko walutowe", text: "Jaka jest ekspozycja EUR z faktur otrzymanych?" },
@@ -249,11 +249,11 @@ export function FinancialAiChat() {
         setMsgs((m) => {
           const copy = [...m];
           copy.pop();
-          copy.push({ role: "assistant", content: cached + "\n\n_(z cache 24h)_" });
+          copy.push({ role: "assistant", content: cached + "\n\n_(z pamięci podręcznej 24h)_" });
           return copy;
         });
         setLoading(false);
-        toast.message("Odpowiedź z cache (24h)");
+        toast.message("Odpowiedź z pamięci podręcznej (24h)");
         return;
       }
 

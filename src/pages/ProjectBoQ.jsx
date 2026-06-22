@@ -167,13 +167,13 @@ export default function ProjectBoQ() {
               Kosztorysy LV (Niemcy)
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
-              Leistungsverzeichnis — pełny kosztorys prac na market (pozycje, ilości, ceny EUR). Plan budżetu projektu.
+              Kosztorys prac — pełny zakres na rynek (pozycje, ilości, ceny EUR). Plan budżetu projektu.
             </p>
           </div>
           <Button asChild className="bg-blue-600 hover:bg-blue-700">
             <Link to={createPageUrl("UploadLV")}>
               <Upload className="h-4 w-4 mr-2" />
-              Import LV (PDF/JSON)
+              Import kosztorysu LV (PDF/JSON)
             </Link>
           </Button>
         </div>
@@ -211,7 +211,7 @@ export default function ProjectBoQ() {
                   <TableRow>
                     <TableHead>Nr LV</TableHead>
                     <TableHead>Objekt</TableHead>
-                    <TableHead>Auftraggeber</TableHead>
+                    <TableHead>Zleceniodawca</TableHead>
                     <TableHead className="text-right">Pozycji</TableHead>
                     <TableHead className="text-right">Netto EUR</TableHead>
                     <TableHead>Projekt</TableHead>
@@ -280,13 +280,13 @@ export default function ProjectBoQ() {
           <DialogHeader>
             <DialogTitle>Edytuj kosztorys LV</DialogTitle>
             <DialogDescription>
-              {editing?.document_number || editing?.title || "Leistungsverzeichnis"}
+              {editing?.document_number || editing?.title || "Kosztorys prac"}
               {formNetPreview != null ? ` · ${formatLvMoney(formNetPreview)} netto` : ""}
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 py-2">
             <div>
-              <Label>Nr LV / Angebot</Label>
+              <Label>Nr LV / oferta</Label>
               <Input value={form.document_number || ""} onChange={(e) => setField("document_number", e.target.value)} />
             </div>
             <div>
@@ -298,11 +298,11 @@ export default function ProjectBoQ() {
               />
             </div>
             <div className="md:col-span-2">
-              <Label>Tytuł / Objekt (Markt)</Label>
+              <Label>Tytuł / obiekt (rynek)</Label>
               <Input value={form.title || ""} onChange={(e) => setField("title", e.target.value)} />
             </div>
             <div>
-              <Label>Auftraggeber (klient)</Label>
+              <Label>Zleceniodawca (klient)</Label>
               <Input value={form.client_name || ""} onChange={(e) => setField("client_name", e.target.value)} />
             </div>
             <div>
@@ -310,7 +310,7 @@ export default function ProjectBoQ() {
               <Input value={form.order_number || ""} onChange={(e) => setField("order_number", e.target.value)} />
             </div>
             <div className="md:col-span-2">
-              <Label>Baustelle / adres</Label>
+              <Label>Plac budowy / adres</Label>
               <Input value={form.site_address || ""} onChange={(e) => setField("site_address", e.target.value)} />
             </div>
             <div>
@@ -341,7 +341,7 @@ export default function ProjectBoQ() {
               />
             </div>
             <div>
-              <Label>Projekt (market DE)</Label>
+              <Label>Projekt (rynek DE)</Label>
               <Select
                 value={form.project_id || "none"}
                 onValueChange={(v) => setField("project_id", v === "none" ? "" : v)}
@@ -377,7 +377,7 @@ export default function ProjectBoQ() {
                 }}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                {lvLinesCount(form.lines)} pozycji · pola: position, description, unit, quantity, unit_price, line_total
+                {lvLinesCount(form.lines)} pozycji · pola: pozycja, opis, jednostka, ilość, cena_jedn, wartość
               </p>
             </div>
             <div className="md:col-span-2">

@@ -3,13 +3,13 @@ import { NAV_GROUP_ORDER, PAGE_TITLES, titleForPage } from "@/lib/business-nav";
 
 describe("business-nav — titleForPage", () => {
   it("znany klucz zwraca tytuł z PAGE_TITLES", () => {
-    expect(titleForPage("CEODashboard")).toBe("Dashboard CEO");
+    expect(titleForPage("CEODashboard")).toBe("Pulpit CEO");
     expect(titleForPage("ExportReports")).toBe("Eksport Excel / PDF");
     expect(titleForPage("ContractorDetails")).toBe("Kontrahent");
   });
 
-  it("nieznany klucz CamelCase rozbija na słowa", () => {
-    expect(titleForPage("FooBar")).toBe("Foo Bar");
+  it("nieznany klucz — fallback", () => {
+    expect(titleForPage("FooBar")).toBe("Strona");
   });
 
   it("pusty / brak klucza — fallback", () => {
@@ -48,7 +48,7 @@ describe("business-nav — NAV_GROUP_ORDER", () => {
       "UploadLV",
       "ProjectBoQ",
     ]);
-    expect(PAGE_TITLES.UploadLV).toBe("Import LV (DE)");
+    expect(PAGE_TITLES.UploadLV).toBe("Import kosztorysu LV");
     expect(PAGE_TITLES.ProjectBoQ).toBe("Kosztorysy LV");
   });
 

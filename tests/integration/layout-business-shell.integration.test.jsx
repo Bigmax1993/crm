@@ -61,12 +61,12 @@ describe("Layout — powłoka biznesowa (Power BI)", () => {
 
     await waitFor(() => expect(layoutShellMocks.publicGet).not.toHaveBeenCalled());
 
-    expect(await screen.findByText(/Fakturowo · workspace/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Fakturowo · przestrzeń robocza/i)).toBeInTheDocument();
 
-    expect(screen.getByRole("link", { name: "Dashboard CEO" })).toHaveAttribute("href", "/CEODashboard");
+    expect(screen.getByRole("link", { name: "Pulpit CEO" })).toHaveAttribute("href", "/CEODashboard");
     expect(screen.getByRole("link", { name: "Faktury" })).toHaveAttribute("href", "/Invoices");
-    expect(screen.getByRole("link", { name: "Cash flow" })).toHaveAttribute("href", "/CashFlow");
-    expect(screen.getByRole("link", { name: "Import LV (DE)" })).toHaveAttribute("href", "/UploadLV");
+    expect(screen.getByRole("link", { name: "Przepływy pieniężne" })).toHaveAttribute("href", "/CashFlow");
+    expect(screen.getByRole("link", { name: "Import kosztorysu LV" })).toHaveAttribute("href", "/UploadLV");
     expect(screen.getByRole("link", { name: "Kosztorysy LV" })).toHaveAttribute("href", "/ProjectBoQ");
     expect(screen.getByRole("link", { name: "Plan rozwoju" })).toHaveAttribute("href", "/Roadmap");
     expect(screen.queryByRole("link", { name: "Bezpieczeństwo" })).not.toBeInTheDocument();
@@ -74,20 +74,20 @@ describe("Layout — powłoka biznesowa (Power BI)", () => {
 
   it("mobile: przycisk otwarcia menu nawigacji", async () => {
     render(<App />);
-    await screen.findByText(/Fakturowo · workspace/i);
+    await screen.findByText(/Fakturowo · przestrzeń robocza/i);
     expect(screen.getByRole("button", { name: /menu nawigacji/i })).toBeInTheDocument();
   });
 
   it("mobile menu: brak przycisku „Wyloguj się” (logowanie usunięte)", async () => {
     render(<App />);
-    await screen.findByText(/Fakturowo · workspace/i);
+    await screen.findByText(/Fakturowo · przestrzeń robocza/i);
     fireEvent.click(screen.getByRole("button", { name: /menu nawigacji/i }));
     expect(screen.queryByRole("button", { name: /wyloguj/i })).not.toBeInTheDocument();
   });
 
   it("desktop rail: klik rozwija; mouseLeave nie zwija; klik w tło treści zwija", async () => {
     render(<App />);
-    await screen.findByText(/Fakturowo · workspace/i);
+    await screen.findByText(/Fakturowo · przestrzeń robocza/i);
     const rail = screen.getByRole("navigation", { name: "Menu główne" });
     expect(rail).toHaveAttribute("data-rail-expanded", "false");
     fireEvent.click(rail);

@@ -35,6 +35,6 @@ describe("CashFlow — smoke (integracja)", () => {
   it("renderuje nagłówek po załadowaniu faktur", async () => {
     renderPage();
     await waitFor(() => expect(cfMocks.listInvoices).toHaveBeenCalled());
-    expect(await screen.findByRole("heading", { name: /^cash flow$/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /przepływy pieniężne/i })).toBeInTheDocument();
   });
 });

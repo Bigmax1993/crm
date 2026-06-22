@@ -31,13 +31,13 @@ function render404(initialPath) {
 describe("PageNotFound — nieistniejące trasy", () => {
   it("/Security (usunięta strona) — komunikat 404", async () => {
     render404("/Security");
-    expect(await screen.findByRole("heading", { name: /page not found/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /nie znaleziono strony/i })).toBeInTheDocument();
     expect(screen.getByText("404")).toBeInTheDocument();
-    expect(screen.getByText(/"Security"/)).toBeInTheDocument();
+    expect(screen.getByText(/„Security”/)).toBeInTheDocument();
   });
 
   it("nieznana ścieżka — nazwa segmentu w treści", async () => {
     render404("/NieIstnieje");
-    expect(await screen.findByText(/"NieIstnieje"/)).toBeInTheDocument();
+    expect(await screen.findByText(/„NieIstnieje”/)).toBeInTheDocument();
   });
 });

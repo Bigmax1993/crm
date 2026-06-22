@@ -7,7 +7,7 @@ export const EXPORT_ADDRESS = "";
 export const EXPORT_WEB = "";
 
 /** Krótki opis do promptów systemowych / user (Claude). */
-export const BRAND_BRIEF_PL = `Aplikacja: Fakturowo CRM — faktury, projekty budowlane, kontrahenci, cash flow i raporty.
+export const BRAND_BRIEF_PL = `Aplikacja: Fakturowo CRM — faktury, projekty budowlane, kontrahenci, przepływy pieniężne i raporty.
 Skonfiguruj w ustawieniach własną nazwę firmy, adres i branżę.`;
 
 export function getBrandBriefForPrompt() {

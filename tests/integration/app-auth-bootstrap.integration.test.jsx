@@ -57,12 +57,12 @@ describe("App — bootstrap (bez logowania)", () => {
     vi.mocked(console.error).mockRestore();
   });
 
-  it("od razu renderuje Dashboard CEO (brak ekranów auth / public-settings)", async () => {
+  it("od razu renderuje Pulpit CEO (brak ekranów auth / public-settings)", async () => {
     render(<App />);
 
     await waitFor(() => expect(appSmokeMocks.publicGet).not.toHaveBeenCalled());
     await waitFor(() => {
-      expect(screen.getAllByRole("heading", { name: /dashboard ceo/i }).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByRole("heading", { name: /pulpit ceo/i }).length).toBeGreaterThanOrEqual(1);
     });
   });
 

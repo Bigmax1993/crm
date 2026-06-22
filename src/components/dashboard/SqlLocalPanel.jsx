@@ -76,7 +76,7 @@ export function SqlLocalPanel() {
           Lokalna baza SQL.js
         </CardTitle>
         <p className="text-sm text-muted-foreground font-normal leading-relaxed">
-          KPI i cash flow z zapytań w <code className="text-xs bg-foreground/5 px-1.5 py-0.5 rounded border border-border/60">queries.js</code> —
+            KPI i przepływy z zapytań w <code className="text-xs bg-foreground/5 px-1.5 py-0.5 rounded border border-border/60">queries.js</code> —
           bez zewnętrznej bazy
         </p>
       </CardHeader>
@@ -100,7 +100,7 @@ export function SqlLocalPanel() {
             <p className="text-[11px] text-red-700">{fmtPln(kpi.kwota_przeterminowana)}</p>
           </div>
           <div className="rounded-lg border p-3 bg-violet-50/80">
-            <p className="text-xs text-violet-900/80">Pipeline (oferty)</p>
+            <p className="text-xs text-violet-900/80">Lejek ofert</p>
             <p className="text-lg font-bold text-violet-900">{fmtPln(kpi.wartosc_pipeline)}</p>
           </div>
         </div>

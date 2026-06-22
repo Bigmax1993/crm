@@ -47,8 +47,8 @@ describe("CEODashboard — smoke (integracja)", () => {
   it("renderuje nagłówek i KPI po załadowaniu danych", async () => {
     renderPage();
     await waitFor(() => expect(dashMocks.listInvoices).toHaveBeenCalled());
-    expect(await screen.findByRole("heading", { name: /dashboard ceo/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /pulpit ceo/i })).toBeInTheDocument();
     expect(await screen.findByText(/suma należności/i)).toBeInTheDocument();
-    expect(await screen.findByText(/wydatki per projekt/i)).toBeInTheDocument();
+    expect(await screen.findByText(/wydatki według projektu/i)).toBeInTheDocument();
   });
 });

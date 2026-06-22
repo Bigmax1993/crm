@@ -25,7 +25,7 @@ import jsPDF from "jspdf";
 
 const REPORT_TYPES = [
   { id: "zarzad", label: "Raport miesięczny dla zarządu" },
-  { id: "bank", label: "Analiza cash flow dla banku" },
+  { id: "bank", label: "Analiza przepływów pieniężnych dla banku" },
   { id: "projekt", label: "Podsumowanie projektu" },
   { id: "rent", label: "Analiza rentowności" },
 ];

@@ -147,9 +147,9 @@ export default function MultiCurrencyDashboard() {
     <div className="w-full p-4 md:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl md:text-4xl font-bold">Dashboard wielowalutowy</h1>
+          <h1 className="text-3xl md:text-4xl font-bold">Pulpit wielowalutowy</h1>
           <p className="text-muted-foreground mt-1">
-            Kursy NBP, KPI w walucie widoku ({displayCurrency}), cash flow PLN z przełącznikiem wykresu
+            Kursy NBP, KPI w walucie widoku ({displayCurrency}), przepływy PLN z przełącznikiem wykresu
           </p>
           <p className="text-xs text-muted-foreground mt-2 max-w-3xl">
             {financeMetricSummary("receivablesOpenPln")} {financeMetricSummary("resultGlobalPaidPln")}
@@ -193,7 +193,7 @@ export default function MultiCurrencyDashboard() {
         <Card>
           <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <CardTitle>Cash flow (wartości w PLN, skorygowane o kurs płatności)</CardTitle>
+              <CardTitle>Przepływy pieniężne (wartości w PLN, skorygowane o kurs płatności)</CardTitle>
               <CardDescription className="text-xs mt-1">{financeMetricSummary("cashflowMonthlyPaidPln")}</CardDescription>
             </div>
             <div className="flex items-center gap-2 text-sm">
@@ -249,7 +249,7 @@ export default function MultiCurrencyDashboard() {
                       <TableHead className="text-right">Kurs (PLN)</TableHead>
                       <TableHead className="text-right">Poprzedni</TableHead>
                       <TableHead className="text-right">Zmiana</TableHead>
-                      <TableHead className="text-right">Trend</TableHead>
+                      <TableHead className="text-right">Kierunek</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -314,7 +314,7 @@ export default function MultiCurrencyDashboard() {
                   </TableBody>
                 </Table>
                 <div>
-                  <h3 className="font-semibold mb-2">Podsumowanie per projekt (PLN)</h3>
+                  <h3 className="font-semibold mb-2">Podsumowanie według projektu (PLN)</h3>
                   <Table>
                     <TableBody>
                       {Object.entries(fxByProject).map(([pid, v]) => (

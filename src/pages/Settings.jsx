@@ -72,10 +72,10 @@ export default function Settings() {
 
   const pages = [
     { value: 'MultiCurrencyDashboard', label: 'Waluty / NBP' },
-    { value: 'CEODashboard', label: 'Dashboard CEO' },
-    { value: 'Dashboard', label: 'Dashboard operacyjny' },
+    { value: 'CEODashboard', label: 'Pulpit CEO' },
+    { value: 'Dashboard', label: 'Pulpit operacyjny' },
     { value: 'ProjectBalance', label: 'Bilans projektowy' },
-    { value: 'CashFlow', label: 'Cash flow' },
+    { value: 'CashFlow', label: 'Przepływy pieniężne' },
     { value: 'IncomeStatement', label: 'Rachunek wyników' },
     { value: 'ProjectCostMonitoring', label: 'Monitoring kosztów' },
     { value: 'FinancialForecasts', label: 'Prognozy' },
@@ -88,7 +88,7 @@ export default function Settings() {
     { value: 'Construction', label: 'Projekty / budowa' },
     { value: 'Employees', label: 'Pracownicy' },
     { value: 'Hotels', label: 'Hotele' },
-    { value: 'Upload', label: 'Upload faktur' },
+    { value: 'Upload', label: 'Import faktur' },
   ];
 
   return (

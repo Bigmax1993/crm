@@ -24,14 +24,14 @@ export const FINANCE_METRICS = {
   },
   cashflowMonthlyPaidPln: {
     summary:
-      "Cash flow: tylko FV opłacone; miesiąc wg daty płatności; PLN preferencyjnie z kursu płatności.",
+      "Przepływy pieniężne: tylko FV opłacone; miesiąc wg daty płatności; PLN preferencyjnie z kursu płatności.",
     detail:
       "monthlyCashFlowPaidPln — status paid, invoicePaidDate, getInvoicePlnForCashflow.",
   },
   resultGlobalPaidPln: {
     summary:
       "Wynik globalny (zapłacone): suma opłaconej sprzedaży minus opłacone zakupy w PLN.",
-    detail: "globalPLPln — ten sam PLN co cash flow (getInvoicePlnForCashflow).",
+    detail: "globalPLPln — ten sam PLN co przepływy pieniężne (getInvoicePlnForCashflow).",
   },
   resultGlobalPaidRawCurrency: {
     summary:
@@ -40,11 +40,11 @@ export const FINANCE_METRICS = {
   },
   resultByProjectPaidPln: {
     summary:
-      "Rachunek per projekt: tylko opłacone FV z project_id; PLN jak przy cash flow.",
+      "Rachunek według projektu: tylko opłacone FV z project_id; PLN jak przy przepływach pieniężnych.",
     detail: "plByProjectPln — sales paid vs purchase paid.",
   },
   quarterlyTrendPaidPln: {
-    summary: "Trend kwartalny: kwartał wg daty płatności, tylko opłacone, PLN jak cash flow.",
+    summary: "Trend kwartalny: kwartał wg daty płatności, tylko opłacone, PLN jak przepływy pieniężne.",
     detail: "quarterlyYoYTrendPln.",
   },
   projectCostAccruedPln: {

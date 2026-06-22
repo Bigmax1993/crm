@@ -287,7 +287,7 @@ export default function Layout({ children, currentPageName }) {
               <Link
                 to={createPageUrl("CEODashboard")}
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-sm font-bold text-white ring-1 ring-slate-700 transition hover:bg-slate-700"
-                title="Start — Dashboard CEO"
+                title="Start — pulpit CEO"
               >
                 FW
               </Link>
@@ -373,7 +373,7 @@ export default function Layout({ children, currentPageName }) {
                 </div>
                 <div className="min-w-0">
                   <h1 className="truncate text-lg font-semibold tracking-tight text-foreground">{pageTitle}</h1>
-                  <p className="text-xs text-muted-foreground">Fakturowo · workspace</p>
+                  <p className="text-xs text-muted-foreground">Fakturowo · przestrzeń robocza</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">

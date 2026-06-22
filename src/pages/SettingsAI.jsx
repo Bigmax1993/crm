@@ -123,16 +123,8 @@ export default function SettingsAI() {
               </Select>
             </div>
             <div>
-              <Label>Język odpowiedzi (prompt)</Label>
-              <Select value={form.language} onValueChange={(v) => setForm({ ...form, language: v })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pl">Polski</SelectItem>
-                  <SelectItem value="en">Angielski</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>Język odpowiedzi</Label>
+              <p className="text-sm mt-1 text-muted-foreground">Polski (system wyłącznie po polsku)</p>
             </div>
           </CardContent>
         </Card>

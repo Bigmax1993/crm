@@ -49,7 +49,7 @@ function ProjectMatchBadge({ row, projects }) {
   const auto = row._projectMatchReason && row._projectMatchReason !== "manual";
   return (
     <span className="text-xs px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 border border-emerald-300">
-      {auto ? `Auto: ${getProjectDisplayName(project)}` : getProjectDisplayName(project)}
+      {auto ? `Automatycznie: ${getProjectDisplayName(project)}` : getProjectDisplayName(project)}
       {reason && auto ? ` (${reason})` : ""}
     </span>
   );
@@ -347,11 +347,11 @@ export default function UploadLV() {
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <FileSpreadsheet className="h-8 w-8 text-blue-600" />
-          Import LV (Leistungsverzeichnis DE)
+          Import kosztorysu LV (Niemcy)
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Wgraj niemiecki kosztorys prac (LV / Angebot / GAEB jako PDF lub JSON). System odczyta pozycje, sumy netto i
-          przypisze projekt (market w DE). Na etapie weryfikacji użyj <strong>Generuj z AI</strong>, aby wymusić odczyt
+          Wgraj niemiecki kosztorys prac (LV / oferta / GAEB jako PDF lub JSON). System odczyta pozycje, sumy netto i
+          przypisze projekt (rynek w DE). Na etapie weryfikacji użyj <strong>Generuj z AI</strong>, aby wymusić odczyt
           Claude ze skanu PDF.
           {isClaudeConfigured() ? " Claude jest skonfigurowany." : " Dla skanów włącz Claude w Ustawieniach AI."}
         </p>
@@ -413,7 +413,7 @@ export default function UploadLV() {
         <Card>
           <CardContent className="py-12 flex flex-col items-center gap-3">
             <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
-            <p>Odczyt Leistungsverzeichnis…</p>
+            <p>Odczyt kosztorysu prac…</p>
           </CardContent>
         </Card>
       )}
@@ -482,7 +482,7 @@ export default function UploadLV() {
                   {!row._rejected ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <Label>Nr LV / Angebot</Label>
+                      <Label>Nr LV / oferta</Label>
                       <Input
                         value={row.document_number || ""}
                         onChange={(e) => updateRow(idx, "document_number", e.target.value)}
@@ -497,11 +497,11 @@ export default function UploadLV() {
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <Label>Tytuł / Objekt (Markt)</Label>
+                      <Label>Tytuł / obiekt (rynek)</Label>
                       <Input value={row.title || ""} onChange={(e) => updateRow(idx, "title", e.target.value)} />
                     </div>
                     <div>
-                      <Label>Auftraggeber (klient)</Label>
+                      <Label>Zleceniodawca (klient)</Label>
                       <Input value={row.client_name || ""} onChange={(e) => updateRow(idx, "client_name", e.target.value)} />
                     </div>
                     <div>
@@ -512,7 +512,7 @@ export default function UploadLV() {
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <Label>Baustelle / adres</Label>
+                      <Label>Plac budowy / adres</Label>
                       <Input
                         value={row.site_address || ""}
                         onChange={(e) => updateRow(idx, "site_address", e.target.value)}
@@ -537,7 +537,7 @@ export default function UploadLV() {
                       />
                     </div>
                     <div>
-                      <Label>Projekt (market DE)</Label>
+                      <Label>Projekt (rynek DE)</Label>
                       <Select
                         value={row.project_id || "none"}
                         onValueChange={(v) => updateRow(idx, "project_id", v === "none" ? "" : v)}
@@ -558,7 +558,7 @@ export default function UploadLV() {
                     </div>
                     <div className="md:col-span-2">
                       <Label>
-                        Pozycje LV (JSON: oz, description, unit, quantity, unit_price, line_total) — max. widok edycji
+                        Pozycje LV (JSON: pozycja, opis, jednostka, ilość, cena_jedn, wartość) — widok edycji
                       </Label>
                       <Textarea
                         rows={8}

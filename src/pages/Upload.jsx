@@ -94,7 +94,7 @@ function ProjectMatchBadge({ invoice, projects }) {
       }`}
       title={reason ? `Dopasowanie: ${reason}` : undefined}
     >
-      {auto ? "Auto: " : "Projekt: "}
+      {auto ? "Automatycznie: " : "Projekt: "}
       {getProjectDisplayName(project)}
       {reason && auto ? ` (${reason})` : ""}
     </span>
@@ -531,7 +531,7 @@ export default function Upload() {
     const withoutProject = toSave.filter((i) => !i.project_id);
     if (withoutProject.length > 0) {
       toast.warning(
-        `${withoutProject.length} faktur bez projektu — zostaną zapisane, ale nie trafią do monitoringu kosztów per market.`
+        `${withoutProject.length} faktur bez projektu — zostaną zapisane, ale nie trafią do monitoringu kosztów według rynku.`
       );
     }
 
@@ -883,7 +883,7 @@ export default function Upload() {
               <p className="text-muted-foreground">{error}</p>
             </div>
             <DialogFooter>
-              <Button onClick={() => setError(null)}>OK</Button>
+              <Button onClick={() => setError(null)}>Zamknij</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -1090,7 +1090,7 @@ export default function Upload() {
                 return (
                   <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-4 space-y-3">
                     <p className="text-sm text-amber-900 dark:text-amber-100">
-                      <strong>{missing.length}</strong> z {active.length} faktur bez przypisanego projektu (marketu).
+                      <strong>{missing.length}</strong> z {active.length} faktur bez przypisanego projektu (rynku).
                       Uzupełnij ręcznie lub przypisz paczkę do jednego projektu.
                     </p>
                     <div className="flex flex-wrap gap-2 items-center">
@@ -1322,7 +1322,7 @@ export default function Upload() {
                         </div>
                         <div className="md:col-span-2">
                           <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-                            <Label>Projekt (market)</Label>
+                            <Label>Projekt (rynek)</Label>
                             <Button
                               type="button"
                               variant="ghost"
@@ -1351,7 +1351,7 @@ export default function Upload() {
                             </SelectContent>
                           </Select>
                           <p className="text-xs text-muted-foreground mt-1">
-                            Auto: nr zamówienia/PO → słowa kluczowe (np. nr filii, ulica) → kod/miasto → klient/obiekt.
+                            Automatycznie: nr zamówienia/PO → słowa kluczowe (np. nr filii, ulica) → kod/miasto → klient/obiekt.
                             NIP tylko u kontrahentów typu <em>klient</em>. W słowach kluczowych wpisz <code className="text-[10px]">PL</code> lub{" "}
                             <code className="text-[10px]">DE</code> dla rozróżnienia krajów.
                           </p>

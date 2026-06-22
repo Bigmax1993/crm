@@ -45,7 +45,7 @@ function ProjectMatchBadge({ row, projects }) {
   const auto = row._projectMatchReason && row._projectMatchReason !== "manual";
   return (
     <span className="text-xs px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 border border-emerald-300">
-      {auto ? `Auto: ${getProjectDisplayName(project)}` : getProjectDisplayName(project)}
+      {auto ? `Automatycznie: ${getProjectDisplayName(project)}` : getProjectDisplayName(project)}
       {reason && auto ? ` (${reason})` : ""}
     </span>
   );
@@ -368,7 +368,7 @@ export default function UploadWZ() {
                     />
                   </div>
                   <div>
-                    <Label>Projekt (market)</Label>
+                    <Label>Projekt (rynek)</Label>
                     <Select
                       value={row.project_id || "none"}
                       onValueChange={(v) => updateRow(idx, "project_id", v === "none" ? "" : v)}

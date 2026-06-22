@@ -1,6 +1,6 @@
 import { getBrandBriefForPrompt } from "@/lib/brand-brief";
 
-const SYSTEM_BASE = `Jesteś asystentem finansowym w aplikacji Fakturowo CRM (faktury, projekty, cash flow).
+const SYSTEM_BASE = `Jesteś asystentem finansowym w aplikacji Fakturowo CRM (faktury, projekty, przepływy pieniężne).
 
 Kontekst aplikacji:
 __BRAND__

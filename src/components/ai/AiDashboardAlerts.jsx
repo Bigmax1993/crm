@@ -76,7 +76,7 @@ Przeanalizuj dane finansowe CRM i zwróć TYLKO poprawny JSON (cudzysłowy podw�
   ],
   "podsumowanie": ""
 }
-Wykryj m.in.: faktury przeterminowane, projekty >80% budżetu, ryzyko cash flow, ekspozycję EUR.
+Wykryj m.in.: faktury przeterminowane, projekty >80% budżetu, ryzyko przepływów pieniężnych, ekspozycję EUR.
 
 DANE:
 ${stringifyCrmContext(ctx)}`;

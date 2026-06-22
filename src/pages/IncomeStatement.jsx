@@ -41,7 +41,7 @@ export default function IncomeStatement() {
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-3xl md:text-4xl font-bold">Rachunek wyników</h1>
           <p className="text-muted-foreground mt-1 max-w-3xl">
-            Tylko FV opłacone; kwoty w PLN (kurs płatności / wystawienia jak w cash flow).{" "}
+            Tylko FV opłacone; kwoty w PLN (kurs płatności / wystawienia jak przy przepływach pieniężnych).{" "}
             <span className="text-xs block mt-1">{financeMetricSummary("resultByProjectPaidPln")}</span>
           </p>
         </motion.div>

@@ -265,7 +265,7 @@ export default function Construction() {
                     />
                   </div>
                   <div>
-                    <Label>Status workflow</Label>
+                    <Label>Status obiegu</Label>
                     <Select value={formData.workflow_status} onValueChange={(v) => setFormData({ ...formData, workflow_status: v })}>
                       <SelectTrigger>
                         <SelectValue />

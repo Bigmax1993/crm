@@ -70,7 +70,7 @@ export default function CashFlow() {
     <div className="w-full p-4 md:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl md:text-4xl font-bold">Cash flow</h1>
+          <h1 className="text-3xl md:text-4xl font-bold">Przepływy pieniężne</h1>
           <p className="text-muted-foreground mt-1">
             Wpływy i wydatki (FV zapłacone, PLN wg kursu płatności NBP) — waluta widoku: {displayCurrency}
           </p>

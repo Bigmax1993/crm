@@ -651,7 +651,7 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto">
         <div className="mb-8 flex justify-between items-center">
           <div>
-            <h1 className="text-4xl font-bold tracking-tight text-foreground mb-2">Dashboard operacyjny</h1>
+            <h1 className="text-4xl font-bold tracking-tight text-foreground mb-2">Pulpit operacyjny</h1>
             <p className="text-base text-muted-foreground leading-relaxed max-w-3xl">
               Obiekty sportowe — KPI z danych lokalnych (JSON / SQL.js) oraz moduł faktur
             </p>
@@ -761,7 +761,7 @@ export default function Dashboard() {
 
           <Card className="border-l-4 border-l-slate-400">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-base font-semibold text-foreground">Cash flow — bieżący miesiąc</CardTitle>
+              <CardTitle className="text-base font-semibold text-foreground">Przepływy — bieżący miesiąc</CardTitle>
               <Activity className={`h-5 w-5 ${dashStats.cfMc >= 0 ? 'text-[#059669]' : 'text-destructive'}`} />
             </CardHeader>
             <CardContent>
@@ -793,7 +793,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <Card className="bg-background shadow-lg">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold">Cash flow — ostatnie 6 miesięcy</CardTitle>
+              <CardTitle className="text-lg font-semibold">Przepływy — ostatnie 6 miesięcy</CardTitle>
               <p className="text-sm text-slate-600 leading-relaxed mt-1">
                 Netto wg dat zapłaty (wystawione − otrzymane), PLN — dane lokalne
               </p>
@@ -809,7 +809,7 @@ export default function Dashboard() {
                     contentStyle={{ background: 'hsl(40 7% 96%)', border: '1px solid #e2e8f0' }}
                   />
                   <Legend />
-                  <Line type="monotone" dataKey="netto" name="Cash flow netto" stroke="#2563eb" strokeWidth={2} dot />
+                  <Line type="monotone" dataKey="netto" name="Przepływ netto" stroke="#2563eb" strokeWidth={2} dot />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
@@ -817,7 +817,7 @@ export default function Dashboard() {
 
           <Card className="bg-background shadow-lg">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold">Top 5 projektów wg wartości (budżet)</CardTitle>
+              <CardTitle className="text-lg font-semibold">5 najlepszych projektów wg budżetu</CardTitle>
               <p className="text-sm text-slate-600 leading-relaxed mt-1">
                 Wykorzystanie = suma kosztów (FV otrzymanych) / budżet
               </p>
