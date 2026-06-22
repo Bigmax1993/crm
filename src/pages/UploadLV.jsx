@@ -29,6 +29,12 @@ import {
   projectMatchReasonLabel,
 } from "@/lib/match-project";
 import { bulkCreateOrSequential, formatBase44Error } from "@/lib/base44-entity-save";
+import {
+  applyImportDuplicateFlags,
+  filterRowsForImportSave,
+  summarizeImportDuplicates,
+  LV_DUPLICATE_OPTIONS,
+} from "@/lib/duplicate-detection";
 
 function ProjectMatchBadge({ row, projects }) {
   const project = projects.find((p) => p.id === row.project_id);
@@ -174,9 +180,28 @@ export default function UploadLV() {
           );
         }
       }
-      setRows(results);
+      let existing = [];
+      try {
+        existing = await base44.entities.ProjectBoQ.list();
+      } catch (listErr) {
+        console.warn("ProjectBoQ.list (duplikaty):", listErr);
+        toast.warning("Nie udało się sprawdzić duplikatów LV w bazie — kontrola przy zapisie.");
+      }
+      const withDup = applyImportDuplicateFlags(results, existing, LV_DUPLICATE_OPTIONS);
+      const { systemDup, batchDup } = summarizeImportDuplicates(withDup);
+      setRows(withDup);
       setStep("review");
-      toast.success(`Przetworzono ${results.length} dokumentów LV`);
+      if (systemDup > 0) {
+        toast.error(
+          systemDup === 1
+            ? "1 LV jest już w systemie — automatycznie odrzucony."
+            : `${systemDup} LV jest już w systemie — automatycznie odrzucone.`
+        );
+      }
+      if (batchDup > 0) {
+        toast.message(`${batchDup} LV odrzuconych jako duplikaty w tej paczce.`);
+      }
+      toast.success(`Przetworzono ${withDup.length} dokumentów LV`);
     } finally {
       setProcessing(false);
     }
@@ -185,6 +210,11 @@ export default function UploadLV() {
   const updateRow = (index, field, value) => {
     const next = [...rows];
     const row = { ...next[index], [field]: value };
+    if (field === "document_number" || field === "title" || field === "issue_date") {
+      row._rejected = false;
+      row._systemDuplicate = false;
+      row._duplicateReason = null;
+    }
     if (field === "project_id") {
       row._projectMatchManual = Boolean(value);
       row._projectMatchReason = value ? "manual" : null;
@@ -264,9 +294,13 @@ export default function UploadLV() {
   };
 
   const saveAll = async () => {
-    const valid = rows.filter((r) => String(r.document_number ?? "").trim() || String(r.title ?? "").trim());
+    const valid = rows.filter(
+      (r) =>
+        !r._rejected &&
+        (String(r.document_number ?? "").trim() || String(r.title ?? "").trim())
+    );
     if (!valid.length) {
-      toast.error("Uzupełnij numer LV lub tytuł obiektu u co najmniej jednej pozycji.");
+      toast.error("Brak LV do zapisu (uzupełnij dane lub wszystkie odrzucone jako duplikaty).");
       return;
     }
     const withoutProject = valid.filter((r) => !r.project_id);
@@ -276,7 +310,24 @@ export default function UploadLV() {
 
     setProcessing(true);
     try {
-      const payloads = valid.map((r) => {
+      const existing = await base44.entities.ProjectBoQ.list();
+      const { kept, duplicatesInDb, duplicatesInBatch } = filterRowsForImportSave(
+        valid,
+        existing,
+        LV_DUPLICATE_OPTIONS
+      );
+      if (!kept.length) {
+        toast.error(
+          `Wszystkie pozycje to duplikaty (${duplicatesInDb} w bazie${duplicatesInBatch ? `, ${duplicatesInBatch} w paczce` : ""}).`
+        );
+        return;
+      }
+      if (duplicatesInDb + duplicatesInBatch > 0) {
+        toast.message(
+          `Pominięto ${duplicatesInDb + duplicatesInBatch} duplikatów — zapisuję ${kept.length} nowych LV.`
+        );
+      }
+      const payloads = kept.map((r) => {
         const { _manualStub, _extractionSource, _projectMatchReason, _projectMatchManual, _projectMatchConfidence, ...rest } =
           r;
         return pickProjectBoQApiPayload(withMatch(rest));
@@ -370,7 +421,7 @@ export default function UploadLV() {
       {step === "review" && (
         <Card>
           <CardHeader>
-            <CardTitle>Weryfikacja kosztorysu ({rows.length})</CardTitle>
+            <CardTitle>Weryfikacja kosztorysu ({rows.filter((r) => !r._rejected).length} do zapisu)</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             {rows.map((row, idx) => {
@@ -382,35 +433,53 @@ export default function UploadLV() {
                     ? sumLvLines(lines)
                     : null;
               return (
-                <div key={idx} className="border rounded-lg p-4 space-y-3">
+                <div
+                  key={idx}
+                  className={`border rounded-lg p-4 space-y-3 ${row._rejected ? "opacity-50 bg-muted" : ""}`}
+                >
                   <div className="flex flex-wrap gap-2 items-center justify-between">
-                    <span className="font-medium text-sm">{row.fileName || `LV ${idx + 1}`}</span>
+                    <span className="font-medium text-sm">
+                      {row.fileName || `LV ${idx + 1}`}
+                      {row._rejected ? (
+                        <span className="text-destructive ml-2">
+                          (odrzucony{row._systemDuplicate ? " — duplikat w bazie" : ""})
+                        </span>
+                      ) : null}
+                    </span>
                     <div className="flex flex-wrap gap-2 items-center">
-                      <ExtractionSourceBadge source={row._extractionSource} />
-                      <span className="text-xs text-muted-foreground">{lvLinesCount(lines)} poz.</span>
-                      {net != null && (
-                        <span className="text-xs font-medium">{formatLvMoney(net, row.currency)} netto</span>
-                      )}
-                      <ProjectMatchBadge row={row} projects={projects} />
-                      {(row._pdfFileRef || row._jsonFileRef) && (
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          disabled={reAiLoading === idx}
-                          onClick={() => reextractWithAi(idx)}
-                          className="border-amber-500/30"
-                        >
-                          {reAiLoading === idx ? (
-                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                          ) : (
-                            <Sparkles className="h-4 w-4 mr-1 text-amber-600" />
+                      {!row._rejected ? (
+                        <>
+                          <ExtractionSourceBadge source={row._extractionSource} />
+                          <span className="text-xs text-muted-foreground">{lvLinesCount(lines)} poz.</span>
+                          {net != null && (
+                            <span className="text-xs font-medium">{formatLvMoney(net, row.currency)} netto</span>
                           )}
-                          {row._pdfFileRef ? "Generuj z AI" : "Wczytaj ponownie"}
-                        </Button>
-                      )}
+                          <ProjectMatchBadge row={row} projects={projects} />
+                          {(row._pdfFileRef || row._jsonFileRef) && (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              disabled={reAiLoading === idx}
+                              onClick={() => reextractWithAi(idx)}
+                              className="border-amber-500/30"
+                            >
+                              {reAiLoading === idx ? (
+                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                              ) : (
+                                <Sparkles className="h-4 w-4 mr-1 text-amber-600" />
+                              )}
+                              {row._pdfFileRef ? "Generuj z AI" : "Wczytaj ponownie"}
+                            </Button>
+                          )}
+                        </>
+                      ) : null}
                     </div>
                   </div>
+                  {row._duplicateReason ? (
+                    <p className="text-sm text-destructive">{row._duplicateReason}</p>
+                  ) : null}
+                  {!row._rejected ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <Label>Nr LV / Angebot</Label>
@@ -503,6 +572,7 @@ export default function UploadLV() {
                       <Input value={row.notes || ""} onChange={(e) => updateRow(idx, "notes", e.target.value)} />
                     </div>
                   </div>
+                  ) : null}
                 </div>
               );
             })}
@@ -520,7 +590,7 @@ export default function UploadLV() {
               </Button>
               <Button className="flex-1 bg-blue-600 hover:bg-blue-700" disabled={processing} onClick={saveAll}>
                 {processing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-                Zapisz LV ({rows.length})
+                Zapisz LV ({rows.filter((r) => !r._rejected).length})
               </Button>
             </div>
           </CardContent>

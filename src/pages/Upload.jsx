@@ -27,9 +27,11 @@ import { createPageUrl } from "@/utils";
 import { toast } from "sonner";
 import { enrichInvoiceForSave, pickInvoiceApiPayload } from "@/lib/invoice-fx";
 import {
+  applyImportDuplicateFlags,
   findDuplicateInvoice,
   invoiceNumberMatches,
   normalizeInvoiceNumberKey,
+  INVOICE_DUPLICATE_OPTIONS,
 } from "@/lib/duplicate-detection";
 import { looksLikeBankReportName, looksLikeBankReportPlain } from "@/lib/invoice-report-detection";
 import { bulkCreateOrSequential, formatBase44Error } from "@/lib/base44-entity-save";
@@ -427,37 +429,7 @@ export default function Upload() {
         );
       }
 
-      const seenNormInBatch = new Set();
-      const withDupFlags = deduplicatedResults.map((inv) => ({ ...inv }));
-
-      for (let i = 0; i < withDupFlags.length; i++) {
-        const inv = withDupFlags[i];
-        const num = String(inv.invoice_number ?? "").trim();
-        if (!num) continue;
-
-        const inDb = existingInvoices.length ? findDuplicateInvoice(existingInvoices, inv) : null;
-        if (inDb) {
-          withDupFlags[i] = {
-            ...inv,
-            _rejected: true,
-            _systemDuplicate: true,
-            _duplicateReason: `Numer faktury „${num}” jest już w systemie — pozycja odrzucona z importu.`,
-          };
-          continue;
-        }
-
-        const norm = normalizeInvoiceNumberKey(num);
-        if (seenNormInBatch.has(norm)) {
-          withDupFlags[i] = {
-            ...inv,
-            _rejected: true,
-            _systemDuplicate: false,
-            _duplicateReason: `Numer „${num}” występuje więcej niż raz w tej paczce — pozostawiono pierwsze wystąpienie.`,
-          };
-        } else {
-          seenNormInBatch.add(norm);
-        }
-      }
+      const withDupFlags = applyImportDuplicateFlags(deduplicatedResults, existingInvoices, INVOICE_DUPLICATE_OPTIONS);
 
       const systemDup = withDupFlags.filter((r) => r._systemDuplicate).length;
       const batchDup = withDupFlags.filter((r) => r._duplicateReason && !r._systemDuplicate).length;

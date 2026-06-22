@@ -25,6 +25,12 @@ import {
   projectMatchReasonLabel,
 } from "@/lib/match-project";
 import { bulkCreateOrSequential, formatBase44Error } from "@/lib/base44-entity-save";
+import {
+  applyImportDuplicateFlags,
+  filterRowsForImportSave,
+  summarizeImportDuplicates,
+  WZ_DUPLICATE_OPTIONS,
+} from "@/lib/duplicate-detection";
 
 function ProjectMatchBadge({ row, projects }) {
   const project = projects.find((p) => p.id === row.project_id);
@@ -121,9 +127,28 @@ export default function UploadWZ() {
           );
         }
       }
-      setRows(results);
+      let existing = [];
+      try {
+        existing = await base44.entities.MaterialDelivery.list();
+      } catch (listErr) {
+        console.warn("MaterialDelivery.list (duplikaty):", listErr);
+        toast.warning("Nie udało się sprawdzić duplikatów WZ w bazie — kontrola przy zapisie.");
+      }
+      const withDup = applyImportDuplicateFlags(results, existing, WZ_DUPLICATE_OPTIONS);
+      const { systemDup, batchDup } = summarizeImportDuplicates(withDup);
+      setRows(withDup);
       setStep("review");
-      toast.success(`Przetworzono ${results.length} dokumentów WZ`);
+      if (systemDup > 0) {
+        toast.error(
+          systemDup === 1
+            ? "1 WZ jest już w systemie — automatycznie odrzucony."
+            : `${systemDup} WZ jest już w systemie — automatycznie odrzucone.`
+        );
+      }
+      if (batchDup > 0) {
+        toast.message(`${batchDup} WZ odrzuconych jako duplikaty w tej paczce.`);
+      }
+      toast.success(`Przetworzono ${withDup.length} dokumentów WZ`);
     } finally {
       setProcessing(false);
     }
@@ -132,6 +157,11 @@ export default function UploadWZ() {
   const updateRow = (index, field, value) => {
     const next = [...rows];
     const row = { ...next[index], [field]: value };
+    if (field === "document_number") {
+      row._rejected = false;
+      row._systemDuplicate = false;
+      row._duplicateReason = null;
+    }
     if (field === "project_id") {
       row._projectMatchManual = Boolean(value);
       row._projectMatchReason = value ? "manual" : null;
@@ -148,9 +178,11 @@ export default function UploadWZ() {
   };
 
   const saveAll = async () => {
-    const valid = rows.filter((r) => String(r.document_number ?? "").trim() && String(r.supplier_name ?? "").trim());
+    const valid = rows.filter(
+      (r) => !r._rejected && String(r.document_number ?? "").trim() && String(r.supplier_name ?? "").trim()
+    );
     if (!valid.length) {
-      toast.error("Uzupełnij numer WZ i dostawcę u co najmniej jednej pozycji.");
+      toast.error("Brak WZ do zapisu (uzupełnij dane lub wszystkie odrzucone jako duplikaty).");
       return;
     }
     const withoutProject = valid.filter((r) => !r.project_id);
@@ -160,7 +192,24 @@ export default function UploadWZ() {
 
     setProcessing(true);
     try {
-      const payloads = valid.map((r) => {
+      const existing = await base44.entities.MaterialDelivery.list();
+      const { kept, duplicatesInDb, duplicatesInBatch } = filterRowsForImportSave(
+        valid,
+        existing,
+        WZ_DUPLICATE_OPTIONS
+      );
+      if (!kept.length) {
+        toast.error(
+          `Wszystkie pozycje to duplikaty (${duplicatesInDb} w bazie${duplicatesInBatch ? `, ${duplicatesInBatch} w paczce` : ""}).`
+        );
+        return;
+      }
+      if (duplicatesInDb + duplicatesInBatch > 0) {
+        toast.message(
+          `Pominięto ${duplicatesInDb + duplicatesInBatch} duplikatów — zapisuję ${kept.length} nowych WZ.`
+        );
+      }
+      const payloads = kept.map((r) => {
         const { _manualStub, _extractionSource, _projectMatchReason, _projectMatchManual, _projectMatchConfidence, ...rest } =
           r;
         const matched = withMatch(rest);
@@ -258,15 +307,29 @@ export default function UploadWZ() {
       {step === "review" && (
         <Card>
           <CardHeader>
-            <CardTitle>Weryfikacja ({rows.length})</CardTitle>
+            <CardTitle>Weryfikacja ({rows.filter((r) => !r._rejected).length} do zapisu)</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             {rows.map((row, idx) => (
-              <div key={idx} className="border rounded-lg p-4 space-y-3">
+              <div
+                key={idx}
+                className={`border rounded-lg p-4 space-y-3 ${row._rejected ? "opacity-50 bg-muted" : ""}`}
+              >
                 <div className="flex flex-wrap gap-2 items-center justify-between">
-                  <span className="font-medium text-sm">{row.fileName || `Dokument ${idx + 1}`}</span>
-                  <ProjectMatchBadge row={row} projects={projects} />
+                  <span className="font-medium text-sm">
+                    {row.fileName || `Dokument ${idx + 1}`}
+                    {row._rejected ? (
+                      <span className="text-destructive ml-2">
+                        (odrzucony{row._systemDuplicate ? " — duplikat w bazie" : ""})
+                      </span>
+                    ) : null}
+                  </span>
+                  {!row._rejected ? <ProjectMatchBadge row={row} projects={projects} /> : null}
                 </div>
+                {row._duplicateReason ? (
+                  <p className="text-sm text-destructive">{row._duplicateReason}</p>
+                ) : null}
+                {!row._rejected ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <Label>Numer WZ *</Label>
@@ -345,6 +408,7 @@ export default function UploadWZ() {
                     <Input value={row.notes || ""} onChange={(e) => updateRow(idx, "notes", e.target.value)} />
                   </div>
                 </div>
+                ) : null}
               </div>
             ))}
             <div className="flex gap-3">
@@ -353,7 +417,7 @@ export default function UploadWZ() {
               </Button>
               <Button className="flex-1 bg-blue-600 hover:bg-blue-700" disabled={processing} onClick={saveAll}>
                 {processing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-                Zapisz WZ ({rows.length})
+                Zapisz WZ ({rows.filter((r) => !r._rejected).length})
               </Button>
             </div>
           </CardContent>

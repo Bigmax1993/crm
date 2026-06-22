@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyImportDuplicateFlags,
   findDuplicateInvoice,
+  findDuplicateMaterialDelivery,
+  findDuplicateProjectBoQ,
   findInvoiceNumberConflict,
+  findProjectBoQConflict,
   invoiceNumberMatches,
+  lvRecordsMatch,
   normalizeInvoiceNumberKey,
   transferFingerprint,
+  WZ_DUPLICATE_OPTIONS,
+  LV_DUPLICATE_OPTIONS,
 } from "@/lib/duplicate-detection";
 
 describe("duplicate-detection", () => {
@@ -41,5 +48,52 @@ describe("duplicate-detection", () => {
     };
     const b = { ...a, account_number: "123456" };
     expect(transferFingerprint(a)).toBe(transferFingerprint(b));
+  });
+
+  it("findDuplicateMaterialDelivery — ten sam numer WZ", () => {
+    const existing = [{ id: "1", document_number: "WZ 12/2025" }];
+    expect(findDuplicateMaterialDelivery(existing, { document_number: "wz12/2025" })?.id).toBe("1");
+  });
+
+  it("lvRecordsMatch — numer LV lub tytuł+data", () => {
+    expect(lvRecordsMatch({ document_number: "LV-1" }, { document_number: "lv-1" })).toBe(true);
+    expect(
+      lvRecordsMatch(
+        { title: "Markt Dresden", issue_date: "2026-06-10" },
+        { title: "Markt Dresden", issue_date: "2026-06-10" }
+      )
+    ).toBe(true);
+  });
+
+  it("applyImportDuplicateFlags — odrzuca duplikat w bazie i w paczce", () => {
+    const existing = [{ id: "db", document_number: "WZ-1" }];
+    const rows = [
+      { document_number: "WZ-1" },
+      { document_number: "WZ-2" },
+      { document_number: "WZ-2" },
+    ];
+    const out = applyImportDuplicateFlags(rows, existing, WZ_DUPLICATE_OPTIONS);
+    expect(out[0]._rejected).toBe(true);
+    expect(out[0]._systemDuplicate).toBe(true);
+    expect(out[2]._rejected).toBe(true);
+    expect(out[2]._systemDuplicate).toBe(false);
+    expect(out[1]._rejected).toBeFalsy();
+  });
+
+  it("findProjectBoQConflict pomija edytowany rekord", () => {
+    const list = [
+      { id: "1", document_number: "3224", title: "A" },
+      { id: "2", document_number: "9999", title: "B" },
+    ];
+    expect(findProjectBoQConflict(list, { document_number: "3224" }, "1")).toBeNull();
+    expect(findProjectBoQConflict(list, { document_number: "3224" }, "2")?.id).toBe("1");
+  });
+
+  it("LV_DUPLICATE_OPTIONS — findDuplicateProjectBoQ", () => {
+    const existing = [{ id: "x", document_number: "LV-DE-1", title: "Markt" }];
+    expect(findDuplicateProjectBoQ(existing, { document_number: "lv-de-1" })?.id).toBe("x");
+    expect(applyImportDuplicateFlags([{ document_number: "lv-de-1" }], existing, LV_DUPLICATE_OPTIONS)[0]._rejected).toBe(
+      true
+    );
   });
 });

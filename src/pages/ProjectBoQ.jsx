@@ -31,6 +31,7 @@ import {
 } from "@/lib/lv-schema";
 import { getProjectDisplayName } from "@/lib/match-project";
 import { formatBase44Error } from "@/lib/base44-entity-save";
+import { findProjectBoQConflict } from "@/lib/duplicate-detection";
 
 function rowToForm(row) {
   const lines = normalizeLvLines(row?.lines);
@@ -118,6 +119,14 @@ export default function ProjectBoQ() {
       lines = normalizeLvLines(JSON.parse(linesJson));
     } catch {
       toast.error("Niepoprawny JSON pozycji LV.");
+      return;
+    }
+    const candidate = { ...form, lines };
+    const conflict = findProjectBoQConflict(rows, candidate, editing.id);
+    if (conflict) {
+      toast.error(
+        `Duplikat kosztorysu: „${conflict.document_number || conflict.title}” już istnieje w systemie.`
+      );
       return;
     }
     const payload = pickProjectBoQApiPayload({
