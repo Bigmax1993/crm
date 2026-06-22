@@ -63,6 +63,11 @@ export const FINANCE_METRICS = {
     detail:
       "projectProfitabilityPln — przychód tylko paid sales; koszty wszystkie purchase dla project_id. Nie jest pełnym P&L rachunkowym.",
   },
+  projectExpensesByPeriodPln: {
+    summary:
+      "Wydatki projektu w czasie: zakupy (FV kosztowe) z project_id; miesiąc/kwartał/rok wg daty wystawienia; PLN z wystawienia.",
+    detail: "projectExpensesByPeriodPln — bez wymogu zapłaty, wyłącza FV sprzedaży.",
+  },
   receivablesPayablesRawSingleCurrency: {
     summary:
       "Należności / zobowiązania (jedna waluta): jak wyżej, ale tylko FV w wybranej walucie, kwota = amount.",

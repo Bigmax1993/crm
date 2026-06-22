@@ -49,5 +49,6 @@ describe("CEODashboard — smoke (integracja)", () => {
     await waitFor(() => expect(dashMocks.listInvoices).toHaveBeenCalled());
     expect(await screen.findByRole("heading", { name: /dashboard ceo/i })).toBeInTheDocument();
     expect(await screen.findByText(/suma należności/i)).toBeInTheDocument();
+    expect(await screen.findByText(/wydatki per projekt/i)).toBeInTheDocument();
   });
 });

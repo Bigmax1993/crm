@@ -209,3 +209,46 @@ export function budgetAlertsPln(projects, invoices, threshold = 0.8) {
   }
   return alerts;
 }
+
+function expensePeriodKey(d, period) {
+  if (period === "year") return format(d, "yyyy");
+  if (period === "quarter") {
+    const q = Math.floor(d.getMonth() / 3) + 1;
+    return `${d.getFullYear()}-Q${q}`;
+  }
+  return format(startOfMonth(d), "yyyy-MM");
+}
+
+/** Etykieta osi X dla wykresu wydatków projektu. */
+export function formatProjectExpensePeriodLabel(periodKey, period = "month") {
+  if (period === "year") return periodKey;
+  if (period === "quarter") {
+    const m = String(periodKey).match(/^(\d{4})-Q([1-4])$/);
+    if (m) return `Q${m[2]} ${m[1]}`;
+    return periodKey;
+  }
+  const m = String(periodKey).match(/^(\d{4})-(\d{2})$/);
+  if (m) return `${m[2]}/${m[1]}`;
+  return periodKey;
+}
+
+/**
+ * Wydatki (FV zakupowe) jednego projektu wg miesiąca, kwartału lub roku (data wystawienia, PLN z wystawienia).
+ * @param {'month'|'quarter'|'year'} [period='month']
+ */
+export function projectExpensesByPeriodPln(invoices, projectId, period = "month") {
+  if (!projectId) return [];
+  const map = {};
+  for (const inv of invoices) {
+    if (inv.project_id !== projectId) continue;
+    if (inv.invoice_type === "sales") continue;
+    const d = inv.issue_date && isValid(parseISO(String(inv.issue_date))) ? parseISO(String(inv.issue_date)) : null;
+    if (!d) continue;
+    const amt = getInvoicePlnAtIssue(inv);
+    if (amt == null) continue;
+    const key = expensePeriodKey(d, period);
+    if (!map[key]) map[key] = { period: key, wydatki: 0 };
+    map[key].wydatki += amt;
+  }
+  return Object.values(map).sort((a, b) => a.period.localeCompare(b.period));
+}

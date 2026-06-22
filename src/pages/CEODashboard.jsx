@@ -1,8 +1,10 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { financeMetricSummary } from "@/lib/finance-metric-definitions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -32,7 +34,10 @@ import {
   globalPLPln,
   budgetAlertsPln,
   getInvoicePlnAtIssue,
+  projectExpensesByPeriodPln,
+  formatProjectExpensePeriodLabel,
 } from "@/lib/finance-pln";
+import { getProjectDisplayName } from "@/lib/match-project";
 import { useClientEnrichedInvoices } from "@/hooks/useClientEnrichedInvoices";
 import { useCurrencyDisplay } from "@/contexts/CurrencyDisplayContext";
 import { format } from "date-fns";
@@ -40,7 +45,11 @@ import { AlertTriangle, TrendingUp, Wallet, Building2 } from "lucide-react";
 
 const PIE_COLORS = ["#1F4E79", "#2E75B6", "#5B9BD5", "#9DC3E6", "#ED7D31", "#FFC000", "#70AD47"];
 
+const EXPENSE_PERIOD_LIMIT = { month: 18, quarter: 12, year: 8 };
+
 export default function CEODashboard() {
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [expensePeriod, setExpensePeriod] = useState("month");
   const { data: invoices = [], isLoading: loadingInv } = useQuery({
     queryKey: ["invoices"],
     queryFn: () => base44.entities.Invoice.list(),
@@ -120,6 +129,47 @@ export default function CEODashboard() {
   const overduePlnSum = useMemo(
     () => overdue.reduce((s, i) => s + (getInvoicePlnAtIssue(i) ?? 0), 0),
     [overdue]
+  );
+
+  const projectsSorted = useMemo(
+    () =>
+      [...projects].sort((a, b) =>
+        getProjectDisplayName(a).localeCompare(getProjectDisplayName(b), "pl")
+      ),
+    [projects]
+  );
+
+  useEffect(() => {
+    if (!projectsSorted.length) {
+      setSelectedProjectId("");
+      return;
+    }
+    if (selectedProjectId && projectsSorted.some((p) => p.id === selectedProjectId)) return;
+    const withCosts = projectsSorted.find((p) =>
+      enriched.some(
+        (inv) => inv.project_id === p.id && inv.invoice_type !== "sales" && getInvoicePlnAtIssue(inv) != null
+      )
+    );
+    setSelectedProjectId((withCosts || projectsSorted[0]).id);
+  }, [projectsSorted, enriched, selectedProjectId]);
+
+  const projectExpenseChart = useMemo(() => {
+    if (!selectedProjectId) return [];
+    const limit = EXPENSE_PERIOD_LIMIT[expensePeriod] ?? 18;
+    return projectExpensesByPeriodPln(enriched, selectedProjectId, expensePeriod)
+      .slice(-limit)
+      .map((r) => ({
+        period: r.period,
+        label: formatProjectExpensePeriodLabel(r.period, expensePeriod),
+        wydatki: convertPlnToDisplay(r.wydatki),
+        wydatkiPln: r.wydatki,
+      }));
+  }, [enriched, selectedProjectId, expensePeriod, convertPlnToDisplay]);
+
+  const selectedProject = projectsSorted.find((p) => p.id === selectedProjectId);
+  const projectExpenseTotal = useMemo(
+    () => projectExpenseChart.reduce((s, r) => s + r.wydatkiPln, 0),
+    [projectExpenseChart]
   );
 
   if (loading) {
@@ -312,6 +362,91 @@ export default function CEODashboard() {
             </Card>
           </div>
         </div>
+
+        <Card>
+          <CardHeader className="space-y-4">
+            <div className="flex flex-col gap-1">
+              <CardTitle>Wydatki per projekt</CardTitle>
+              <CardDescription className="text-xs">
+                {financeMetricSummary("projectExpensesByPeriodPln")}
+              </CardDescription>
+            </div>
+            <div className="flex flex-col sm:flex-row flex-wrap gap-4 items-end">
+              <div className="w-full sm:min-w-[240px] sm:flex-1 space-y-2">
+                <Label>Projekt (market)</Label>
+                <Select
+                  value={selectedProjectId || "none"}
+                  onValueChange={(v) => setSelectedProjectId(v === "none" ? "" : v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Wybierz projekt" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projectsSorted.length === 0 ? (
+                      <SelectItem value="none" disabled>
+                        Brak projektów
+                      </SelectItem>
+                    ) : (
+                      projectsSorted.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {getProjectDisplayName(p)}
+                          {p.city ? ` · ${p.city}` : ""}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-full sm:w-[200px] space-y-2">
+                <Label>Okres</Label>
+                <Select value={expensePeriod} onValueChange={setExpensePeriod}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="month">Miesiąc</SelectItem>
+                    <SelectItem value="quarter">Kwartał</SelectItem>
+                    <SelectItem value="year">Rok</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {selectedProject && projectExpenseChart.length > 0 ? (
+                <p className="text-sm text-muted-foreground sm:ml-auto pb-2">
+                  Suma na wykresie:{" "}
+                  <span className="font-semibold text-foreground">
+                    {formatDisplayAmount(projectExpenseTotal)} {displayCurrency}
+                  </span>
+                </p>
+              ) : null}
+            </div>
+          </CardHeader>
+          <CardContent className="h-80">
+            {!selectedProjectId ? (
+              <p className="text-muted-foreground text-sm">Dodaj projekt w module Budowa, aby zobaczyć wydatki.</p>
+            ) : projectExpenseChart.length === 0 ? (
+              <p className="text-muted-foreground text-sm">
+                Brak wydatków (FV zakupowych) przypisanych do „{getProjectDisplayName(selectedProject)}”.
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={projectExpenseChart}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip
+                    formatter={(v) => `${Number(v).toLocaleString("pl-PL")} ${displayCurrency}`}
+                    labelFormatter={(_, payload) => {
+                      const row = payload?.[0]?.payload;
+                      return row ? `${row.label} (${row.period})` : "";
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="wydatki" name="Wydatki" fill="#ED7D31" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
 
         <p className="text-xs text-muted-foreground text-center">
           Wygenerowano: {format(new Date(), "yyyy-MM-dd HH:mm")}

@@ -12,6 +12,8 @@ import {
   foreignExposureRatio,
   budgetAlertsPln,
   isUnpaidStatus,
+  projectExpensesByPeriodPln,
+  formatProjectExpensePeriodLabel,
 } from "@/lib/finance-pln";
 
 describe("finance-pln (jednostkowe)", () => {
@@ -277,5 +279,60 @@ describe("finance-pln (jednostkowe)", () => {
     ];
     const rows = quarterlyYoYTrendPln(invoices);
     expect(rows.some((r) => r.key === "2024-Q1" && r.przychody === 100)).toBe(true);
+  });
+
+  it("projectExpensesByPeriodPln — miesiąc, kwartał, rok dla jednego projektu", () => {
+    const invoices = [
+      {
+        project_id: "p1",
+        invoice_type: "cost",
+        issue_date: "2024-01-10",
+        amount_pln: 100,
+        currency: "PLN",
+        amount: 100,
+      },
+      {
+        project_id: "p1",
+        invoice_type: "cost",
+        issue_date: "2024-03-15",
+        amount_pln: 200,
+        currency: "PLN",
+        amount: 200,
+      },
+      {
+        project_id: "p2",
+        invoice_type: "cost",
+        issue_date: "2024-01-20",
+        amount_pln: 999,
+        currency: "PLN",
+        amount: 999,
+      },
+      {
+        project_id: "p1",
+        invoice_type: "sales",
+        issue_date: "2024-01-05",
+        amount_pln: 5000,
+        currency: "PLN",
+        amount: 5000,
+      },
+    ];
+    const monthly = projectExpensesByPeriodPln(invoices, "p1", "month");
+    expect(monthly).toHaveLength(2);
+    expect(monthly.find((r) => r.period === "2024-01")?.wydatki).toBe(100);
+    expect(monthly.find((r) => r.period === "2024-03")?.wydatki).toBe(200);
+
+    const quarterly = projectExpensesByPeriodPln(invoices, "p1", "quarter");
+    expect(quarterly).toHaveLength(1);
+    expect(quarterly.find((r) => r.period === "2024-Q1")?.wydatki).toBe(300);
+
+    const yearly = projectExpensesByPeriodPln(invoices, "p1", "year");
+    expect(yearly).toHaveLength(1);
+    expect(yearly[0].wydatki).toBe(300);
+  });
+
+  it("formatProjectExpensePeriodLabel", () => {
+    expect(formatProjectExpensePeriodLabel("2024-03", "month")).toBe("03/2024");
+    expect(formatProjectExpensePeriodLabel("2024-Q2", "quarter")).toBe("Q2 2024");
+    expect(formatProjectExpensePeriodLabel("2025", "year")).toBe("2025");
   });
 });
