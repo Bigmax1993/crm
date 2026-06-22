@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Upload as UploadIcon, Loader2, CheckCircle, FileSpreadsheet, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { createPageUrl } from "@/utils";
-import { extractLvFromPdf, parseLvFromJsonText } from "@/lib/lv-extract";
+import { extractLvFromPdf, extractLvFromPdfClaude, mapLvJsonToInternal, parseLvFromJsonText } from "@/lib/lv-extract";
 import { isClaudeConfigured } from "@/lib/openai-crm";
 import {
   emptyProjectBoQ,
@@ -49,6 +49,46 @@ function ProjectMatchBadge({ row, projects }) {
   );
 }
 
+function ExtractionSourceBadge({ source }) {
+  const labels = {
+    heuristic: "Heurystyka",
+    claude: "Claude AI",
+    json: "JSON",
+    manual: "Ręcznie",
+  };
+  if (!source) return null;
+  return (
+    <span className="text-xs px-2 py-0.5 rounded-md bg-muted text-muted-foreground border border-border">
+      {labels[source] ?? source}
+    </span>
+  );
+}
+
+function fileRefsFromUpload(file) {
+  const n = file.name.toLowerCase();
+  return {
+    fileName: file.name,
+    _pdfFileRef: n.endsWith(".pdf") ? file : undefined,
+    _jsonFileRef: n.endsWith(".json") ? file : undefined,
+  };
+}
+
+function toLvRow(mapped, file, extractionSource) {
+  const refs = fileRefsFromUpload(file);
+  const lines = normalizeLvLines(mapped.lines);
+  return {
+    ...emptyProjectBoQ({ ...mapped, ...refs }),
+    lines: lines.length ? lines : [emptyLvLine()],
+    total_net:
+      mapped.total_net != null && mapped.total_net !== ""
+        ? Number(mapped.total_net)
+        : lines.length
+          ? sumLvLines(lines)
+          : null,
+    _extractionSource: extractionSource || mapped._extractionSource || "heuristic",
+  };
+}
+
 async function extractLvFromFile(file) {
   const n = file.name.toLowerCase();
   if (n.endsWith(".json")) {
@@ -67,6 +107,7 @@ export default function UploadLV() {
   const [processing, setProcessing] = useState(false);
   const [rows, setRows] = useState([]);
   const [dragOver, setDragOver] = useState(false);
+  const [reAiLoading, setReAiLoading] = useState(null);
 
   const { data: projects = [] } = useQuery({
     queryKey: ["construction-sites"],
@@ -110,33 +151,27 @@ export default function UploadLV() {
         try {
           const { mapped } = await extractLvFromFile(file);
           if (mapped) {
-            const lines = normalizeLvLines(mapped.lines);
-            results.push(
-              withMatch({
-                ...emptyProjectBoQ(mapped),
-                lines: lines.length ? lines : [emptyLvLine()],
-                total_net:
-                  mapped.total_net != null && mapped.total_net !== ""
-                    ? Number(mapped.total_net)
-                    : lines.length
-                      ? sumLvLines(lines)
-                      : null,
-              })
-            );
+            results.push(withMatch(toLvRow(mapped, file)));
           } else {
             results.push(
               withMatch({
-                ...emptyProjectBoQ({ fileName: file.name }),
+                ...emptyProjectBoQ(fileRefsFromUpload(file)),
                 _manualStub: true,
                 _extractionSource: "manual",
               })
             );
-            toast.warning(`„${file.name}”: nie rozpoznano LV — uzupełnij ręcznie.`);
+            toast.warning(`„${file.name}”: nie rozpoznano LV — użyj „Generuj z AI” lub uzupełnij ręcznie.`);
           }
         } catch (e) {
           console.warn("LV extract:", e);
           toast.error(`${file.name}: ${e?.message || "błąd odczytu"}`);
-          results.push(withMatch({ ...emptyProjectBoQ({ fileName: file.name }), _manualStub: true }));
+          results.push(
+            withMatch({
+              ...emptyProjectBoQ(fileRefsFromUpload(file)),
+              _manualStub: true,
+              _extractionSource: "manual",
+            })
+          );
         }
       }
       setRows(results);
@@ -166,6 +201,66 @@ export default function UploadLV() {
     }
     next[index] = row;
     setRows(next);
+  };
+
+  const reextractWithAi = async (idx) => {
+    const row = rows[idx];
+    const pdfFile = row._pdfFileRef;
+    const jsonFile = row._jsonFileRef;
+
+    if (!pdfFile && !jsonFile) {
+      toast.error("Brak pliku w pamięci — dodaj plik ponownie i kliknij Przetwórz.");
+      return;
+    }
+
+    if (pdfFile && !isClaudeConfigured()) {
+      toast.error("Skonfiguruj klucz Claude w Ustawieniach AI, aby użyć Generuj z AI.");
+      return;
+    }
+
+    setReAiLoading(idx);
+    try {
+      let mapped = null;
+      let extractionSource = null;
+
+      if (pdfFile) {
+        const { parsed } = await extractLvFromPdfClaude(pdfFile);
+        mapped = mapLvJsonToInternal(parsed, { fileName: row.fileName });
+        extractionSource = "claude";
+      } else if (jsonFile) {
+        const text = await jsonFile.text();
+        mapped = parseLvFromJsonText(text);
+        extractionSource = "json";
+      }
+
+      const lines = normalizeLvLines(mapped?.lines);
+      const hasData =
+        mapped &&
+        (mapped.document_number?.trim() ||
+          mapped.title?.trim() ||
+          mapped.client_name?.trim() ||
+          lines.length >= 1 ||
+          (mapped.total_net && mapped.total_net > 0));
+
+      if (!hasData) {
+        throw new Error("AI nie zwróciło danych LV — sprawdź plik lub uzupełnij ręcznie.");
+      }
+
+      const next = [...rows];
+      next[idx] = withMatch({
+        ...toLvRow(mapped, pdfFile || jsonFile, extractionSource),
+        _projectMatchManual: row._projectMatchManual,
+        project_id: row._projectMatchManual ? row.project_id : undefined,
+        _pdfFileRef: pdfFile,
+        _jsonFileRef: jsonFile,
+      });
+      setRows(next);
+      toast.success(pdfFile ? "Formularz uzupełniony przez Claude AI" : "Ponownie wczytano JSON");
+    } catch (e) {
+      toast.error(e?.message || "Błąd Generuj z AI");
+    } finally {
+      setReAiLoading(null);
+    }
   };
 
   const saveAll = async () => {
@@ -205,8 +300,9 @@ export default function UploadLV() {
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
           Wgraj niemiecki kosztorys prac (LV / Angebot / GAEB jako PDF lub JSON). System odczyta pozycje, sumy netto i
-          przypisze projekt (market w DE).
-          {isClaudeConfigured() ? " Claude obsługuje skany wielostronicowe." : " Dla skanów włącz Claude w Ustawieniach AI."}
+          przypisze projekt (market w DE). Na etapie weryfikacji użyj <strong>Generuj z AI</strong>, aby wymusić odczyt
+          Claude ze skanu PDF.
+          {isClaudeConfigured() ? " Claude jest skonfigurowany." : " Dla skanów włącz Claude w Ustawieniach AI."}
         </p>
       </div>
 
@@ -290,11 +386,29 @@ export default function UploadLV() {
                   <div className="flex flex-wrap gap-2 items-center justify-between">
                     <span className="font-medium text-sm">{row.fileName || `LV ${idx + 1}`}</span>
                     <div className="flex flex-wrap gap-2 items-center">
+                      <ExtractionSourceBadge source={row._extractionSource} />
                       <span className="text-xs text-muted-foreground">{lvLinesCount(lines)} poz.</span>
                       {net != null && (
                         <span className="text-xs font-medium">{formatLvMoney(net, row.currency)} netto</span>
                       )}
                       <ProjectMatchBadge row={row} projects={projects} />
+                      {(row._pdfFileRef || row._jsonFileRef) && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          disabled={reAiLoading === idx}
+                          onClick={() => reextractWithAi(idx)}
+                          className="border-amber-500/30"
+                        >
+                          {reAiLoading === idx ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-4 w-4 mr-1 text-amber-600" />
+                          )}
+                          {row._pdfFileRef ? "Generuj z AI" : "Wczytaj ponownie"}
+                        </Button>
+                      )}
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
