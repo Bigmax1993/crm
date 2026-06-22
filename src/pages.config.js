@@ -73,6 +73,8 @@ import Suppliers from './pages/Suppliers';
 import Transfers from './pages/Transfers';
 import Transport from './pages/Transport';
 import Upload from './pages/Upload';
+import UploadWZ from './pages/UploadWZ';
+import MaterialDeliveries from './pages/MaterialDeliveries';
 import __Layout from './Layout.jsx';
 
 
@@ -103,6 +105,8 @@ export const PAGES = {
     "Transfers": Transfers,
     "Transport": Transport,
     "Upload": Upload,
+    "UploadWZ": UploadWZ,
+    "MaterialDeliveries": MaterialDeliveries,
 }
 
 export const pagesConfig = {

@@ -59,6 +59,8 @@ const PAGE_ICONS = {
   Employees: Users,
   Construction: HardHat,
   Upload: Upload,
+  UploadWZ: Package,
+  MaterialDeliveries: Package,
   Invoices: FileText,
   Transfers: CreditCard,
   Transport: Truck,

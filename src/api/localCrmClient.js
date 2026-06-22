@@ -33,6 +33,7 @@ export function createLocalCrmClient() {
       Employee: entity("Employee"),
       Contact: entity("Contact"),
       Interaction: entity("Interaction"),
+      MaterialDelivery: entity("MaterialDelivery"),
     },
     integrations: {
       Core: {
