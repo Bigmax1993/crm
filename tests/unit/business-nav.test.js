@@ -39,6 +39,19 @@ describe("business-nav — NAV_GROUP_ORDER", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  it("grupa Dokumenty: faktury, WZ i LV", () => {
+    const dokumenty = NAV_GROUP_ORDER.find((g) => g.id === "dokumenty");
+    expect(dokumenty?.pages).toEqual([
+      "Upload",
+      "UploadWZ",
+      "MaterialDeliveries",
+      "UploadLV",
+      "ProjectBoQ",
+    ]);
+    expect(PAGE_TITLES.UploadLV).toBe("Import LV (DE)");
+    expect(PAGE_TITLES.ProjectBoQ).toBe("Kosztorysy LV");
+  });
+
   it("grupa System: Roadmap, SettingsAI, Settings (bez Security — strona usunięta)", () => {
     const system = NAV_GROUP_ORDER.find((g) => g.id === "system");
     expect(system?.pages).toEqual(["SettingsAI", "Roadmap", "Settings"]);

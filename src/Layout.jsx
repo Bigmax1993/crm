@@ -28,6 +28,8 @@ import {
   Truck,
   PanelLeft,
   ListChecks,
+  ClipboardList,
+  Calculator,
 } from "lucide-react";
 import { AppLogo } from "@/components/brand/AppLogo";
 import { EXPORT_ADDRESS, EXPORT_WEB } from "@/lib/brand-brief";
@@ -61,8 +63,8 @@ const PAGE_ICONS = {
   Upload: Upload,
   UploadWZ: Package,
   MaterialDeliveries: Package,
-  UploadLV: FileSpreadsheet,
-  ProjectBoQ: ListChecks,
+  UploadLV: ClipboardList,
+  ProjectBoQ: Calculator,
   Invoices: FileText,
   Transfers: CreditCard,
   Transport: Truck,

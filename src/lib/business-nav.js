@@ -60,6 +60,11 @@ export const NAV_GROUP_ORDER = [
     ],
   },
   {
+    id: "dokumenty",
+    label: "Dokumenty",
+    pages: ["Upload", "UploadWZ", "MaterialDeliveries", "UploadLV", "ProjectBoQ"],
+  },
+  {
     id: "operacje",
     label: "Operacje",
     pages: [
@@ -69,11 +74,6 @@ export const NAV_GROUP_ORDER = [
       "Contractors",
       "Employees",
       "Construction",
-      "Upload",
-      "UploadWZ",
-      "MaterialDeliveries",
-      "UploadLV",
-      "ProjectBoQ",
       "Invoices",
       "Transfers",
       "Transport",
