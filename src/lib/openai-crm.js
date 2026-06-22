@@ -295,7 +295,13 @@ export const openaiChatCompletions = claudeChatCompletions;
 /**
  * Jedno zapytanie Claude z załączonym plikiem (PDF lub obraz).
  */
-export async function claudeInvokeWithFile({ prompt, file, model: modelOverride, response_json_schema }) {
+export async function claudeInvokeWithFile({
+  prompt,
+  file,
+  model: modelOverride,
+  response_json_schema,
+  max_tokens = 4096,
+}) {
   const gate = canMakeAiRequest();
   if (!gate.ok) throw new Error("Limit zapytań AI lub brak konfiguracji.");
 
@@ -308,7 +314,7 @@ export async function claudeInvokeWithFile({ prompt, file, model: modelOverride,
 
   const j = await claudeMessagesRequest({
     model,
-    max_tokens: 4096,
+    max_tokens,
     temperature: 0,
     messages: [
       {

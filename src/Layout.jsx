@@ -61,6 +61,8 @@ const PAGE_ICONS = {
   Upload: Upload,
   UploadWZ: Package,
   MaterialDeliveries: Package,
+  UploadLV: FileSpreadsheet,
+  ProjectBoQ: ListChecks,
   Invoices: FileText,
   Transfers: CreditCard,
   Transport: Truck,
