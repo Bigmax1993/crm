@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Sparkles, Save, Trash2 } from "lucide-react";
+import { Sparkles, Save, Trash2, Loader2, RotateCcw, PlugZap } from "lucide-react";
 import { toast } from "sonner";
 import {
   getAiSettings,
@@ -19,6 +19,9 @@ import {
   getUsageToday,
   getAiHistory,
   getClaudeApiKey,
+  getAiQuotaStatus,
+  resetAiUsageToday,
+  testClaudeConnection,
   CLAUDE_MODEL_OPTIONS,
 } from "@/lib/openai-crm";
 
@@ -31,6 +34,7 @@ export default function SettingsAI() {
   const [form, setForm] = useState(getAiSettings);
   const [usage, setUsage] = useState(getUsageToday);
   const [history, setHistory] = useState(getAiHistory);
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     const up = () => {
@@ -50,10 +54,33 @@ export default function SettingsAI() {
   };
 
   const save = () => {
-    saveAiSettings(form);
+    saveAiSettings({ ...form, language: "pl" });
     toast.success("Zapisano ustawienia AI");
     setUsage(getUsageToday());
   };
+
+  const testConnection = async () => {
+    saveAiSettings({ ...form, language: "pl" });
+    setTesting(true);
+    try {
+      const out = await testClaudeConnection();
+      toast.success(`Połączenie z Claude OK (${out})`);
+      setUsage(getUsageToday());
+      setHistory(getAiHistory());
+    } catch (e) {
+      toast.error(e?.message || "Test połączenia nieudany");
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const resetDailyUsage = () => {
+    resetAiUsageToday();
+    setUsage(getUsageToday());
+    toast.success("Zresetowano dzienny licznik zapytań AI w tej przeglądarce");
+  };
+
+  const quota = getAiQuotaStatus();
 
   const clearHistory = () => {
     localStorage.removeItem("fakturowo_ai_history_v1");
@@ -96,8 +123,14 @@ export default function SettingsAI() {
                 onChange={(e) => setForm({ ...form, apiKeyOverride: e.target.value })}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Przechowywane w localStorage (nie szyfrowane) — używaj profilu prywatnego lub .env produkcyjnie.
+                Przechowywane w localStorage (nie szyfrowane) — po zmianie klucza kliknij „Zapisz”, potem „Test połączenia”.
               </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={testConnection} disabled={testing}>
+                {testing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <PlugZap className="h-4 w-4 mr-1" />}
+                Test połączenia
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -170,7 +203,26 @@ export default function SettingsAI() {
               />
             </div>
             <div className="sm:col-span-2 text-sm text-muted-foreground">
-              Dziś: <strong>{usage.requests}</strong> zapytań, <strong>{usage.tokens}</strong> tokenów (wg odpowiedzi API).
+              Dziś: <strong>{usage.requests}</strong> / {quota.queryLimit} zapytań,{" "}
+              <strong>{usage.tokens}</strong> / {quota.tokenLimit} tokenów.
+              {quota.keyConfigured ? (
+                <>
+                  {" "}
+                  Pozostało ok. <strong>{quota.remainingQueries}</strong> zapytań lokalnego limitu.
+                </>
+              ) : (
+                <> Brak aktywnego klucza.</>
+              )}
+            </div>
+            <div className="sm:col-span-2">
+              <Button type="button" variant="outline" size="sm" onClick={resetDailyUsage}>
+                <RotateCcw className="h-4 w-4 mr-1" />
+                Zresetuj licznik dzienny (lokalny)
+              </Button>
+              <p className="text-xs text-muted-foreground mt-2">
+                Lokalny limit (domyślnie 50/dzień) dotyczy tylko tej przeglądarki. Zmiana klucza API go nie resetuje —
+                jeśli widzisz błąd limitu mimo nowego klucza, użyj resetu powyżej.
+              </p>
             </div>
           </CardContent>
         </Card>

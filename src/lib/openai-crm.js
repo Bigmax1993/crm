@@ -106,6 +106,25 @@ export function getUsageToday() {
   }
 }
 
+/** Zeruje licznik zapytań/tokenów na dziś (diagnostyka w przeglądarce). */
+export function resetAiUsageToday() {
+  localStorage.setItem(LS_USAGE, JSON.stringify({ date: todayStr(), requests: 0, tokens: 0 }));
+}
+
+export function getAiQuotaStatus() {
+  const s = getAiSettings();
+  const u = getUsageToday();
+  const queryLimit = Math.max(1, Number(s.dailyQueryLimit) || DEFAULT_SETTINGS.dailyQueryLimit);
+  const tokenLimit = Math.max(1000, Number(s.dailyTokenLimit) || DEFAULT_SETTINGS.dailyTokenLimit);
+  return {
+    ...u,
+    queryLimit,
+    tokenLimit,
+    keyConfigured: isClaudeConfigured(),
+    remainingQueries: Math.max(0, queryLimit - u.requests),
+  };
+}
+
 export function recordUsage(tokens = 0, meta = {}) {
   let u = getUsageToday();
   if (u.date !== todayStr()) u = { date: todayStr(), requests: 0, tokens: 0 };
@@ -252,6 +271,46 @@ async function fileToBase64(file) {
   });
 }
 
+/** Czytelny komunikat błędu HTTP z API Anthropic. */
+export function formatClaudeHttpError(status, bodyText) {
+  const raw = String(bodyText ?? "").trim();
+  try {
+    const j = JSON.parse(raw);
+    const msg = String(j?.error?.message ?? j?.message ?? "").trim();
+    const type = String(j?.error?.type ?? "").trim();
+    if (type === "authentication_error" || status === 401) {
+      return "Nieprawidłowy klucz Claude — sprawdź sk-ant-… w Ustawieniach AI i kliknij „Zapisz”.";
+    }
+    if (status === 403) {
+      return "Brak uprawnień do API Claude — sprawdź klucz i konto Anthropic.";
+    }
+    if (status === 429 || type === "rate_limit_error") {
+      return "Limit zapytań po stronie Anthropic — odczekaj chwilę lub sprawdź billing w console.anthropic.com.";
+    }
+    if (msg) return msg.length > 240 ? `${msg.slice(0, 240)}…` : msg;
+  } catch {
+    /* nie JSON */
+  }
+  if (raw) return raw.length > 240 ? `${raw.slice(0, 240)}…` : raw;
+  return `Błąd API Claude (HTTP ${status})`;
+}
+
+/** Test połączenia z API (omija lokalny limit dzienny — tylko diagnostyka klucza). */
+export async function testClaudeConnection() {
+  const key = getClaudeApiKey();
+  if (!key) throw new Error("Brak klucza — wklej klucz API i kliknij „Zapisz”.");
+  const model = getAiSettings().model || DEFAULT_SETTINGS.model;
+  const j = await claudeMessagesRequest({
+    model,
+    max_tokens: 24,
+    temperature: 0,
+    messages: [{ role: "user", content: 'Odpowiedz jednym słowem: "OK"' }],
+  });
+  const text = extractClaudeText(j);
+  recordUsage(claudeUsageTotal(j.usage), { type: "connection_test", model });
+  return text?.trim() || "OK";
+}
+
 async function claudeMessagesRequest({ model, max_tokens, temperature, system, messages }) {
   const key = getClaudeApiKey();
   if (!key) throw new Error("Brak klucza Claude (VITE_ANTHROPIC_API_KEY lub Ustawienia AI)");
@@ -275,7 +334,7 @@ async function claudeMessagesRequest({ model, max_tokens, temperature, system, m
 
   if (!res.ok) {
     const t = await res.text();
-    throw new Error(t.slice(0, 280) || `HTTP ${res.status}`);
+    throw new Error(formatClaudeHttpError(res.status, t));
   }
 
   return res.json();

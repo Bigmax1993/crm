@@ -13,7 +13,7 @@ import { Upload as UploadIcon, Loader2, CheckCircle, FileSpreadsheet, Sparkles }
 import { toast } from "sonner";
 import { createPageUrl } from "@/utils";
 import { extractLvFromPdf, extractLvFromPdfClaude, mapLvJsonToInternal, parseLvFromJsonText } from "@/lib/lv-extract";
-import { isClaudeConfigured, canMakeAiRequest, aiGateErrorMessage } from "@/lib/openai-crm";
+import { isClaudeConfigured, canMakeAiRequest, aiGateErrorMessage, getAiQuotaStatus } from "@/lib/openai-crm";
 import {
   emptyProjectBoQ,
   emptyLvLine,
@@ -234,6 +234,20 @@ export default function UploadLV() {
     setRows(next);
   };
 
+  const forceAcceptRow = (index) => {
+    const next = [...rows];
+    next[index] = {
+      ...next[index],
+      _rejected: false,
+      _systemDuplicate: false,
+      _duplicateReason: null,
+    };
+    setRows(next);
+    toast.message(
+      "Pozycja przywrócona do zapisu. Upewnij się, że stary kosztorys został usunięty z listy „Kosztorysy LV”."
+    );
+  };
+
   const reextractWithAi = async (idx) => {
     const row = rows[idx];
     const pdfFile = row._pdfFileRef;
@@ -346,6 +360,8 @@ export default function UploadLV() {
     }
   };
 
+  const aiQuota = getAiQuotaStatus();
+
   return (
     <div className="w-full p-6 max-w-4xl mx-auto space-y-6">
       <div>
@@ -357,7 +373,14 @@ export default function UploadLV() {
           Wgraj niemiecki kosztorys prac (LV / oferta / GAEB jako PDF lub JSON). System odczyta pozycje, sumy netto i
           przypisze projekt (rynek w DE). Na etapie weryfikacji użyj <strong>Generuj z AI</strong>, aby wymusić odczyt
           Claude ze skanu PDF.
-          {isClaudeConfigured() ? " Claude jest skonfigurowany." : " Dla skanów włącz Claude w Ustawieniach AI."}
+          {isClaudeConfigured() ? (
+            <>
+              {" "}
+              Claude skonfigurowany — pozostało ok. {aiQuota.remainingQueries} zapytań lokalnego limitu na dziś.
+            </>
+          ) : (
+            " Dla skanów włącz Claude w Ustawieniach AI."
+          )}
         </p>
       </div>
 
@@ -495,7 +518,20 @@ export default function UploadLV() {
                     </div>
                   </div>
                   {row._duplicateReason ? (
-                    <p className="text-sm text-destructive">{row._duplicateReason}</p>
+                    <div className="space-y-2">
+                      <p className="text-sm text-destructive">{row._duplicateReason}</p>
+                      {row._systemDuplicate ? (
+                        <p className="text-xs text-muted-foreground">
+                          To nie blokuje „Generuj z AI” — dotyczy tylko zapisu. Jeśli usunąłeś stary LV z listy
+                          „Kosztorysy LV”, możesz wymusić ponowny import.
+                        </p>
+                      ) : null}
+                      {row._systemDuplicate ? (
+                        <Button type="button" variant="outline" size="sm" onClick={() => forceAcceptRow(idx)}>
+                          Importuj ponownie (pomijając duplikat)
+                        </Button>
+                      ) : null}
+                    </div>
                   ) : null}
                   {!row._rejected ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
