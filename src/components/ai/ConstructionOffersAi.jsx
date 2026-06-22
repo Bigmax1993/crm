@@ -95,7 +95,7 @@ export function ConstructionOffersAi({ sites = [] }) {
 
   const analyzeOne = async (site) => {
     if (!isOpenAiConfigured()) {
-      toast.error("Brak klucza OpenAI");
+      toast.error("Brak klucza Claude");
       return;
     }
     const m = matchFixtureOfferForSite(site);
@@ -187,7 +187,7 @@ ${JSON.stringify(hist)}`;
       </CardHeader>
       <CardContent className="space-y-4">
         {!isOpenAiConfigured() && (
-          <p className="text-sm text-muted-foreground">Włącz klucz OpenAI, aby ocenić szanse ofert.</p>
+          <p className="text-sm text-muted-foreground">Włącz klucz Claude, aby ocenić szanse ofert.</p>
         )}
         {oferty.map((site) => {
           const r = results[site.id];

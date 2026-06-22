@@ -18,11 +18,14 @@ import {
   saveAiSettings,
   getUsageToday,
   getAiHistory,
-  getOpenAiApiKey,
+  getClaudeApiKey,
 } from "@/lib/openai-crm";
 
 export default function SettingsAI() {
-  const envHint = (import.meta.env?.VITE_OPENAI_API_KEY || "").trim() ? "Ustawiony w .env (VITE_…)" : "Brak w .env";
+  const envHint =
+    (import.meta.env?.VITE_ANTHROPIC_API_KEY || import.meta.env?.VITE_CLAUDE_API_KEY || "").trim()
+      ? "Ustawiony w .env (VITE_…)"
+      : "Brak w .env";
 
   const [form, setForm] = useState(getAiSettings);
   const [usage, setUsage] = useState(getUsageToday);
@@ -39,7 +42,7 @@ export default function SettingsAI() {
   }, []);
 
   const masked = () => {
-    const k = getOpenAiApiKey();
+    const k = getClaudeApiKey();
     if (!k) return "—";
     if (k.length < 8) return "••••";
     return `${k.slice(0, 4)}…${k.slice(-4)}`;
@@ -64,7 +67,7 @@ export default function SettingsAI() {
           <Sparkles className="h-8 w-8 text-amber-500" />
           <div>
             <h1 className="text-3xl font-bold text-foreground">Ustawienia AI</h1>
-            <p className="text-muted-foreground text-sm">OpenAI GPT — klucz, model, limity, historia</p>
+            <p className="text-muted-foreground text-sm">Anthropic Claude — klucz, model, limity, historia</p>
           </div>
         </div>
 
@@ -72,7 +75,7 @@ export default function SettingsAI() {
           <CardHeader>
             <CardTitle>Klucz API</CardTitle>
             <CardDescription>
-              Domyślnie: <code className="text-xs">VITE_OPENAI_API_KEY</code> ({envHint}). Pole poniżej nadpisuje klucz
+              Domyślnie: <code className="text-xs">VITE_ANTHROPIC_API_KEY</code> ({envHint}). Pole poniżej nadpisuje klucz
               lokalnie (przeglądarka) — wyświetlanie maskowane.
             </CardDescription>
           </CardHeader>
@@ -87,7 +90,7 @@ export default function SettingsAI() {
                 id="apikey"
                 type="password"
                 autoComplete="off"
-                placeholder="sk-…"
+                placeholder="sk-ant-…"
                 value={form.apiKeyOverride}
                 onChange={(e) => setForm({ ...form, apiKeyOverride: e.target.value })}
               />
@@ -110,8 +113,8 @@ export default function SettingsAI() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="gpt-4o">gpt-4o</SelectItem>
-                  <SelectItem value="gpt-4o-mini">gpt-4o-mini</SelectItem>
+                  <SelectItem value="claude-sonnet-4-20250514">claude-sonnet-4</SelectItem>
+                  <SelectItem value="claude-3-5-haiku-20241022">claude-3-5-haiku</SelectItem>
                 </SelectContent>
               </Select>
             </div>

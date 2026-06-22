@@ -131,7 +131,7 @@ ${stringifyCrmContext(ctx)}`;
           </CardTitle>
         </CardHeader>
         <CardContent className="text-base text-muted-foreground leading-relaxed">
-          Skonfiguruj klucz OpenAI (zmienna <code className="text-sm font-mono bg-muted px-1.5 py-0.5 rounded">VITE_OPENAI_API_KEY</code> lub
+          Skonfiguruj klucz Claude (zmienna <code className="text-sm font-mono bg-muted px-1.5 py-0.5 rounded">VITE_ANTHROPIC_API_KEY</code> lub
           Ustawienia AI), aby włączyć analizę przy starcie dashboardu (cache do 24h).
         </CardContent>
       </Card>

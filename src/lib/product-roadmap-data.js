@@ -251,7 +251,7 @@ export const ROADMAP_PHASES = [
       {
         title: "Środowiska i konfiguracja",
         detail:
-          "Jasny podział dev / staging / prod; sekrety i klucze (Base44, OpenAI) poza repozytorium.",
+          "Jasny podział dev / staging / prod; sekrety i klucze (Base44, Claude) poza repozytorium.",
         priority: "should",
       },
       {

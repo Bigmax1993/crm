@@ -20,7 +20,7 @@ function entity(kind) {
 }
 
 /**
- * Zastępuje klienta Base44: encje w SQLite (sql.js) + Core AI przez OpenAI.
+ * Zastępuje klienta Base44: encje w SQLite (sql.js) + Core AI przez Claude.
  */
 export function createLocalCrmClient() {
   return {

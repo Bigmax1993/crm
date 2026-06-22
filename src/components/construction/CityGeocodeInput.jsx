@@ -10,7 +10,7 @@ import { isOpenAiConfigured } from "@/lib/openai-crm";
 import { toast } from "sonner";
 
 /**
- * Miasto z listą sugestii (Open-Meteo Geocoding, PL) + opcjonalnie GPS przez OpenAI (geo-ai).
+ * Miasto z listą sugestii (Open-Meteo Geocoding, PL) + opcjonalnie GPS przez Claude (geo-ai).
  */
 export function CityGeocodeInput({ city, latitude, longitude, onPatch, disabled, id }) {
   const [open, setOpen] = useState(false);
@@ -78,7 +78,7 @@ export function CityGeocodeInput({ city, latitude, longitude, onPatch, disabled,
       return;
     }
     if (!isOpenAiConfigured()) {
-      toast.message("OpenAI: ustaw klucz w Ustawieniach AI lub VITE_OPENAI_API_KEY, aby użyć uzupełniania GPS przez model.");
+      toast.message("Claude: ustaw klucz w Ustawieniach AI lub VITE_ANTHROPIC_API_KEY, aby użyć uzupełniania GPS przez model.");
       return;
     }
     setLoadingAi(true);
@@ -94,7 +94,7 @@ export function CityGeocodeInput({ city, latitude, longitude, onPatch, disabled,
         latitude: Number(r.lat).toFixed(6),
         longitude: Number(r.lon).toFixed(6),
       });
-      toast.success("Uzupełniono miasto i współrzędne (OpenAI).");
+      toast.success("Uzupełniono miasto i współrzędne (Claude).");
       setOpen(false);
     } catch (e) {
       toast.error(e?.message || "Błąd geokodowania AI.");
@@ -189,7 +189,7 @@ export function CityGeocodeInput({ city, latitude, longitude, onPatch, disabled,
           onClick={fillWithAi}
         >
           {loadingAi ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
-          Uzupełnij nazwę i GPS (OpenAI)
+          Uzupełnij nazwę i GPS (Claude)
         </Button>
         {latitude && longitude ? (
           <span className="text-xs text-muted-foreground">

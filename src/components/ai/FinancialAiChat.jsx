@@ -212,7 +212,7 @@ export function FinancialAiChat() {
       const t = (text || "").trim();
       if (!t) return;
       if (!isOpenAiConfigured()) {
-        toast.error("Brak klucza OpenAI — ustaw VITE_OPENAI_API_KEY lub Ustawienia AI");
+        toast.error("Brak klucza Claude — ustaw VITE_ANTHROPIC_API_KEY lub Ustawienia AI");
         return;
       }
       const gate = canMakeAiRequest();
@@ -292,7 +292,7 @@ export function FinancialAiChat() {
           });
           return copy;
         });
-        toast.error(e?.message || "Błąd OpenAI");
+        toast.error(e?.message || "Błąd Claude");
       } finally {
         setLoading(false);
       }

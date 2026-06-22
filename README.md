@@ -1,6 +1,6 @@
 # Fakturowo CRM
 
-Aplikacja webowa **CRM** (faktury, projekty, kontrahenci, cash flow, raporty) z backendem **Base44** oraz modułami **OpenAI** (asystent, OCR faktur, raporty, alerty, analiza ofert).
+Aplikacja webowa **CRM** (faktury, projekty, kontrahenci, cash flow, raporty) z backendem **Base44** oraz modułami **Anthropic Claude** (asystent, OCR faktur, raporty, alerty, analiza ofert).
 
 ## Stack technologiczny
 
@@ -11,13 +11,13 @@ Aplikacja webowa **CRM** (faktury, projekty, kontrahenci, cash flow, raporty) z 
 | Backend / BaaS | Base44 (`@base44/sdk`, plugin Vite) |
 | Stan zapytań | TanStack React Query |
 | Wykresy / PDF | Recharts, jsPDF, html2canvas |
-| AI / OCR skanów | OpenAI Chat Completions API; **Tesseract.js** (pol+eng) na obrazkach stron PDF |
+| AI / OCR skanów | Anthropic Claude Messages API; **Tesseract.js** (pol+eng) na obrazkach stron PDF |
 
 ## Wymagania
 
 - **Node.js** (LTS, np. 20.x) i **npm**
 - Konto i aplikacja na [Base44](https://base44.com)
-- Opcjonalnie: konto OpenAI i klucz API (moduły AI)
+- Opcjonalnie: konto Anthropic i klucz API Claude (moduły AI)
 
 ## Instalacja i uruchomienie
 
@@ -38,7 +38,7 @@ VITE_BASE44_APP_ID=twoj_app_id
 VITE_BASE44_APP_BASE_URL=https://twoja-aplikacja.base44.app
 
 # AI (OCR faktur, przelewy, czat) — w trybie lokalnym wymagane do funkcji Core.UploadFile / InvokeLLM:
-VITE_OPENAI_API_KEY=sk-...
+VITE_ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 **Tryb lokalny:** gdy **`VITE_BASE44_APP_ID`** jest pusty, aplikacja używa tabeli **`crm_sql_entity`** w tej samej bazie **sql.js** co fixture (`localStorage` → `fakturowo_sqljs_v1`). Faktury, budowy, kontrahenci, przelewy itd. zapisują się lokalnie. Aby **wymusić** tryb lokalny mimo ustawionego app id: `VITE_USE_LOCAL_CRM=true`. Aby **wymusić** Base44: `VITE_USE_LOCAL_CRM=false`.
@@ -69,11 +69,11 @@ src/
   api/              # Klient Base44
   components/       # UI, w tym ai/
   fixtures/         # crm_fixture_data.json
-  lib/              # openai-crm.js, ai-crm-context.js, statystyki, finanse
+  lib/              # openai-crm.js (Claude API), ai-crm-context.js, statystyki, finanse
   pages/            # Widoki
 ```
 
-Moduły AI: `src/lib/openai-crm.js`, `src/lib/ai-crm-context.js`, `src/components/ai/`.
+Moduły AI: `src/lib/openai-crm.js` (Claude), `src/lib/ai-crm-context.js`, `src/components/ai/`.
 
 ## Plan rozwoju (roadmap)
 

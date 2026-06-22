@@ -1,13 +1,10 @@
 import {
-  openaiUploadFile,
-  openaiDeleteFile,
   extractJsonObject,
-  openaiChatCompletions,
-  isOpenAiConfigured,
+  claudeChatCompletions,
+  claudeInvokeWithFile,
+  isClaudeConfigured,
   getAiSettings,
   canMakeAiRequest,
-  getOpenAiApiKey,
-  recordUsage,
 } from "@/lib/openai-crm";
 
 /**
@@ -27,19 +24,18 @@ export async function localUploadFile({ file }) {
 }
 
 /**
- * Lokalny odpowiednik Core.InvokeLLM — OpenAI (wymaga klucza w ustawieniach lub VITE_OPENAI_API_KEY).
+ * Lokalny odpowiednik Core.InvokeLLM — Claude (wymaga klucza w ustawieniach lub VITE_ANTHROPIC_API_KEY).
  */
 export async function localInvokeLLM({ prompt, file_urls, response_json_schema }) {
-  if (!isOpenAiConfigured()) {
+  if (!isClaudeConfigured()) {
     throw new Error(
-      "Tryb lokalny CRM: ustaw klucz OpenAI (Ustawienia AI lub VITE_OPENAI_API_KEY), aby użyć AI (OCR/przelewy)."
+      "Tryb lokalny CRM: ustaw klucz Claude (Ustawienia AI lub VITE_ANTHROPIC_API_KEY), aby użyć AI (OCR/przelewy)."
     );
   }
   const gate = canMakeAiRequest();
   if (!gate.ok) throw new Error("Limit zapytań AI lub brak konfiguracji.");
 
-  const model = getAiSettings().model || "gpt-4o";
-  const key = getOpenAiApiKey();
+  const model = getAiSettings().model || "claude-sonnet-4-20250514";
 
   if (file_urls?.length) {
     const res = await fetch(file_urls[0]);
@@ -47,67 +43,13 @@ export async function localInvokeLLM({ prompt, file_urls, response_json_schema }
     const blob = await res.blob();
     const fname = blob.type?.includes("pdf") ? "document.pdf" : "upload.bin";
     const upload = new File([blob], fname, { type: blob.type || "application/octet-stream" });
-    const fileId = await openaiUploadFile(upload);
-    try {
-      const body = {
-        model,
-        max_tokens: 4096,
-        temperature: 0,
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: prompt },
-              { type: "file", file: { file_id: fileId } },
-            ],
-          },
-        ],
-      };
-      if (response_json_schema && typeof response_json_schema === "object") {
-        body.response_format = {
-          type: "json_schema",
-          json_schema: {
-            name: "crm_invoke_result",
-            schema: response_json_schema,
-            strict: false,
-          },
-        };
-      }
-
-      const apiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${key}`,
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (!apiRes.ok) {
-        const t = await apiRes.text();
-        throw new Error(t.slice(0, 280) || `HTTP ${apiRes.status}`);
-      }
-
-      const j = await apiRes.json();
-      const text = j.choices?.[0]?.message?.content || "";
-      const total = j.usage?.total_tokens ?? 0;
-      recordUsage(total, { type: "local_invoke_llm", model });
-
-      if (j.choices?.[0]?.message?.parsed != null) {
-        return j.choices[0].message.parsed;
-      }
-      const parsed = extractJsonObject(text);
-      if (parsed) return parsed;
-      throw new Error("Odpowiedź AI nie zawiera poprawnego JSON.");
-    } finally {
-      await openaiDeleteFile(fileId);
-    }
+    return claudeInvokeWithFile({ prompt, file: upload, model, response_json_schema });
   }
 
   const extra = response_json_schema
     ? "\n\nZwróć wyłącznie jeden obiekt JSON zgodny z przekazanym schematem (bez markdown)."
     : "";
-  const { text } = await openaiChatCompletions({
+  const { text } = await claudeChatCompletions({
     messages: [{ role: "user", content: `${prompt}${extra}` }],
     max_tokens: 4096,
     temperature: 0,

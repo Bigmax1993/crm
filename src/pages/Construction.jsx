@@ -346,7 +346,7 @@ export default function Construction() {
                   <Textarea
                     value={formData.project_match_keywords}
                     onChange={(e) => setFormData({ ...formData, project_match_keywords: e.target.value })}
-                    placeholder="Po przecinku lub nowej linii; dopasowanie do opisu / JSON pozycji / nr zamówienia (bez rozróżniania wielkości liter)"
+                    placeholder="PL lub DE (kraj), nr filii, ulica, kod wewnętrzny — po przecinku lub nowej linii; dopasowanie do opisu / PO / pozycji"
                     className="h-20 text-sm"
                   />
                 </div>

@@ -4,9 +4,12 @@ const LS_SETTINGS = "fakturowo_ai_settings_v1";
 const LS_USAGE = "fakturowo_ai_usage_v1";
 const LS_HISTORY = "fakturowo_ai_history_v1";
 
+const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+const ANTHROPIC_VERSION = "2023-06-01";
+
 const DEFAULT_SETTINGS = {
   apiKeyOverride: "",
-  model: "gpt-4o",
+  model: "claude-sonnet-4-20250514",
   language: "pl",
   alertIntervalHours: 24,
   dailyQueryLimit: 50,
@@ -17,7 +20,11 @@ export function getAiSettings() {
   try {
     const raw = localStorage.getItem(LS_SETTINGS);
     const parsed = raw ? JSON.parse(raw) : {};
-    return { ...DEFAULT_SETTINGS, ...parsed };
+    const merged = { ...DEFAULT_SETTINGS, ...parsed };
+    if (String(merged.model || "").startsWith("gpt-")) {
+      merged.model = DEFAULT_SETTINGS.model;
+    }
+    return merged;
   } catch {
     return { ...DEFAULT_SETTINGS };
   }
@@ -30,15 +37,26 @@ export function saveAiSettings(partial) {
   return next;
 }
 
-export function getOpenAiApiKey() {
-  const env = (import.meta.env?.VITE_OPENAI_API_KEY || "").trim();
+/** Klucz Anthropic Claude (env lub nadpisanie w ustawieniach). */
+export function getClaudeApiKey() {
+  const env = (
+    import.meta.env?.VITE_ANTHROPIC_API_KEY ||
+    import.meta.env?.VITE_CLAUDE_API_KEY ||
+    ""
+  ).trim();
   const override = (getAiSettings().apiKeyOverride || "").trim();
   return override || env;
 }
 
-export function isOpenAiConfigured() {
-  return Boolean(getOpenAiApiKey());
+/** @deprecated alias — używaj getClaudeApiKey */
+export const getOpenAiApiKey = getClaudeApiKey;
+
+export function isClaudeConfigured() {
+  return Boolean(getClaudeApiKey());
 }
+
+/** @deprecated alias — używaj isClaudeConfigured */
+export const isOpenAiConfigured = isClaudeConfigured;
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -86,15 +104,15 @@ export function getAiHistory() {
 export function canMakeAiRequest() {
   const s = getAiSettings();
   const u = getUsageToday();
-  if (!isOpenAiConfigured()) return { ok: false, reason: "no_key" };
+  if (!isClaudeConfigured()) return { ok: false, reason: "no_key" };
   if (u.requests >= s.dailyQueryLimit) return { ok: false, reason: "queries" };
   if (u.tokens >= s.dailyTokenLimit) return { ok: false, reason: "tokens" };
   return { ok: true };
 }
 
-/** Szacunek ~USD dla GPT-4o (orientacyjnie). */
+/** Szacunek ~USD dla Claude Sonnet (orientacyjnie). */
 export function estimateCostUsd(approxTotalTokens = 1500) {
-  const per1k = 0.005;
+  const per1k = 0.003;
   return (approxTotalTokens / 1000) * per1k;
 }
 
@@ -145,26 +163,64 @@ export function cacheSet(prefix, payload, data) {
   }
 }
 
-export async function openaiChatCompletions({ messages, max_tokens = 2500, temperature = 0.2, model: modelOverride }) {
-  const key = getOpenAiApiKey();
-  if (!key) throw new Error("Brak klucza OpenAI (VITE_OPENAI_API_KEY lub Ustawienia AI)");
-
-  const gate = canMakeAiRequest();
-  if (!gate.ok) {
-    if (gate.reason === "queries") throw new Error("Osiągnięto dzienny limit zapytań AI");
-    if (gate.reason === "tokens") throw new Error("Osiągnięto dzienny limit tokenów AI");
-    throw new Error("AI niedostępna");
+function splitMessagesForClaude(messages) {
+  let system = "";
+  const claudeMessages = [];
+  for (const m of messages) {
+    if (m.role === "system") {
+      const part = typeof m.content === "string" ? m.content : JSON.stringify(m.content);
+      system = system ? `${system}\n\n${part}` : part;
+    } else if (m.role === "user" || m.role === "assistant") {
+      claudeMessages.push({ role: m.role, content: m.content });
+    }
   }
+  return { system: system || undefined, messages: claudeMessages };
+}
 
-  const model = modelOverride || getAiSettings().model || "gpt-4o";
+function extractClaudeText(response) {
+  const blocks = response?.content;
+  if (!Array.isArray(blocks)) return "";
+  return blocks
+    .filter((b) => b.type === "text")
+    .map((b) => b.text || "")
+    .join("\n");
+}
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+function claudeUsageTotal(usage) {
+  return (usage?.input_tokens ?? 0) + (usage?.output_tokens ?? 0);
+}
+
+async function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      resolve(result.includes(",") ? result.split(",")[1] : result);
+    };
+    reader.onerror = () => reject(new Error("Nie udało się odczytać pliku jako base64"));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function claudeMessagesRequest({ model, max_tokens, temperature, system, messages }) {
+  const key = getClaudeApiKey();
+  if (!key) throw new Error("Brak klucza Claude (VITE_ANTHROPIC_API_KEY lub Ustawienia AI)");
+
+  const res = await fetch(ANTHROPIC_API_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
+      "x-api-key": key,
+      "anthropic-version": ANTHROPIC_VERSION,
+      "anthropic-dangerous-direct-browser-access": "true",
     },
-    body: JSON.stringify({ model, messages, max_tokens, temperature }),
+    body: JSON.stringify({
+      model,
+      max_tokens,
+      temperature,
+      ...(system ? { system } : {}),
+      messages,
+    }),
   });
 
   if (!res.ok) {
@@ -172,52 +228,82 @@ export async function openaiChatCompletions({ messages, max_tokens = 2500, tempe
     throw new Error(t.slice(0, 280) || `HTTP ${res.status}`);
   }
 
-  const j = await res.json();
-  const text = j.choices?.[0]?.message?.content || "";
-  const total = j.usage?.total_tokens ?? 0;
+  return res.json();
+}
+
+export async function claudeChatCompletions({ messages, max_tokens = 2500, temperature = 0.2, model: modelOverride }) {
+  const gate = canMakeAiRequest();
+  if (!gate.ok) {
+    if (gate.reason === "queries") throw new Error("Osiągnięto dzienny limit zapytań AI");
+    if (gate.reason === "tokens") throw new Error("Osiągnięto dzienny limit tokenów AI");
+    throw new Error("AI niedostępna");
+  }
+
+  const model = modelOverride || getAiSettings().model || DEFAULT_SETTINGS.model;
+  const { system, messages: claudeMessages } = splitMessagesForClaude(messages);
+
+  const j = await claudeMessagesRequest({
+    model,
+    max_tokens,
+    temperature,
+    system,
+    messages: claudeMessages,
+  });
+
+  const text = extractClaudeText(j);
+  const total = claudeUsageTotal(j.usage);
   recordUsage(total, { type: "chat", model });
   return { text, usage: j.usage, model };
 }
 
+/** @deprecated alias — używaj claudeChatCompletions */
+export const openaiChatCompletions = claudeChatCompletions;
+
 /**
- * Upload pliku do OpenAI (PDF) — file_id do wiadomości chat.
+ * Jedno zapytanie Claude z załączonym plikiem (PDF lub obraz).
  */
-export async function openaiUploadFile(file) {
-  const key = getOpenAiApiKey();
-  if (!key) throw new Error("Brak klucza OpenAI");
+export async function claudeInvokeWithFile({ prompt, file, model: modelOverride, response_json_schema }) {
+  const gate = canMakeAiRequest();
+  if (!gate.ok) throw new Error("Limit zapytań AI lub brak konfiguracji.");
 
-  const fd = new FormData();
-  fd.append("file", file);
-  fd.append("purpose", "assistants");
+  const model = modelOverride || getAiSettings().model || DEFAULT_SETTINGS.model;
+  const base64 = await fileToBase64(file);
+  const mediaType = file.type || "application/pdf";
+  const extra = response_json_schema
+    ? "\n\nZwróć wyłącznie jeden obiekt JSON zgodny z przekazanym schematem (bez markdown)."
+    : "";
 
-  const res = await fetch("https://api.openai.com/v1/files", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}` },
-    body: fd,
+  const j = await claudeMessagesRequest({
+    model,
+    max_tokens: 4096,
+    temperature: 0,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "document",
+            source: {
+              type: "base64",
+              media_type: mediaType,
+              data: base64,
+            },
+          },
+          { type: "text", text: `${prompt}${extra}` },
+        ],
+      },
+    ],
   });
 
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(t.slice(0, 200));
-  }
-  const j = await res.json();
-  return j.id;
+  const text = extractClaudeText(j);
+  recordUsage(claudeUsageTotal(j.usage), { type: "local_invoke_llm", model });
+
+  const parsed = extractJsonObject(text);
+  if (parsed) return parsed;
+  throw new Error("Odpowiedź AI nie zawiera poprawnego JSON.");
 }
 
-export async function openaiDeleteFile(fileId) {
-  const key = getOpenAiApiKey();
-  if (!key || !fileId) return;
-  try {
-    await fetch(`https://api.openai.com/v1/files/${fileId}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${key}` },
-    });
-  } catch {
-    /* ignore */
-  }
-}
-
-/** Prompt JSON (OpenAI + Base44 InvokeLLM) — ten sam kształt co `mapOpenAiInvoiceJsonToInternal`. */
+/** Prompt JSON (Claude + Base44 InvokeLLM) — ten sam kształt co `mapOpenAiInvoiceJsonToInternal`. */
 export const INVOICE_JSON_PROMPT = `Tryb MAKSYMALNEJ DOKŁADNOŚCI: traktuj PDF jak skan — czytaj sekcja po sekcji (nagłówek → sprzedawca → nabywca → pozycje → podsumowanie VAT → do zapłaty). Rozróżniaj O/0, l/1, przecinek dziesiętny od tysięcy (PL). Przy niepewności zostaw pole puste.
 
 WIELOSTRONOWE PDF: obowiązkowo przejrzyj WSZYSTKIE strony. Numer faktury i „Razem” / „Do zapłaty” bywają na pierwszej lub ostatniej; tabela VAT i podsumowanie — zwykle pod listą pozycji. Przy kilku kwotach brutto wybierz tę z sekcji podsumowania / płatności, nie z pojedynczej pozycji.
@@ -299,7 +385,7 @@ Szablon JSON (wypełnij wartościami z PDF):
   }
 }`;
 
-const OPENAI_INVOICE_RETRY_HINTS = [
+const AI_INVOICE_RETRY_HINTS = [
   "Ponowna analiza: sprawdź ostatnią stronę (podsumowanie VAT, „Razem”, „Do zapłaty”) oraz nagłówek pod kątem numeru faktury / „FV”.",
   "Ponowna analiza: zlokalizuj blok „Sprzedawca”/„Wystawca” i powiązany NIP (10 cyfr PL); jeśli numer faktury powtarza się — użyj wersji ze stopki lub pola „Do zapłaty”.",
   "Ponowna analiza: przy szarym lub rozmytym tekście wybierz najczęściej powtarzający się zapis; rozróżniaj separator tysięcy od dziesiętnych (PL: 1 234,56).",
@@ -309,7 +395,7 @@ const OPENAI_INVOICE_RETRY_HINTS = [
 
 export function buildOpenAiInvoiceUserText(attemptIndex) {
   if (attemptIndex === 0) return INVOICE_JSON_PROMPT;
-  const hint = OPENAI_INVOICE_RETRY_HINTS[Math.min(attemptIndex - 1, OPENAI_INVOICE_RETRY_HINTS.length - 1)];
+  const hint = AI_INVOICE_RETRY_HINTS[Math.min(attemptIndex - 1, AI_INVOICE_RETRY_HINTS.length - 1)];
   return `${INVOICE_JSON_PROMPT}
 
 ---
@@ -317,100 +403,95 @@ export function buildOpenAiInvoiceUserText(attemptIndex) {
 ${hint}`;
 }
 
-/**
- * Ekstrakcja faktury z PDF przez OpenAI (plik → chat z załącznikiem).
- */
-export async function extractInvoiceFromPdfOpenAI(file) {
-  const model = getAiSettings().model || "gpt-4o";
-  const gate = canMakeAiRequest();
-  if (!gate.ok) throw new Error("Limit AI lub brak klucza");
-
-  let fileId = null;
-  try {
-    fileId = await openaiUploadFile(file);
-  } catch (e) {
-    throw new Error(`Upload PDF do OpenAI nie powiódł się: ${e.message}`);
-  }
-
-  const key = getOpenAiApiKey();
-  try {
-    let lastText = "";
-    let lastUsage = null;
-    const maxAttempts = getInvoicePdfOcrAttemptCount();
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const userPrompt = buildOpenAiInvoiceUserText(attempt);
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${key}`,
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: 4096,
-          temperature: 0,
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: userPrompt },
-                { type: "file", file: { file_id: fileId } },
-              ],
-            },
-          ],
-        }),
-      });
-
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t.slice(0, 280));
-      }
-
-      const j = await res.json();
-      const text = j.choices?.[0]?.message?.content || "";
-      lastText = text;
-      lastUsage = j.usage;
-      const total = j.usage?.total_tokens ?? 0;
-      recordUsage(total, { type: "invoice_pdf", model, attempt });
-
-      const parsed = extractJsonObject(text);
-      const hasCore =
-        parsed &&
-        (String(parsed.numer_faktury ?? "").trim() ||
-          String(parsed.nazwa_sprzedawcy ?? "").trim() ||
-          String(parsed.nazwa_nabywcy ?? "").trim() ||
-          String(parsed.nazwa_kontrahenta ?? "").trim());
-      if (hasCore) {
-        return { parsed, rawText: text, usage: j.usage };
-      }
-    }
-
-    return {
-      parsed: extractJsonObject(lastText),
-      rawText: lastText,
-      usage: lastUsage,
-    };
-  } finally {
-    await openaiDeleteFile(fileId);
-  }
+function invoiceHasCoreFields(parsed) {
+  return (
+    parsed &&
+    (String(parsed.numer_faktury ?? "").trim() ||
+      String(parsed.nazwa_sprzedawcy ?? "").trim() ||
+      String(parsed.nazwa_nabywcy ?? "").trim() ||
+      String(parsed.nazwa_kontrahenta ?? "").trim())
+  );
 }
 
-const MAX_OPENAI_XML_CHARS = 200_000;
-
 /**
- * Ekstrakcja faktury z treści XML przez OpenAI (tekst w wiadomości, bez uploadu pliku).
+ * Ekstrakcja faktury z PDF przez Claude (dokument base64 w wiadomości).
  */
-export async function extractInvoiceFromXmlTextOpenAI(xmlString, fileName = "faktura.xml") {
-  const model = getAiSettings().model || "gpt-4o";
+export async function extractInvoiceFromPdfClaude(file) {
+  const model = getAiSettings().model || DEFAULT_SETTINGS.model;
   const gate = canMakeAiRequest();
   if (!gate.ok) throw new Error("Limit AI lub brak klucza");
 
-  const key = getOpenAiApiKey();
+  let base64;
+  try {
+    base64 = await fileToBase64(file);
+  } catch (e) {
+    throw new Error(`Odczyt PDF dla Claude nie powiódł się: ${e.message}`);
+  }
+
+  let lastText = "";
+  let lastUsage = null;
+  const maxAttempts = getInvoicePdfOcrAttemptCount();
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const userPrompt = buildOpenAiInvoiceUserText(attempt);
+    const j = await claudeMessagesRequest({
+      model,
+      max_tokens: 4096,
+      temperature: 0,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "document",
+              source: {
+                type: "base64",
+                media_type: "application/pdf",
+                data: base64,
+              },
+            },
+            { type: "text", text: userPrompt },
+          ],
+        },
+      ],
+    });
+
+    const text = extractClaudeText(j);
+    lastText = text;
+    lastUsage = j.usage;
+    recordUsage(claudeUsageTotal(j.usage), { type: "invoice_pdf", model, attempt });
+
+    const parsed = extractJsonObject(text);
+    if (invoiceHasCoreFields(parsed)) {
+      return { parsed, rawText: text, usage: j.usage };
+    }
+  }
+
+  return {
+    parsed: extractJsonObject(lastText),
+    rawText: lastText,
+    usage: lastUsage,
+  };
+}
+
+/** @deprecated alias — używaj extractInvoiceFromPdfClaude */
+export const extractInvoiceFromPdfOpenAI = extractInvoiceFromPdfClaude;
+
+const MAX_CLAUDE_XML_CHARS = 200_000;
+
+/**
+ * Ekstrakcja faktury z treści XML przez Claude (tekst w wiadomości).
+ */
+export async function extractInvoiceFromXmlTextClaude(xmlString, fileName = "faktura.xml") {
+  const model = getAiSettings().model || DEFAULT_SETTINGS.model;
+  const gate = canMakeAiRequest();
+  if (!gate.ok) throw new Error("Limit AI lub brak klucza");
+
   const raw = String(xmlString ?? "");
-  const truncated = raw.length > MAX_OPENAI_XML_CHARS;
-  const xmlPayload = truncated ? raw.slice(0, MAX_OPENAI_XML_CHARS) : raw;
+  const truncated = raw.length > MAX_CLAUDE_XML_CHARS;
+  const xmlPayload = truncated ? raw.slice(0, MAX_CLAUDE_XML_CHARS) : raw;
   const tailNote = truncated
-    ? `\n\n(Uwaga: XML został obcięty do ${MAX_OPENAI_XML_CHARS} znaków — ekstrahuj z dostępnego fragmentu.)`
+    ? `\n\n(Uwaga: XML został obcięty do ${MAX_CLAUDE_XML_CHARS} znaków — ekstrahuj z dostępnego fragmentu.)`
     : "";
 
   let lastText = "";
@@ -429,45 +510,20 @@ export async function extractInvoiceFromXmlTextOpenAI(xmlString, fileName = "fak
 ${xmlPayload}
 EOF_INVOICE_XML`;
 
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${key}`,
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 4096,
-        temperature: 0,
-        messages: [
-          {
-            role: "user",
-            content: userPrompt,
-          },
-        ],
-      }),
+    const j = await claudeMessagesRequest({
+      model,
+      max_tokens: 4096,
+      temperature: 0,
+      messages: [{ role: "user", content: userPrompt }],
     });
 
-    if (!res.ok) {
-      const t = await res.text();
-      throw new Error(t.slice(0, 280));
-    }
-
-    const j = await res.json();
-    const text = j.choices?.[0]?.message?.content || "";
+    const text = extractClaudeText(j);
     lastText = text;
     lastUsage = j.usage;
-    const total = j.usage?.total_tokens ?? 0;
-    recordUsage(total, { type: "invoice_xml", model, attempt });
+    recordUsage(claudeUsageTotal(j.usage), { type: "invoice_xml", model, attempt });
 
     const parsed = extractJsonObject(text);
-    const hasCore =
-      parsed &&
-      (String(parsed.numer_faktury ?? "").trim() ||
-        String(parsed.nazwa_sprzedawcy ?? "").trim() ||
-        String(parsed.nazwa_nabywcy ?? "").trim() ||
-        String(parsed.nazwa_kontrahenta ?? "").trim());
-    if (hasCore) {
+    if (invoiceHasCoreFields(parsed)) {
       return { parsed, rawText: text, usage: j.usage };
     }
   }
@@ -478,6 +534,9 @@ EOF_INVOICE_XML`;
     usage: lastUsage,
   };
 }
+
+/** @deprecated alias — używaj extractInvoiceFromXmlTextClaude */
+export const extractInvoiceFromXmlTextOpenAI = extractInvoiceFromXmlTextClaude;
 
 function normalizeInvoiceConfidence(raw) {
   if (!raw || typeof raw !== "object") return {};

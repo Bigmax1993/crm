@@ -181,7 +181,7 @@ export default function ContractorForm({ contractor, onSubmit, onCancel, isLoadi
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground mt-1">
-              Gdy NIP sprzedawcy lub nabywcy na fakturze zgadza się z NIP kontrahenta, ustawiany jest ten projekt.
+              Tylko dla kontrahentów typu <strong>klient</strong> (inwestor / sieć). Nie ustawiaj u dostawców materiałów obsługujących wiele marketów.
             </p>
           </div>
 

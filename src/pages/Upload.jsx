@@ -13,8 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Upload as UploadIcon, FileText, Loader2, CheckCircle, AlertCircle, XCircle, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  extractInvoiceFromPdfOpenAI,
-  extractInvoiceFromXmlTextOpenAI,
+  extractInvoiceFromPdfClaude,
+  extractInvoiceFromXmlTextClaude,
   mapOpenAiInvoiceJsonToInternal,
   isOpenAiConfigured,
 } from "@/lib/openai-crm";
@@ -34,7 +34,11 @@ import {
 import { looksLikeBankReportName, looksLikeBankReportPlain } from "@/lib/invoice-report-detection";
 import { bulkCreateOrSequential, formatBase44Error } from "@/lib/base44-entity-save";
 import { displayInvoiceSeller, displayInvoiceContractor } from "@/lib/invoice-schema";
-import { matchProjectId } from "@/lib/match-project";
+import {
+  attachProjectMatch,
+  getProjectDisplayName,
+  projectMatchReasonLabel,
+} from "@/lib/match-project";
 
 function detectFormat(file) {
   const n = file.name.toLowerCase();
@@ -43,10 +47,64 @@ function detectFormat(file) {
   return "unknown";
 }
 
+function BulkProjectAssign({ projects, onAssign }) {
+  const [pid, setPid] = React.useState("");
+  return (
+    <>
+      <Select value={pid || "none"} onValueChange={(v) => setPid(v === "none" ? "" : v)}>
+        <SelectTrigger className="w-[min(100%,280px)] h-9">
+          <SelectValue placeholder="Wybierz projekt dla brakujących" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">— wybierz projekt —</SelectItem>
+          {projects.map((p) => (
+            <SelectItem key={p.id} value={p.id}>
+              {getProjectDisplayName(p)}
+              {p.city ? ` · ${p.city}` : ""}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button type="button" size="sm" variant="secondary" disabled={!pid} onClick={() => onAssign(pid)}>
+        Przypisz wszystkie bez projektu
+      </Button>
+    </>
+  );
+}
+
+function ProjectMatchBadge({ invoice, projects }) {
+  if (!invoice || invoice._rejected) return null;
+  const project = projects.find((p) => p.id === invoice.project_id);
+  if (!project) {
+    return (
+      <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800 whitespace-nowrap">
+        Brak projektu
+      </span>
+    );
+  }
+  const reason = projectMatchReasonLabel(invoice._projectMatchReason);
+  const auto = invoice._projectMatchReason && invoice._projectMatchReason !== "manual";
+  return (
+    <span
+      className={`text-xs font-medium px-2 py-0.5 rounded-md border whitespace-nowrap ${
+        auto
+          ? "bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-800"
+          : "bg-blue-100 text-blue-900 border-blue-300 dark:bg-blue-950/40 dark:text-blue-200 dark:border-blue-800"
+      }`}
+      title={reason ? `Dopasowanie: ${reason}` : undefined}
+    >
+      {auto ? "Auto: " : "Projekt: "}
+      {getProjectDisplayName(project)}
+      {reason && auto ? ` (${reason})` : ""}
+    </span>
+  );
+}
+
 function ExtractionSourceBadge({ source }) {
   const labels = {
     heuristic: "Heurystyka",
-    openai: "OpenAI",
+    claude: "Claude",
+    openai: "Claude",
     base44: "Base44 OCR",
     xml: "XML",
     manual: "Ręcznie / nieodczytane",
@@ -88,6 +146,8 @@ export default function Upload() {
     queryFn: () => base44.entities.Contractor.list(),
   });
   const projectMatchOpts = { contractors };
+
+  const withMatch = (invoice) => attachProjectMatch(invoice, projects, projectMatchOpts);
 
   /** Parsuje XML już wczytany do stringa (jeden odczyt pliku na początku przetwarzania). */
   const parseInvoiceRowsFromXmlString = (text) => {
@@ -159,7 +219,7 @@ export default function Upload() {
             const xmlText = await file.text();
             return { file, xmlData: true, format: "xml", xmlText };
           }
-          /* PDF lokalnie: pdf.js + heurystyka (bez LLM), opcjonalnie OpenAI. */
+          /* PDF lokalnie: pdf.js + heurystyka (bez LLM), opcjonalnie Claude. */
           return { file, format: "pdf" };
         })
       );
@@ -200,13 +260,12 @@ export default function Upload() {
                 heur.contractor_nip)
             ) {
               return [
-                {
+                withMatch({
                   ...heur,
-                  project_id: matchProjectId(projects, heur, projectMatchOpts),
                   _pdfFileRef: item.file,
                   _heuristicOcr: true,
                   _extractionSource: "heuristic",
-                },
+                }),
               ];
             }
 
@@ -219,7 +278,7 @@ export default function Upload() {
             let openAiErr = null;
             if (isOpenAiConfigured()) {
               try {
-                const { parsed } = await extractInvoiceFromPdfOpenAI(item.file);
+                const { parsed } = await extractInvoiceFromPdfClaude(item.file);
                 const mapped = mapFromParsed(parsed);
                 if (
                   mapped &&
@@ -228,20 +287,19 @@ export default function Upload() {
                     mapped.contractor_name?.trim())
                 ) {
                   return [
-                    {
+                    withMatch({
                       ...mapped,
-                      project_id: matchProjectId(projects, mapped, projectMatchOpts),
                       _pdfFileRef: item.file,
-                      _extractionSource: "openai",
-                    },
+                      _extractionSource: "claude",
+                    }),
                   ];
                 }
                 toast.message(
-                  `OpenAI: brak rozpoznanej faktury w „${item.file.name}” — próbuję OCR Base44…`
+                  `Claude: brak rozpoznanej faktury w „${item.file.name}” — próbuję OCR Base44…`
                 );
               } catch (openErr) {
                 openAiErr = openErr;
-                console.warn("OpenAI PDF extraction:", openErr);
+                console.warn("Claude PDF extraction:", openErr);
               }
             }
 
@@ -255,12 +313,11 @@ export default function Upload() {
                   mapped.contractor_name?.trim())
               ) {
                 return [
-                  {
+                  withMatch({
                     ...mapped,
-                    project_id: matchProjectId(projects, mapped, projectMatchOpts),
                     _pdfFileRef: item.file,
                     _extractionSource: "base44",
-                  },
+                  }),
                 ];
               }
             } catch (b44Err) {
@@ -271,7 +328,7 @@ export default function Upload() {
             }
 
             if (openAiErr) {
-              toast.error(`OpenAI (${item.file.name}): ${openAiErr.message || "błąd"}`);
+              toast.error(`Claude (${item.file.name}): ${openAiErr.message || "błąd"}`);
             }
 
             if (looksLikeBankReportName(item.file.name) || looksLikeBankReportPlain(plain)) {
@@ -280,11 +337,11 @@ export default function Upload() {
               );
             } else if (plain.length < 40) {
               toast.warning(
-                `PDF „${item.file.name}”: mało tekstu (często skan) — spróbuj „Popraw z AI” (OpenAI lub Base44) albo plik XML.`
+                `PDF „${item.file.name}”: mało tekstu (często skan) — spróbuj „Popraw z AI” (Claude lub Base44) albo plik XML.`
               );
             } else {
               toast.warning(
-                `PDF „${item.file.name}”: heurystyka nic nie wyciągnęła — „Popraw z AI” (OpenAI / Base44) lub ręcznie.`
+                `PDF „${item.file.name}”: heurystyka nic nie wyciągnęła — „Popraw z AI” (Claude / Base44) lub ręcznie.`
               );
             }
             return [];
@@ -354,8 +411,7 @@ export default function Upload() {
         if (!seenByFile.has(key)) {
           seenByFile.set(key, true);
           deduplicatedResults.push({
-            ...invoice,
-            project_id: invoice.project_id || matchProjectId(projects, invoice, projectMatchOpts),
+            ...withMatch(invoice),
             _rejected: false,
           });
         }
@@ -424,11 +480,11 @@ export default function Upload() {
 
       if (withDupFlags.length === 0) {
         toast.warning(
-          "Brak faktur do weryfikacji — sprawdź pliki, XML lub użyj AI (OpenAI w ustawieniach albo OCR Base44 przy imporcie PDF)."
+          "Brak faktur do weryfikacji — sprawdź pliki, XML lub użyj AI (Claude w ustawieniach albo OCR Base44 przy imporcie PDF)."
         );
       } else if (withDupFlags.every((r) => r._manualStub)) {
         toast.warning(
-          "Nie udało się odczytać plików automatycznie — uzupełnij pola ręcznie lub użyj „Popraw z AI” (OpenAI lub OCR Base44)."
+          "Nie udało się odczytać plików automatycznie — uzupełnij pola ręcznie lub użyj „Popraw z AI” (Claude lub OCR Base44)."
         );
       } else if (withDupFlags.some((r) => r._manualStub)) {
         toast.success(
@@ -499,6 +555,13 @@ export default function Upload() {
     if (incomplete.length > 0) {
       toast.error("Uzupełnij numer faktury, sprzedawcę i kontrahenta (nabywcę) u wszystkich pozycji zapisanych do bazy.");
       return;
+    }
+
+    const withoutProject = toSave.filter((i) => !i.project_id);
+    if (withoutProject.length > 0) {
+      toast.warning(
+        `${withoutProject.length} faktur bez projektu — zostaną zapisane, ale nie trafią do monitoringu kosztów per market.`
+      );
     }
 
     setProcessing(true);
@@ -581,14 +644,17 @@ export default function Upload() {
           _heuristicOcr: _heur,
           _systemDuplicate: _sysDup,
           _duplicateReason: _dupReason,
+          _projectMatchReason: _pmr,
+          _projectMatchConfidence: _pmc,
+          _projectMatchManual: _pmm,
           ...rest
         } = data;
         const normalizedPayer = normalizePayer(data.payer);
         const isSales = is_own_company_seller === true;
         const paragon = is_paragon === true;
         const paidFlag = is_paid === true;
-        const project_id =
-          data.project_id || matchProjectId(projectList, data, { contractors: contractorList });
+        const matched = attachProjectMatch(data, projectList, { contractors: contractorList });
+        const project_id = matched.project_id;
         return {
           ...rest,
           payer: normalizedPayer,
@@ -656,11 +722,48 @@ export default function Upload() {
   const updateInvoice = (index, field, value) => {
     const updated = [...extractedData];
     const row = { ...updated[index], [field]: value };
+    if (field === "project_id") {
+      row._projectMatchManual = Boolean(value);
+      row._projectMatchReason = value ? "manual" : null;
+      row._projectMatchConfidence = value ? 100 : null;
+    }
     if (row._aiHighlight && typeof row._aiHighlight === "object") {
       row._aiHighlight = { ...row._aiHighlight, [field]: false };
     }
     updated[index] = row;
     setExtractedData(updated);
+  };
+
+  const bulkAssignMissingProjects = (projectId) => {
+    if (!projectId) return;
+    setExtractedData((prev) =>
+      prev.map((inv) => {
+        if (inv._rejected || inv.project_id) return inv;
+        return {
+          ...inv,
+          project_id: projectId,
+          _projectMatchManual: true,
+          _projectMatchReason: "manual",
+          _projectMatchConfidence: 100,
+        };
+      })
+    );
+    toast.success("Przypisano projekt do faktur bez dopasowania");
+  };
+
+  const rematchInvoiceProject = (index) => {
+    const inv = extractedData[index];
+    if (!inv || inv._rejected) return;
+    const cleared = { ...inv, _projectMatchManual: false, project_id: null };
+    const matched = attachProjectMatch(cleared, projects, projectMatchOpts);
+    const updated = [...extractedData];
+    updated[index] = matched;
+    setExtractedData(updated);
+    if (matched.project_id) {
+      toast.success(`Przypisano: ${getProjectDisplayName(projects.find((p) => p.id === matched.project_id))}`);
+    } else {
+      toast.message("Nie znaleziono dopasowania — wybierz projekt ręcznie");
+    }
   };
 
   const reextractWithOpenAi = async (idx) => {
@@ -692,25 +795,25 @@ export default function Upload() {
         const xmlText = xmlSnap.length ? xmlSnap : await xmlFile.text();
         if (isOpenAiConfigured()) {
           try {
-            const { parsed } = await extractInvoiceFromXmlTextOpenAI(xmlText, inv.fileName);
+            const { parsed } = await extractInvoiceFromXmlTextClaude(xmlText, inv.fileName);
             mapped = mapOpenAiInvoiceJsonToInternal(parsed, mapOpts);
             if (
               mapped &&
               (mapped.invoice_number?.trim() || mapped.seller_name?.trim() || mapped.contractor_name?.trim())
             ) {
-              extractionSource = "openai";
+              extractionSource = "claude";
             }
           } catch (openErr) {
-            console.warn("OpenAI XML re-extract:", openErr);
+            console.warn("Claude XML re-extract:", openErr);
             toast.message(
-              openErr?.message ? `OpenAI: ${openErr.message.slice(0, 120)} — próbuję Base44…` : "Próbuję Base44…"
+              openErr?.message ? `Claude: ${openErr.message.slice(0, 120)} — próbuję Base44…` : "Próbuję Base44…"
             );
           }
         }
         if (!extractionSource) {
           if (!xmlFile) {
             throw new Error(
-              "Base44 wymaga ponownego pliku XML — ustaw OpenAI w ustawieniach albo wczytaj plik jeszcze raz."
+              "Base44 wymaga ponownego pliku XML — ustaw Claude w ustawieniach albo wczytaj plik jeszcze raz."
             );
           }
           const { parsed } = await extractInvoiceFromPdfBase44(xmlFile, { format: "xml" });
@@ -725,18 +828,18 @@ export default function Upload() {
       } else {
         if (isOpenAiConfigured()) {
           try {
-            const { parsed } = await extractInvoiceFromPdfOpenAI(pdfFile);
+            const { parsed } = await extractInvoiceFromPdfClaude(pdfFile);
             mapped = mapOpenAiInvoiceJsonToInternal(parsed, mapOpts);
             if (
               mapped &&
               (mapped.invoice_number?.trim() || mapped.seller_name?.trim() || mapped.contractor_name?.trim())
             ) {
-              extractionSource = "openai";
+              extractionSource = "claude";
             }
           } catch (openErr) {
-            console.warn("OpenAI re-extract:", openErr);
+            console.warn("Claude re-extract:", openErr);
             toast.message(
-              openErr?.message ? `OpenAI: ${openErr.message.slice(0, 120)} — próbuję Base44…` : "Próbuję OCR Base44…"
+              openErr?.message ? `Claude: ${openErr.message.slice(0, 120)} — próbuję Base44…` : "Próbuję OCR Base44…"
             );
           }
         }
@@ -759,21 +862,22 @@ export default function Upload() {
         throw new Error("AI nie zwróciło numeru faktury ani podmiotów — sprawdź plik lub uzupełnij ręcznie.");
       }
       const updated = [...extractedData];
-      updated[idx] = {
+      updated[idx] = withMatch({
         ...mapped,
         format: inv.format || mapped.format || (hasXmlSource ? "xml" : "pdf"),
         fileName: inv.fileName,
-        project_id: matchProjectId(projects, mapped, projectMatchOpts) || inv.project_id,
+        _projectMatchManual: inv._projectMatchManual,
+        project_id: inv._projectMatchManual ? inv.project_id : undefined,
         _pdfFileRef: pdfFile,
         _xmlFileRef: xmlFile,
         _xmlTextSnapshot: xmlSnap || inv._xmlTextSnapshot,
         _rejected: false,
         _extractionSource: extractionSource,
-      };
+      });
       setExtractedData(updated);
       toast.success("Formularz uzupełniony ponownie przez AI");
     } catch (e) {
-      toast.error(e?.message || "Błąd AI (OpenAI / Base44)");
+      toast.error(e?.message || "Błąd AI (Claude / Base44)");
     } finally {
       setReAiLoading(null);
     }
@@ -792,7 +896,7 @@ export default function Upload() {
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-2">Import faktur PDF / XML</h1>
           <p className="text-muted-foreground">
-            PDF: warstwa tekstowa lub OCR Tesseract (skany); heurystyka; potem OpenAI lub Base44/LLM. XML: JPK-FA / e-faktura lokalnie; przycisk „Popraw z AI” używa OpenAI (tekst XML) lub Base44.
+            PDF: warstwa tekstowa lub OCR Tesseract (skany); heurystyka; potem Claude lub Base44/LLM. XML: JPK-FA / e-faktura lokalnie; przycisk „Popraw z AI” używa Claude (tekst XML) lub Base44.
           </p>
         </motion.div>
 
@@ -984,7 +1088,7 @@ export default function Upload() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-muted-foreground">
-                Żaden plik nie został rozpoznany. PDF z tekstem: sprawdź heurystykę; skany — OpenAI lub XML; XML — format pliku.
+                Żaden plik nie został rozpoznany. PDF z tekstem: sprawdź heurystykę; skany — Claude lub XML; XML — format pliku.
               </p>
               <Button
                 type="button"
@@ -1008,6 +1112,22 @@ export default function Upload() {
               <CardTitle>Weryfikacja ({extractedData.filter((i) => !i._rejected).length} do zapisu)</CardTitle>
             </CardHeader>
             <CardContent>
+              {(() => {
+                const active = extractedData.filter((i) => !i._rejected);
+                const missing = active.filter((i) => !i.project_id);
+                if (missing.length === 0) return null;
+                return (
+                  <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-4 space-y-3">
+                    <p className="text-sm text-amber-900 dark:text-amber-100">
+                      <strong>{missing.length}</strong> z {active.length} faktur bez przypisanego projektu (marketu).
+                      Uzupełnij ręcznie lub przypisz paczkę do jednego projektu.
+                    </p>
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <BulkProjectAssign projects={projects} onAssign={bulkAssignMissingProjects} />
+                    </div>
+                  </div>
+                );
+              })()}
               <div className="space-y-6">
                 {extractedData.map((invoice, idx) => (
                   <div
@@ -1026,6 +1146,7 @@ export default function Upload() {
                           )}
                         </span>
                         {!invoice._rejected && <ExtractionSourceBadge source={invoice._extractionSource} />}
+                        {!invoice._rejected && <ProjectMatchBadge invoice={invoice} projects={projects} />}
                       </h4>
                       {invoice._rejected && invoice._duplicateReason && (
                         <p className="text-sm text-destructive w-full">{invoice._duplicateReason}</p>
@@ -1229,7 +1350,18 @@ export default function Upload() {
                           />
                         </div>
                         <div className="md:col-span-2">
-                          <Label>Projekt</Label>
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                            <Label>Projekt (market)</Label>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => rematchInvoiceProject(idx)}
+                            >
+                              Dopasuj ponownie
+                            </Button>
+                          </div>
                           <Select
                             value={invoice.project_id || "none"}
                             onValueChange={(v) => updateInvoice(idx, "project_id", v === "none" ? null : v)}
@@ -1241,19 +1373,21 @@ export default function Upload() {
                               <SelectItem value="none">— brak —</SelectItem>
                               {projects.map((p) => (
                                 <SelectItem key={p.id} value={p.id}>
-                                  {p.object_name || p.city}
+                                  {getProjectDisplayName(p)}
+                                  {p.city ? ` · ${p.city}` : ""}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                           <p className="text-xs text-muted-foreground mt-1">
-                            Automat: klient/obiekt/numery na projekcie; NIP kontrahenta → domyślny projekt; słowa kluczowe
-                            obiektu (Budowa) w opisie / pozycjach.
+                            Auto: nr zamówienia/PO → słowa kluczowe (np. nr filii, ulica) → kod/miasto → klient/obiekt.
+                            NIP tylko u kontrahentów typu <em>klient</em>. W słowach kluczowych wpisz <code className="text-[10px]">PL</code> lub{" "}
+                            <code className="text-[10px]">DE</code> dla rozróżnienia krajów.
                           </p>
                         </div>
                         <div className="md:col-span-2">
                           <Label className="flex items-center flex-wrap gap-1">
-                            Pozycje (JSON z OpenAI / XML)
+                            Pozycje (JSON z Claude / XML)
                             {invoice._aiConfidence?.invoice_lines != null && (
                               <span className="text-[10px] font-normal text-muted-foreground">
                                 AI {invoice._aiConfidence.invoice_lines}%

@@ -1,5 +1,5 @@
 /**
- * Prompty OCR (InvokeLLM / OpenAI) dla importu faktur PDF.
+ * Prompty OCR (InvokeLLM / Claude) dla importu faktur PDF.
  * Liczba prób na jeden plik: getInvoicePdfOcrAttemptCount() — domyślnie 5, opcjonalnie VITE_OCR_LLM_ATTEMPTS (1–10).
  */
 const DEFAULT_INVOICE_PDF_OCR_ATTEMPTS = 5;
@@ -15,7 +15,7 @@ export const OCR_LLM_ATTEMPTS = (() => {
   return c ?? DEFAULT_INVOICE_PDF_OCR_ATTEMPTS;
 })();
 
-/** Wspólna liczba przejść LLM na fakturę (OpenAI + ścieżka Base44). */
+/** Wspólna liczba przejść LLM na fakturę (Claude + ścieżka Base44). */
 export function getInvoicePdfOcrAttemptCount() {
   const raw = Number(typeof import.meta !== "undefined" && import.meta.env?.VITE_OCR_LLM_ATTEMPTS);
   const c = clampOcrAttemptsEnv(raw);

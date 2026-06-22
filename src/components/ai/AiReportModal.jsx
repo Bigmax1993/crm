@@ -54,7 +54,7 @@ export function AiReportModal({ open, onOpenChange }) {
 
   const generate = async () => {
     if (!isOpenAiConfigured()) {
-      toast.error("Brak klucza OpenAI");
+      toast.error("Brak klucza Claude");
       return;
     }
     setLoading(true);

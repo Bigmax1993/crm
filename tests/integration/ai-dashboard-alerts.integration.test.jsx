@@ -40,7 +40,7 @@ describe("AiDashboardAlerts — prompt z briefem marki", () => {
     localStorage.setItem("fakturowo_ai_settings_v1", JSON.stringify({ apiKeyOverride: "sk-test", alertIntervalHours: 0 }));
   });
 
-  it("wysyła do OpenAI treść user zawierającą Fakturowo i dane CRM", async () => {
+  it("wysyła do Claude treść user zawierającą Fakturowo i dane CRM", async () => {
     render(<AiDashboardAlerts />);
 
     await waitFor(() => expect(hoisted.openaiChatCompletions).toHaveBeenCalled());
