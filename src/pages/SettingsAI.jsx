@@ -19,6 +19,7 @@ import {
   getUsageToday,
   getAiHistory,
   getClaudeApiKey,
+  CLAUDE_MODEL_OPTIONS,
 } from "@/lib/openai-crm";
 
 export default function SettingsAI() {
@@ -113,8 +114,11 @@ export default function SettingsAI() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="claude-sonnet-4-20250514">claude-sonnet-4</SelectItem>
-                  <SelectItem value="claude-3-5-haiku-20241022">claude-3-5-haiku</SelectItem>
+                  {CLAUDE_MODEL_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

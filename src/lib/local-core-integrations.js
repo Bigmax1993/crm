@@ -35,7 +35,7 @@ export async function localInvokeLLM({ prompt, file_urls, response_json_schema }
   const gate = canMakeAiRequest();
   if (!gate.ok) throw new Error("Limit zapytań AI lub brak konfiguracji.");
 
-  const model = getAiSettings().model || "claude-sonnet-4-20250514";
+  const model = getAiSettings().model || "claude-sonnet-4-6";
 
   if (file_urls?.length) {
     const res = await fetch(file_urls[0]);

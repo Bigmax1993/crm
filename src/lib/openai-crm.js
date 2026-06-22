@@ -7,9 +7,33 @@ const LS_HISTORY = "fakturowo_ai_history_v1";
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 
+/** Aktualne modele API (czerwiec 2026 — Sonnet 4.0 wycofany 2025-06-15). */
+export const CLAUDE_MODEL_OPTIONS = [
+  { value: "claude-sonnet-4-6", label: "claude-sonnet-4.6" },
+  { value: "claude-haiku-4-5", label: "claude-haiku-4.5" },
+];
+
+const RETIRED_CLAUDE_MODELS = {
+  "claude-sonnet-4-20250514": "claude-sonnet-4-6",
+  "claude-sonnet-4-0": "claude-sonnet-4-6",
+  "claude-3-5-haiku-20241022": "claude-haiku-4-5",
+  "cla-4-20250514": "claude-sonnet-4-6",
+};
+
+export function normalizeClaudeModel(model) {
+  const m = String(model ?? "").trim();
+  if (!m) return CLAUDE_MODEL_OPTIONS[0].value;
+  if (RETIRED_CLAUDE_MODELS[m]) return RETIRED_CLAUDE_MODELS[m];
+  if (m.startsWith("gpt-")) return CLAUDE_MODEL_OPTIONS[0].value;
+  if (/20250514|sonnet-4-2025/i.test(m)) return CLAUDE_MODEL_OPTIONS[0].value;
+  if (CLAUDE_MODEL_OPTIONS.some((o) => o.value === m)) return m;
+  if (!m.startsWith("claude-")) return CLAUDE_MODEL_OPTIONS[0].value;
+  return m;
+}
+
 const DEFAULT_SETTINGS = {
   apiKeyOverride: "",
-  model: "claude-sonnet-4-20250514",
+  model: "claude-sonnet-4-6",
   language: "pl",
   alertIntervalHours: 24,
   dailyQueryLimit: 50,
@@ -21,8 +45,14 @@ export function getAiSettings() {
     const raw = localStorage.getItem(LS_SETTINGS);
     const parsed = raw ? JSON.parse(raw) : {};
     const merged = { ...DEFAULT_SETTINGS, ...parsed };
-    if (String(merged.model || "").startsWith("gpt-")) {
-      merged.model = DEFAULT_SETTINGS.model;
+    const normalizedModel = normalizeClaudeModel(merged.model);
+    if (normalizedModel !== merged.model) {
+      merged.model = normalizedModel;
+      try {
+        localStorage.setItem(LS_SETTINGS, JSON.stringify(merged));
+      } catch {
+        /* quota */
+      }
     }
     return merged;
   } catch {
@@ -32,6 +62,9 @@ export function getAiSettings() {
 
 export function saveAiSettings(partial) {
   const next = { ...getAiSettings(), ...partial };
+  if (partial.model != null) {
+    next.model = normalizeClaudeModel(partial.model);
+  }
   localStorage.setItem(LS_SETTINGS, JSON.stringify(next));
   window.dispatchEvent(new Event("fakturowo-ai-settings"));
   return next;
