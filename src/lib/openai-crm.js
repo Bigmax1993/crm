@@ -137,10 +137,27 @@ export function getAiHistory() {
 export function canMakeAiRequest() {
   const s = getAiSettings();
   const u = getUsageToday();
+  const queryLimit = Math.max(1, Number(s.dailyQueryLimit) || DEFAULT_SETTINGS.dailyQueryLimit);
+  const tokenLimit = Math.max(1000, Number(s.dailyTokenLimit) || DEFAULT_SETTINGS.dailyTokenLimit);
   if (!isClaudeConfigured()) return { ok: false, reason: "no_key" };
-  if (u.requests >= s.dailyQueryLimit) return { ok: false, reason: "queries" };
-  if (u.tokens >= s.dailyTokenLimit) return { ok: false, reason: "tokens" };
+  if (u.requests >= queryLimit) return { ok: false, reason: "queries", used: u.requests, limit: queryLimit };
+  if (u.tokens >= tokenLimit) return { ok: false, reason: "tokens", used: u.tokens, limit: tokenLimit };
   return { ok: true };
+}
+
+/** Czytelny komunikat po {@link canMakeAiRequest} (UI po polsku). */
+export function aiGateErrorMessage(gate) {
+  if (!gate || gate.ok) return "";
+  switch (gate.reason) {
+    case "no_key":
+      return "Brak klucza Claude — wklej klucz API w Ustawieniach AI i kliknij „Zapisz”.";
+    case "queries":
+      return `Osiągnięto dzienny limit zapytań AI (${gate.used ?? "?"}/${gate.limit ?? "?"}). Zwiększ limit w Ustawieniach AI lub poczekaj do jutra.`;
+    case "tokens":
+      return `Osiągnięto dzienny limit tokenów AI (${gate.used ?? "?"}/${gate.limit ?? "?"}). Zwiększ limit w Ustawieniach AI lub poczekaj do jutra.`;
+    default:
+      return "AI niedostępna — sprawdź Ustawienia AI.";
+  }
 }
 
 /** Szacunek ~USD dla Claude Sonnet (orientacyjnie). */
@@ -267,9 +284,7 @@ async function claudeMessagesRequest({ model, max_tokens, temperature, system, m
 export async function claudeChatCompletions({ messages, max_tokens = 2500, temperature = 0.2, model: modelOverride }) {
   const gate = canMakeAiRequest();
   if (!gate.ok) {
-    if (gate.reason === "queries") throw new Error("Osiągnięto dzienny limit zapytań AI");
-    if (gate.reason === "tokens") throw new Error("Osiągnięto dzienny limit tokenów AI");
-    throw new Error("AI niedostępna");
+    throw new Error(aiGateErrorMessage(gate));
   }
 
   const model = modelOverride || getAiSettings().model || DEFAULT_SETTINGS.model;
@@ -303,7 +318,7 @@ export async function claudeInvokeWithFile({
   max_tokens = 4096,
 }) {
   const gate = canMakeAiRequest();
-  if (!gate.ok) throw new Error("Limit zapytań AI lub brak konfiguracji.");
+  if (!gate.ok) throw new Error(aiGateErrorMessage(gate));
 
   const model = modelOverride || getAiSettings().model || DEFAULT_SETTINGS.model;
   const base64 = await fileToBase64(file);
@@ -458,7 +473,7 @@ function invoiceHasCoreFields(parsed) {
 export async function extractInvoiceFromPdfClaude(file) {
   const model = getAiSettings().model || DEFAULT_SETTINGS.model;
   const gate = canMakeAiRequest();
-  if (!gate.ok) throw new Error("Limit AI lub brak klucza");
+  if (!gate.ok) throw new Error(aiGateErrorMessage(gate));
 
   let base64;
   try {
@@ -524,7 +539,7 @@ const MAX_CLAUDE_XML_CHARS = 200_000;
 export async function extractInvoiceFromXmlTextClaude(xmlString, fileName = "faktura.xml") {
   const model = getAiSettings().model || DEFAULT_SETTINGS.model;
   const gate = canMakeAiRequest();
-  if (!gate.ok) throw new Error("Limit AI lub brak klucza");
+  if (!gate.ok) throw new Error(aiGateErrorMessage(gate));
 
   const raw = String(xmlString ?? "");
   const truncated = raw.length > MAX_CLAUDE_XML_CHARS;

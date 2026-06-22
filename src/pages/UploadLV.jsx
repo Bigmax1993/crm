@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { Upload as UploadIcon, Loader2, CheckCircle, FileSpreadsheet, Sparkles }
 import { toast } from "sonner";
 import { createPageUrl } from "@/utils";
 import { extractLvFromPdf, extractLvFromPdfClaude, mapLvJsonToInternal, parseLvFromJsonText } from "@/lib/lv-extract";
-import { isClaudeConfigured } from "@/lib/openai-crm";
+import { isClaudeConfigured, canMakeAiRequest, aiGateErrorMessage } from "@/lib/openai-crm";
 import {
   emptyProjectBoQ,
   emptyLvLine,
@@ -243,9 +244,12 @@ export default function UploadLV() {
       return;
     }
 
-    if (pdfFile && !isClaudeConfigured()) {
-      toast.error("Skonfiguruj klucz Claude w Ustawieniach AI, aby użyć Generuj z AI.");
-      return;
+    if (pdfFile) {
+      const gate = canMakeAiRequest();
+      if (!gate.ok) {
+        toast.error(aiGateErrorMessage(gate));
+        return;
+      }
     }
 
     setReAiLoading(idx);
@@ -356,6 +360,20 @@ export default function UploadLV() {
           {isClaudeConfigured() ? " Claude jest skonfigurowany." : " Dla skanów włącz Claude w Ustawieniach AI."}
         </p>
       </div>
+
+      {!isClaudeConfigured() && (
+        <Alert variant="destructive">
+          <AlertTitle>Claude AI — wymagana konfiguracja</AlertTitle>
+          <AlertDescription>
+            Na stronie produkcyjnej klucz API nie jest wbudowany w aplikację. Wejdź w{" "}
+            <Link to={createPageUrl("SettingsAI")} className="underline font-medium">
+              Ustawienia AI
+            </Link>
+            , wklej klucz <code className="text-xs">sk-ant-…</code> z panelu Anthropic, kliknij „Zapisz”, a następnie
+            ponów „Generuj z AI”. Klucz zostaje tylko w tej przeglądarce (localStorage).
+          </AlertDescription>
+        </Alert>
+      )}
 
       {step === "upload" && (
         <Card>

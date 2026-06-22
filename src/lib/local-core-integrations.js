@@ -5,6 +5,7 @@ import {
   isClaudeConfigured,
   getAiSettings,
   canMakeAiRequest,
+  aiGateErrorMessage,
 } from "@/lib/openai-crm";
 
 /**
@@ -33,7 +34,7 @@ export async function localInvokeLLM({ prompt, file_urls, response_json_schema }
     );
   }
   const gate = canMakeAiRequest();
-  if (!gate.ok) throw new Error("Limit zapytań AI lub brak konfiguracji.");
+  if (!gate.ok) throw new Error(aiGateErrorMessage(gate));
 
   const model = getAiSettings().model || "claude-sonnet-4-6";
 
