@@ -20,8 +20,10 @@ describe("CRM — strony lokalne (Leady / Dostawcy / Portfolio)", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(screen.getByText("Firma CRM Test")).toBeInTheDocument();
 
-    const state = loadCrmLocalState();
-    expect(state.leads.some((l) => l.company === "Firma CRM Test")).toBe(true);
+    await waitFor(() => {
+      const state = loadCrmLocalState();
+      expect(state.leads.some((l) => l.company === "Firma CRM Test")).toBe(true);
+    });
   });
 
   it("Suppliers: zapis do localStorage i widok w tabeli", async () => {

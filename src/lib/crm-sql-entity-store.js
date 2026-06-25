@@ -164,7 +164,9 @@ export async function crmSqlDelete(kind, id) {
  * @param {object[]} rows
  */
 export async function crmSqlBulkCreate(kind, rows) {
+  const created = [];
   for (const r of rows) {
-    await crmSqlCreate(kind, r);
+    created.push(await crmSqlCreate(kind, r));
   }
+  return created;
 }

@@ -14,7 +14,9 @@ import { Search, Plus, X, Trash2, Loader2, Building, Pencil, Image as ImageIcon,
 import { ConstructionOffersAi } from '@/components/ai/ConstructionOffersAi';
 import { CityGeocodeInput } from '@/components/construction/CityGeocodeInput';
 import { OFFER_SEGMENT_OPTIONS, offerSegmentLabel } from '@/lib/offer-segments';
-import { getSiteExtension, patchSiteExtension } from '@/lib/crm-local-store';
+import { getSiteExtension } from '@/lib/crm-local-store';
+import { listSiteExtensions, patchSiteExtensionEntity, removeSiteExtensionEntity } from '@/lib/crm-entity-store';
+import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit-log';
 import { getUploadFilePublicUrl } from '@/lib/upload-file-url';
 import { resolveSiteGeocode, siteHasCoords } from '@/lib/site-geocode';
 import { CONSTRUCTION_WORKFLOW_STATUSES, constructionWorkflowLabel, isActiveConstructionProject } from '@/lib/construction-workflow';
@@ -63,6 +65,22 @@ function siteRowToFormData(site) {
   };
 }
 
+function extensionFromRow(row) {
+  if (!row) return emptyLocalMeta();
+  return {
+    offer_segment: row.offer_segment || '',
+    norms_note: row.norms_note || '',
+    certifications: row.certifications || [],
+    subsidy: {
+      program: row.subsidy?.program || '',
+      stage: row.subsidy?.stage || '',
+      deadline: row.subsidy?.deadline || '',
+      amount_pln: row.subsidy?.amount_pln || '',
+      notes: row.subsidy?.notes || '',
+    },
+  };
+}
+
 export default function Construction() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -96,6 +114,21 @@ export default function Construction() {
     queryKey: ['construction-sites'],
     queryFn: () => base44.entities.ConstructionSite.list('-created_date'),
   });
+
+  const { data: siteExtensions = [] } = useQuery({
+    queryKey: ['site-extensions'],
+    queryFn: () => listSiteExtensions(),
+  });
+
+  const siteExtensionMap = React.useMemo(() => {
+    const m = new Map();
+    for (const row of siteExtensions) {
+      if (row.site_id) m.set(row.site_id, extensionFromRow(row));
+    }
+    return m;
+  }, [siteExtensions]);
+
+  const getSiteExt = (siteId) => siteExtensionMap.get(siteId) || getSiteExtension(siteId);
 
   const resetForm = () => {
     setLocalMeta(emptyLocalMeta());
@@ -135,11 +168,19 @@ export default function Construction() {
   const createMutation = useMutation({
     mutationFn: async ({ data, extension }) => {
       const created = await base44.entities.ConstructionSite.create(data);
-      if (created?.id) patchSiteExtension(created.id, normalizeExtension(extension));
+      if (created?.id) await patchSiteExtensionEntity(created.id, normalizeExtension(extension));
+      await logAuditEvent({
+        action: AUDIT_ACTIONS.PROJECT_UPDATE,
+        entity_type: 'ConstructionSite',
+        entity_id: created?.id,
+        summary: `Utworzono projekt ${data.object_name || data.city || ''}`,
+        actor: 'użytkownik',
+      });
       return created;
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['construction-sites']);
+      queryClient.invalidateQueries(['site-extensions']);
       dismissForm();
     },
   });
@@ -147,22 +188,36 @@ export default function Construction() {
   const updateMutation = useMutation({
     mutationFn: async ({ id, data, extension }) => {
       await base44.entities.ConstructionSite.update(id, data);
-      if (id) patchSiteExtension(id, normalizeExtension(extension));
+      if (id) await patchSiteExtensionEntity(id, normalizeExtension(extension));
+      await logAuditEvent({
+        action: AUDIT_ACTIONS.PROJECT_UPDATE,
+        entity_type: 'ConstructionSite',
+        entity_id: id,
+        summary: `Zaktualizowano projekt ${data.object_name || data.city || ''}`,
+        actor: 'użytkownik',
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['construction-sites']);
+      queryClient.invalidateQueries(['site-extensions']);
       dismissForm();
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.ConstructionSite.delete(id),
-    onSuccess: () => queryClient.invalidateQueries(['construction-sites']),
+    mutationFn: async (id) => {
+      await base44.entities.ConstructionSite.delete(id);
+      await removeSiteExtensionEntity(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['construction-sites']);
+      queryClient.invalidateQueries(['site-extensions']);
+    },
   });
 
   const filteredSites = sites.filter(site => {
     const searchLower = search.toLowerCase();
-    const seg = offerSegmentLabel(getSiteExtension(site.id).offer_segment).toLowerCase();
+    const seg = offerSegmentLabel(getSiteExt(site.id).offer_segment).toLowerCase();
     return (
       site.city?.toLowerCase().includes(searchLower) ||
       site.object_name?.toLowerCase().includes(searchLower) ||
@@ -216,7 +271,7 @@ export default function Construction() {
   const handleEdit = (site) => {
     setFormData(siteRowToFormData(site));
     setEditingId(site.id);
-    const ext = getSiteExtension(site.id);
+    const ext = getSiteExt(site.id);
     setLocalMeta({
       offer_segment: ext.offer_segment || '',
       norms_note: ext.norms_note || '',
@@ -714,7 +769,7 @@ export default function Construction() {
                         </TableCell>
                         <TableCell className="font-medium">{site.object_name}</TableCell>
                         <TableCell className="text-sm max-w-[180px]">
-                          {offerSegmentLabel(getSiteExtension(site.id).offer_segment)}
+                          {offerSegmentLabel(getSiteExt(site.id).offer_segment)}
                         </TableCell>
                         <TableCell>{site.postal_code || '-'}</TableCell>
                         <TableCell className="text-sm whitespace-nowrap">

@@ -9,7 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2, UserPlus } from "lucide-react";
-import { getLeads, setLeads, newLocalId } from "@/lib/crm-local-store";
+import { listLeads, saveLeadsAll } from "@/lib/crm-entity-store";
+import { newLocalId } from "@/lib/crm-local-store";
+import { logAuditEvent, AUDIT_ACTIONS } from "@/lib/audit-log";
 
 const STATUSES = [
   { value: "nowy", label: "Nowy" },
@@ -38,12 +40,12 @@ export default function Leads() {
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
-    setRows(getLeads());
+    listLeads().then(setRows);
   }, []);
 
-  const persist = (next) => {
+  const persist = async (next) => {
     setRows(next);
-    setLeads(next);
+    await saveLeadsAll(next);
   };
 
   const openNew = () => {
@@ -80,6 +82,13 @@ export default function Leads() {
     if (editing) next = rows.map((r) => (r.id === editing.id ? payload : r));
     else next = [payload, ...rows];
     persist(next);
+    logAuditEvent({
+      action: AUDIT_ACTIONS.LEAD_UPDATE,
+      entity_type: "Lead",
+      entity_id: payload.id,
+      summary: editing ? `Edycja leadu ${payload.company || payload.contact_name}` : `Nowy lead: ${payload.company || payload.contact_name}`,
+      actor: "użytkownik",
+    });
     setOpen(false);
   };
 

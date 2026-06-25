@@ -6,10 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Settings as SettingsIcon, Home, Save, Banknote, Database, Loader2 } from 'lucide-react';
+import { Settings as SettingsIcon, Home, Save, Banknote, Database, Loader2, Bell, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 import { loadFxConfig, saveFxConfig } from '@/lib/fx-config-store';
+import {
+  loadNotificationSettings,
+  saveNotificationSettings,
+} from '@/lib/business-notifications';
+import { listAuditLog, AUDIT_ACTION_LABELS } from '@/lib/audit-log';
+import { migrateCrmLocalStorageToEntities } from '@/lib/crm-entity-store';
 import { seedCrmTestData } from '@/lib/seed-test-data';
 import { resetDB } from '@/lib/database';
 import { clearAllWebAppStorage } from '@/lib/app-storage-reset';
@@ -21,6 +27,8 @@ export default function Settings() {
   const [homePage, setHomePage] = useState('CEODashboard');
   const [saved, setSaved] = useState(false);
   const [fxConfig, setFxConfig] = useState(loadFxConfig);
+  const [notifySettings, setNotifySettings] = useState(loadNotificationSettings);
+  const [auditRows, setAuditRows] = useState([]);
 
   const seedMutation = useMutation({
     mutationFn: () => seedCrmTestData(base44),
@@ -41,6 +49,9 @@ export default function Settings() {
       setHomePage(savedHomePage);
     }
     setFxConfig(loadFxConfig());
+    setNotifySettings(loadNotificationSettings());
+    migrateCrmLocalStorageToEntities().catch(() => {});
+    listAuditLog(30).then(setAuditRows);
   }, []);
 
   const handleSave = () => {
@@ -68,6 +79,11 @@ export default function Settings() {
     if (n == null || Number.isNaN(n)) delete manualMid[code];
     else manualMid[code] = n;
     setFxConfig({ ...fxConfig, manualMid });
+  };
+
+  const saveNotify = () => {
+    saveNotificationSettings(notifySettings);
+    toast.success('Ustawienia powiadomień zapisane');
   };
 
   const pages = [
@@ -208,6 +224,92 @@ export default function Settings() {
               <Save className="mr-2 h-4 w-4" />
               Zapisz konfigurację walut
             </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-background shadow-lg mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="h-5 w-5" />
+              Powiadomienia biznesowe
+            </CardTitle>
+            <CardDescription>
+              Alerty w aplikacji (dzwonek w pasku): terminy płatności FV, próg budżetu projektu, zwroty po terminie follow-up.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <Checkbox
+                checked={notifySettings.wlaczone}
+                onCheckedChange={(v) => setNotifySettings({ ...notifySettings, wlaczone: Boolean(v) })}
+              />
+              Włącz powiadomienia w aplikacji
+            </label>
+            <div className="grid sm:grid-cols-2 gap-4 max-w-lg">
+              <div className="space-y-2">
+                <Label>Dni przed terminem płatności FV</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={notifySettings.dni_przed_terminem}
+                  onChange={(e) =>
+                    setNotifySettings({
+                      ...notifySettings,
+                      dni_przed_terminem: Math.max(1, parseInt(e.target.value, 10) || 3),
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Próg alertu budżetu (%)</Label>
+                <Input
+                  type="number"
+                  min={50}
+                  max={100}
+                  value={notifySettings.prog_budzetu_pct}
+                  onChange={(e) =>
+                    setNotifySettings({
+                      ...notifySettings,
+                      prog_budzetu_pct: Math.min(100, Math.max(50, parseInt(e.target.value, 10) || 80)),
+                    })
+                  }
+                />
+              </div>
+            </div>
+            <Button onClick={saveNotify} className="bg-blue-600 hover:bg-blue-700">
+              <Save className="mr-2 h-4 w-4" />
+              Zapisz powiadomienia
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-background shadow-lg mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Dziennik zdarzeń
+            </CardTitle>
+            <CardDescription>
+              Ostatnie operacje: rozliczenia przelewów, zmiany projektów, zwrotów i leadów.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {auditRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Brak wpisów w dzienniku.</p>
+            ) : (
+              <ul className="space-y-2 text-sm max-h-64 overflow-y-auto">
+                {auditRows.map((row) => (
+                  <li key={row.id} className="border-b border-border pb-2">
+                    <p className="font-medium">{row.summary}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {AUDIT_ACTION_LABELS[row.action] || row.action} · {row.actor} ·{' '}
+                      {row.created_at ? String(row.created_at).slice(0, 19).replace('T', ' ') : '—'}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
 

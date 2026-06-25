@@ -18,7 +18,7 @@ import {
   normalizeRefundReceiptLlmResult,
   REFUND_RECEIPT_JSON_SCHEMA,
 } from '@/lib/refund-receipt-extract';
-import { getRefundClaims, upsertRefundClaim } from '@/lib/crm-local-store';
+import { listRefundClaims, upsertRefundClaimEntity } from '@/lib/crm-entity-store';
 import { applyRefundReceiptToClaim, refundClaimStatusLabel } from '@/lib/refund-claims';
 import { matchIncomingTransferToRefundClaim, normalizeIncomingRefundTransfer } from '@/lib/refund-transfer-match';
 
@@ -147,11 +147,11 @@ Zwróć wyłącznie poprawny JSON ze schematem.`;
           if (refundNormalized) {
             refundNormalized.file_url = fileUrl;
             const transfer = normalizeIncomingRefundTransfer(refundNormalized);
-            const claims = getRefundClaims();
+            const claims = await listRefundClaims();
             const refundMatch = matchIncomingTransferToRefundClaim(transfer, claims);
             if (refundMatch) {
               const updated = applyRefundReceiptToClaim(refundMatch.claim, transfer);
-              upsertRefundClaim(updated);
+              await upsertRefundClaimEntity(updated);
               matchedRefunds.push({ claim: updated, transfer });
               toast.success(
                 `Dopasowano zwrot: ${refundClaimStatusLabel(updated.status)} (${updated.amount_received} ${updated.currency})`
@@ -255,9 +255,12 @@ Nie uzupełniaj pól domyślnymi wartościami z pamięci — tylko treść dokum
         );
       }
 
-      await base44.entities.Transfer.bulkCreate(toCreate);
+      const createdTransfers = await base44.entities.Transfer.bulkCreate(toCreate);
+      const transfersToMatch = Array.isArray(createdTransfers) && createdTransfers.length
+        ? createdTransfers
+        : toCreate;
 
-      for (const transfer of toCreate) {
+      for (const transfer of transfersToMatch) {
         if (!transfer.invoice_number) {
           unmatched.push(transfer);
           continue;
@@ -279,6 +282,11 @@ Nie uzupełniaj pól domyślnymi wartościami z pamięci — tylko treść dokum
                }
              }
              await base44.entities.Invoice.update(invoice.id, { status });
+             await base44.entities.Transfer.update(transfer.id, {
+               invoice_id: invoice.id,
+               match_status: 'dopasowano',
+               matched_at: new Date().toISOString(),
+             });
              matched.push({ invoice, transfer });
            } else if (transfer.amount < invoice.amount) {
              // For partial payments on sales invoices, also check deadline
@@ -289,6 +297,11 @@ Nie uzupełniaj pól domyślnymi wartościami z pamięci — tylko treść dokum
                }
              }
              await base44.entities.Invoice.update(invoice.id, { status });
+             await base44.entities.Transfer.update(transfer.id, {
+               invoice_id: invoice.id,
+               match_status: 'czesciowe',
+               matched_at: new Date().toISOString(),
+             });
              matched.push({ invoice, transfer, partial: true });
            } else {
              unmatched.push(transfer);

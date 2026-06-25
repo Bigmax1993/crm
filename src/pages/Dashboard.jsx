@@ -19,8 +19,8 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { escapeCSV } from '@/components/utils/normalize';
-import crmFixtureData from '@/fixtures/crm_fixture_data.json';
-import { computeDashboardStats } from '@/lib/dashboard-stats';
+import { computeOperationalDashboardStats } from '@/lib/operational-dashboard-stats';
+import { useClientEnrichedInvoices } from '@/hooks/useClientEnrichedInvoices';
 import { Progress } from '@/components/ui/progress';
 import { AiDashboardAlerts } from '@/components/ai/AiDashboardAlerts';
 import { SqlLocalPanel } from '@/components/dashboard/SqlLocalPanel';
@@ -41,6 +41,11 @@ export default function Dashboard() {
   const { data: invoices = [] } = useQuery({
     queryKey: ['invoices'],
     queryFn: () => base44.entities.Invoice.list(),
+  });
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ['construction-sites'],
+    queryFn: () => base44.entities.ConstructionSite.list(),
   });
 
   const { data: transfers = [] } = useQuery({
@@ -73,7 +78,12 @@ export default function Dashboard() {
     });
   }, [hotelStays, invoices]);
 
-  const dashStats = useMemo(() => computeDashboardStats(crmFixtureData), []);
+  const enriched = useClientEnrichedInvoices(invoices);
+
+  const dashStats = useMemo(
+    () => computeOperationalDashboardStats(enriched, projects),
+    [enriched, projects]
+  );
 
   const stats = useMemo(() => {
     const currencies = {};
@@ -771,7 +781,7 @@ export default function Dashboard() {
               </div>
               <p className="text-sm text-muted-foreground mt-2 leading-snug">
                 Wpływy: {dashStats.wplywyMc.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} · Wydatki:{' '}
-                {dashStats.wydatkiMc.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} (wg dat zapłaty, dane lokalne)
+                {dashStats.wydatkiMc.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} (wg dat zapłaty, PLN NBP)
               </p>
             </CardContent>
           </Card>

@@ -54,7 +54,8 @@ import { useClientEnrichedInvoices } from "@/hooks/useClientEnrichedInvoices";
 import { useCurrencyDisplay } from "@/contexts/CurrencyDisplayContext";
 import { format } from "date-fns";
 import { AlertTriangle, TrendingUp, Wallet, Building2, RotateCcw } from "lucide-react";
-import { getRefundClaims } from "@/lib/crm-local-store";
+import { listRefundClaims } from "@/lib/crm-entity-store";
+import { PayablesReconciliation } from "@/components/finance/PayablesReconciliation";
 import {
   isRefundFollowUpOverdue,
   openRefundClaims,
@@ -109,16 +110,23 @@ export default function CEODashboard() {
     queryKey: ["construction-sites"],
     queryFn: () => base44.entities.ConstructionSite.list(),
   });
+  const { data: transfers = [] } = useQuery({
+    queryKey: ["transfers"],
+    queryFn: () => base44.entities.Transfer.list(),
+  });
 
   const enriched = useClientEnrichedInvoices(invoices);
   const { formatDisplayAmount, convertPlnToDisplay, displayCurrency } = useCurrencyDisplay();
   const loading = loadingInv || loadingPr;
 
   useEffect(() => {
-    const load = () => setRefundClaims(getRefundClaims());
+    const load = async () => {
+      setRefundClaims(await listRefundClaims());
+    };
     load();
-    window.addEventListener("fakturowo-crm-local", load);
-    return () => window.removeEventListener("fakturowo-crm-local", load);
+    const onLocal = () => load();
+    window.addEventListener("fakturowo-crm-local", onLocal);
+    return () => window.removeEventListener("fakturowo-crm-local", onLocal);
   }, []);
 
   const refundOpen = useMemo(() => openRefundClaims(refundClaims), [refundClaims]);
@@ -413,6 +421,11 @@ export default function CEODashboard() {
               </div>
             )}
           </CardContent>
+          <PayablesReconciliation
+            payablesOpen={payablesOpen}
+            transfers={transfers}
+            projectById={projectById}
+          />
         </Card>
 
         <Card>

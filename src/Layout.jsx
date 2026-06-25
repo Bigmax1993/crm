@@ -37,6 +37,7 @@ import { EXPORT_ADDRESS, EXPORT_WEB } from "@/lib/brand-brief";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/mode-toggle";
 import { CurrencySwitcher } from "@/components/currency/CurrencySwitcher";
+import { BusinessNotificationsBell } from "@/components/layout/BusinessNotificationsBell";
 import { FinancialAiChat } from "@/components/ai/FinancialAiChat";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -243,6 +244,7 @@ export default function Layout({ children, currentPageName }) {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
+            <BusinessNotificationsBell />
             <CurrencySwitcher />
             <ModeToggle />
           </div>
@@ -380,6 +382,7 @@ export default function Layout({ children, currentPageName }) {
               </div>
               <div className="flex items-center gap-2">
                 <AppLogo size="sm" className="hidden opacity-80 xl:flex" />
+                <BusinessNotificationsBell />
                 <CurrencySwitcher />
               </div>
             </header>

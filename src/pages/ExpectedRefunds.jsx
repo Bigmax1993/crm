@@ -20,7 +20,8 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2, RotateCcw, Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { getRefundClaims, setRefundClaims, newLocalId, upsertRefundClaim } from "@/lib/crm-local-store";
+import { listRefundClaims, saveRefundClaimsAll, upsertRefundClaimEntity } from "@/lib/crm-entity-store";
+import { logAuditEvent, AUDIT_ACTIONS } from "@/lib/audit-log";
 import {
   REFUND_CLAIM_STATUSES,
   REFUND_OPEN_STATUSES,
@@ -40,6 +41,7 @@ import { matchIncomingTransferToRefundClaim, normalizeIncomingRefundTransfer } f
 import { getProjectDisplayName } from "@/lib/match-project";
 import { getUploadFilePublicUrl } from "@/lib/upload-file-url";
 import { createPageUrl } from "@/utils";
+import { newLocalId } from "@/lib/crm-local-store";
 
 const emptyForm = emptyRefundClaim();
 
@@ -64,7 +66,10 @@ export default function ExpectedRefunds() {
   const projectById = Object.fromEntries(projects.map((p) => [p.id, p]));
   const purchaseInvoices = invoices.filter((i) => i.invoice_type !== "sales");
 
-  const reload = () => setRows(getRefundClaims());
+  const reload = async () => {
+    const data = await listRefundClaims();
+    setRows(data);
+  };
 
   useEffect(() => {
     reload();
@@ -73,9 +78,9 @@ export default function ExpectedRefunds() {
     return () => window.removeEventListener("fakturowo-crm-local", onStorage);
   }, []);
 
-  const persist = (next) => {
+  const persist = async (next) => {
     setRows(next);
-    setRefundClaims(next);
+    await saveRefundClaimsAll(next);
   };
 
   const openNew = () => {
@@ -144,7 +149,15 @@ export default function ExpectedRefunds() {
     const next = editing
       ? rows.map((r) => (r.id === editing.id ? payload : r))
       : [payload, ...rows];
-    persist(next);
+    persist(next).then(() => {
+      logAuditEvent({
+        action: AUDIT_ACTIONS.REFUND_UPDATE,
+        entity_type: "RefundClaim",
+        entity_id: payload.id,
+        summary: editing ? `Edycja zwrotu ${payload.supplier_name}` : `Nowy zwrot: ${payload.supplier_name}`,
+        actor: "użytkownik",
+      });
+    });
     setOpen(false);
     toast.success(editing ? "Zaktualizowano wpis" : "Dodano oczekiwany zwrot");
   };
@@ -194,7 +207,7 @@ export default function ExpectedRefunds() {
       normalized.file_url = fileUrl;
 
       const transfer = normalizeIncomingRefundTransfer(normalized);
-      const current = getRefundClaims();
+      const current = await listRefundClaims();
       const match = matchIncomingTransferToRefundClaim(transfer, current, {
         preferredClaimId: preferredClaimId || undefined,
       });
@@ -207,8 +220,15 @@ export default function ExpectedRefunds() {
       }
 
       const updated = applyRefundReceiptToClaim(match.claim, transfer);
-      upsertRefundClaim(updated);
-      reload();
+      await upsertRefundClaimEntity(updated);
+      await logAuditEvent({
+        action: AUDIT_ACTIONS.REFUND_UPDATE,
+        entity_type: "RefundClaim",
+        entity_id: updated.id,
+        summary: `Dopasowano potwierdzenie zwrotu do ${updated.supplier_name || "dostawcy"}`,
+        actor: "użytkownik",
+      });
+      await reload();
       toast.success(
         `Zaktualizowano zwrot: ${refundClaimStatusLabel(updated.status)} (otrzymano łącznie ${updated.amount_received} ${updated.currency})`
       );
