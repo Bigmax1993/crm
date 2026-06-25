@@ -18,6 +18,11 @@ import {
   formatInvoiceSourceAmount,
   formatPayablesTotalsByCurrency,
   getInvoiceSourceAmount,
+  currenciesInProjectMetrics,
+  costByProjectInCurrency,
+  projectProfitabilityInCurrency,
+  plByProjectInCurrency,
+  formatCurrencyAmount,
 } from "@/lib/finance-pln";
 
 describe("finance-pln (jednostkowe)", () => {
@@ -380,5 +385,85 @@ describe("finance-pln (jednostkowe)", () => {
     expect(formatProjectExpensePeriodLabel("2024-03", "month")).toBe("03/2024");
     expect(formatProjectExpensePeriodLabel("2024-Q2", "quarter")).toBe("Q2 2024");
     expect(formatProjectExpensePeriodLabel("2025", "year")).toBe("2025");
+  });
+
+  it("costByProjectInCurrency — osobno PLN i EUR bez przeliczenia NBP", () => {
+    const projects = [
+      { id: "rewe", object_name: "Rewe" },
+      { id: "aldi", object_name: "Aldi" },
+    ];
+    const invoices = [
+      {
+        project_id: "rewe",
+        invoice_type: "cost",
+        currency: "EUR",
+        amount: 1000.5,
+        amount_pln: 4300,
+      },
+      {
+        project_id: "aldi",
+        invoice_type: "cost",
+        currency: "PLN",
+        amount: 500,
+        amount_pln: 500,
+      },
+      {
+        project_id: "rewe",
+        invoice_type: "cost",
+        currency: "PLN",
+        amount: 200,
+        amount_pln: 200,
+      },
+    ];
+    const eurCosts = costByProjectInCurrency(invoices, projects, "EUR");
+    expect(eurCosts).toHaveLength(1);
+    expect(eurCosts[0].koszt).toBe(1000.5);
+
+    const plnCosts = costByProjectInCurrency(invoices, projects, "PLN");
+    expect(plnCosts).toHaveLength(2);
+    expect(plnCosts.find((x) => x.project.id === "aldi")?.koszt).toBe(500);
+    expect(plnCosts.find((x) => x.project.id === "rewe")?.koszt).toBe(200);
+  });
+
+  it("currenciesInProjectMetrics zwraca PLN i EUR osobno", () => {
+    const invoices = [
+      { project_id: "p1", invoice_type: "cost", currency: "EUR", amount: 10 },
+      { project_id: "p2", invoice_type: "cost", currency: "PLN", amount: 20 },
+    ];
+    expect(currenciesInProjectMetrics(invoices)).toEqual(["PLN", "EUR"]);
+  });
+
+  it("projectProfitabilityInCurrency — tylko FV w danej walucie", () => {
+    const projects = [{ id: "p1", object_name: "Rewe" }];
+    const invoices = [
+      {
+        project_id: "p1",
+        invoice_type: "sales",
+        status: "paid",
+        currency: "EUR",
+        amount: 5000,
+      },
+      {
+        project_id: "p1",
+        invoice_type: "cost",
+        currency: "EUR",
+        amount: 1200,
+      },
+      {
+        project_id: "p1",
+        invoice_type: "cost",
+        currency: "PLN",
+        amount: 999,
+        amount_pln: 999,
+      },
+    ];
+    const [row] = projectProfitabilityInCurrency(invoices, projects, "EUR");
+    expect(row.przychody).toBe(5000);
+    expect(row.koszty).toBe(1200);
+    expect(row.wynik).toBe(3800);
+  });
+
+  it("formatCurrencyAmount", () => {
+    expect(formatCurrencyAmount(1234.5, "EUR")).toMatch(/1[\s\u00a0]?234,50 EUR/);
   });
 });

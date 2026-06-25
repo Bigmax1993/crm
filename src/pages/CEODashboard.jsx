@@ -32,9 +32,11 @@ import {
   sumPayablesPln,
   monthlyRevenueVsCostPln,
   monthlyCashFlowPaidPln,
-  costByProjectPln,
-  projectProfitabilityPln,
-  plByProjectPln,
+  currenciesInProjectMetrics,
+  costByProjectInCurrency,
+  projectProfitabilityInCurrency,
+  plByProjectInCurrency,
+  formatCurrencyAmount,
   globalPLPln,
   budgetAlertsPln,
   getInvoicePlnAtIssue,
@@ -156,35 +158,26 @@ export default function CEODashboard() {
       }));
   }, [enriched, convertPlnToDisplay]);
 
-  const pieData = useMemo(() => {
-    return costByProjectPln(enriched, projects)
-      .slice(0, 8)
-      .map((x) => ({
-        ...x,
-        koszt: roundChartAmount(convertPlnToDisplay(x.koszt)),
-      }));
-  }, [enriched, projects, convertPlnToDisplay]);
-
-  const top5 = useMemo(() => {
-    return [...projectProfitabilityPln(enriched, projects)]
-      .sort((a, b) => b.wynik - a.wynik)
-      .slice(0, 5)
-      .map((row) => ({
-        ...row,
-        wynikDisp: convertPlnToDisplay(row.wynik),
-      }));
-  }, [enriched, projects, convertPlnToDisplay]);
-
-  const top5PaidOnly = useMemo(() => {
-    return [...plByProjectPln(enriched, projects)]
-      .filter((r) => r.przychody > 0 || r.koszty > 0)
-      .sort((a, b) => b.wynik - a.wynik)
-      .slice(0, 5)
-      .map((row) => ({
-        ...row,
-        wynikDisp: convertPlnToDisplay(row.wynik),
-      }));
-  }, [enriched, projects, convertPlnToDisplay]);
+  const projectChartsByCurrency = useMemo(() => {
+    const currencies = currenciesInProjectMetrics(enriched);
+    return currencies.map((currency) => {
+      const pieData = costByProjectInCurrency(enriched, projects, currency)
+        .slice(0, 8)
+        .map((x) => ({
+          ...x,
+          name: getProjectDisplayName(x.project),
+          koszt: roundChartAmount(x.koszt),
+        }));
+      const top5 = [...projectProfitabilityInCurrency(enriched, projects, currency)]
+        .sort((a, b) => b.wynik - a.wynik)
+        .slice(0, 5);
+      const top5PaidOnly = [...plByProjectInCurrency(enriched, projects, currency)]
+        .filter((r) => r.przychody > 0 || r.koszty > 0)
+        .sort((a, b) => b.wynik - a.wynik)
+        .slice(0, 5);
+      return { currency, pieData, top5, top5PaidOnly };
+    });
+  }, [enriched, projects]);
 
   const bAlerts = useMemo(() => budgetAlertsPln(projects, enriched, 0.8), [projects, enriched]);
   const overdue = useMemo(() => overdueInvoices(enriched), [enriched]);
@@ -526,91 +519,110 @@ export default function CEODashboard() {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {projectChartsByCurrency.length === 0 ? (
           <Card>
             <CardHeader>
               <CardTitle>Koszty wg projektu</CardTitle>
               <CardDescription className="text-xs">{financeMetricSummary("projectCostAccruedPln")}</CardDescription>
             </CardHeader>
-            <CardContent className="h-80">
-              {pieData.length === 0 ? (
-                <p className="text-muted-foreground text-sm">Brak kosztów przypisanych do projektów.</p>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      dataKey="koszt"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={100}
-                      label={({ name, value }) => `${name}: ${formatChartAmount(value)}`}
-                    >
-                      {pieData.map((_, idx) => (
-                        <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(v) => `${formatChartAmount(v)} ${displayCurrency}`} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
+            <CardContent>
+              <p className="text-muted-foreground text-sm">Brak kosztów przypisanych do projektów.</p>
             </CardContent>
           </Card>
+        ) : (
+          projectChartsByCurrency.map(({ currency, pieData, top5, top5PaidOnly }) => (
+            <div key={currency} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Koszty wg projektu ({currency})</CardTitle>
+                  <CardDescription className="text-xs">
+                    Zakupy z project_id w {currency}; kwota z FV; bez wymogu zapłaty.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="h-80">
+                  {pieData.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">Brak kosztów w {currency}.</p>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={pieData}
+                          dataKey="koszt"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={100}
+                          label={({ name, value }) => `${name}: ${formatChartAmount(value)}`}
+                        >
+                          {pieData.map((_, idx) => (
+                            <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(v) => formatCurrencyAmount(v, currency)} />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
+                </CardContent>
+              </Card>
 
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>5 najlepszych projektów wg rentowności</CardTitle>
-                <CardDescription className="text-xs">{financeMetricSummary("projectProfitabilityMixedPln")}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {top5.map((row, idx) => (
-                    <div key={row.project.id || idx} className="flex justify-between items-center border-b border-border pb-2">
-                      <div>
-                        <p className="font-medium">{row.project.object_name || row.project.city}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Marża: {row.marza != null ? `${row.marza.toFixed(1)}%` : "—"}
-                        </p>
-                      </div>
-                      <div className="text-right font-semibold">
-                        {row.wynikDisp.toLocaleString("pl-PL", { minimumFractionDigits: 2 })} {displayCurrency}
-                      </div>
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>5 najlepszych projektów wg rentowności ({currency})</CardTitle>
+                    <CardDescription className="text-xs">
+                      Przychód = opłacona sprzedaż; koszty = wszystkie zakupy — tylko FV w {currency}.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {top5.map((row, idx) => (
+                        <div key={row.project.id || idx} className="flex justify-between items-center border-b border-border pb-2">
+                          <div>
+                            <p className="font-medium">{getProjectDisplayName(row.project)}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Marża: {row.marza != null ? `${row.marza.toFixed(1)}%` : "—"}
+                            </p>
+                          </div>
+                          <div className="text-right font-semibold">{formatCurrencyAmount(row.wynik, currency)}</div>
+                        </div>
+                      ))}
+                      {top5.length === 0 && <p className="text-muted-foreground text-sm">Brak danych.</p>}
                     </div>
-                  ))}
-                  {top5.length === 0 && <p className="text-muted-foreground text-sm">Brak danych.</p>}
-                </div>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>5 najlepszych — tylko opłacone FV</CardTitle>
-                <CardDescription className="text-xs">{financeMetricSummary("resultByProjectPaidPln")}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {top5PaidOnly.map((row, idx) => (
-                    <div key={`p-${row.project.id || idx}`} className="flex justify-between items-center border-b border-border pb-2">
-                      <div>
-                        <p className="font-medium">{row.project.object_name || row.project.city}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Marża: {row.marza != null ? `${row.marza.toFixed(1)}%` : "—"}
-                        </p>
-                      </div>
-                      <div className="text-right font-semibold">
-                        {row.wynikDisp.toLocaleString("pl-PL", { minimumFractionDigits: 2 })} {displayCurrency}
-                      </div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>5 najlepszych — tylko opłacone FV ({currency})</CardTitle>
+                    <CardDescription className="text-xs">
+                      Tylko opłacone FV z project_id w {currency}.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {top5PaidOnly.map((row, idx) => {
+                        const marza = row.marzaPct ?? row.marza;
+                        return (
+                          <div key={`p-${row.project.id || idx}`} className="flex justify-between items-center border-b border-border pb-2">
+                            <div>
+                              <p className="font-medium">{getProjectDisplayName(row.project)}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Marża: {marza != null ? `${marza.toFixed(1)}%` : "—"}
+                              </p>
+                            </div>
+                            <div className="text-right font-semibold">{formatCurrencyAmount(row.wynik, currency)}</div>
+                          </div>
+                        );
+                      })}
+                      {top5PaidOnly.length === 0 && <p className="text-muted-foreground text-sm">Brak danych.</p>}
                     </div>
-                  ))}
-                  {top5PaidOnly.length === 0 && <p className="text-muted-foreground text-sm">Brak danych.</p>}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          ))
+        )}
 
         <Card>
           <CardHeader className="space-y-4">

@@ -63,6 +63,120 @@ export function formatPayablesTotalsByCurrency(invoices, locale = "pl-PL") {
     .join(" · ");
 }
 
+export function normalizeInvoiceCurrency(inv) {
+  return String(inv?.currency || "PLN").toUpperCase();
+}
+
+/** Kwota FV w żądanej walucie źródłowej (bez przeliczenia NBP). */
+export function getInvoiceAmountInCurrency(inv, currency) {
+  const target = String(currency || "PLN").toUpperCase();
+  const src = getInvoiceSourceAmount(inv);
+  if (!src || src.currency !== target) return null;
+  return src.amount;
+}
+
+export function getInvoicePaidAmountInCurrency(inv, currency) {
+  if (inv.status !== "paid") return null;
+  return getInvoiceAmountInCurrency(inv, currency);
+}
+
+/** Waluty występujące w kosztach przypisanych do projektów (do osobnych wykresów CEO). */
+export function currenciesInProjectCosts(invoices) {
+  const set = new Set();
+  for (const inv of invoices) {
+    if (inv.invoice_type === "sales") continue;
+    if (!inv.project_id) continue;
+    const cur = normalizeInvoiceCurrency(inv);
+    const amt = getInvoiceAmountInCurrency(inv, cur);
+    if (amt != null && amt > 0) set.add(cur);
+  }
+  return sortProjectChartCurrencies([...set]);
+}
+
+/** Wszystkie waluty FV przypisanych do projektów (koszty, sprzedaż, opłacone). */
+export function currenciesInProjectMetrics(invoices) {
+  const set = new Set();
+  for (const inv of invoices) {
+    if (!inv.project_id) continue;
+    const cur = normalizeInvoiceCurrency(inv);
+    const src = getInvoiceSourceAmount(inv);
+    if (src && src.currency === cur && src.amount > 0) set.add(cur);
+  }
+  return sortProjectChartCurrencies([...set]);
+}
+
+function sortProjectChartCurrencies(currencies) {
+  return currencies.sort((a, b) => {
+    if (a === "PLN") return -1;
+    if (b === "PLN") return 1;
+    return a.localeCompare(b);
+  });
+}
+
+export function costByProjectInCurrency(invoices, projects, currency) {
+  const byId = {};
+  for (const p of projects) {
+    byId[p.id] = { project: p, koszt: 0 };
+  }
+  for (const inv of invoices) {
+    if (inv.invoice_type === "sales") continue;
+    const pid = inv.project_id;
+    if (!pid || !byId[pid]) continue;
+    const amt = getInvoiceAmountInCurrency(inv, currency);
+    if (amt == null) continue;
+    byId[pid].koszt += amt;
+  }
+  return Object.values(byId)
+    .filter((x) => x.koszt > 0)
+    .map((x) => ({ ...x, koszt: Math.round(x.koszt * 100) / 100 }));
+}
+
+export function projectProfitabilityInCurrency(invoices, projects, currency) {
+  return projects.map((p) => {
+    let przychody = 0;
+    let koszty = 0;
+    for (const inv of invoices) {
+      if (inv.project_id !== p.id) continue;
+      if (inv.invoice_type === "sales") {
+        if (inv.status === "paid") {
+          const a = getInvoicePaidAmountInCurrency(inv, currency);
+          if (a != null) przychody += a;
+        }
+      } else {
+        const a = getInvoiceAmountInCurrency(inv, currency);
+        if (a != null) koszty += a;
+      }
+    }
+    const wynik = Math.round((przychody - koszty) * 100) / 100;
+    const marza = przychody > 0 ? (wynik / przychody) * 100 : null;
+    return { project: p, przychody, koszty, wynik, marza };
+  });
+}
+
+export function plByProjectInCurrency(invoices, projects, currency) {
+  return projects.map((p) => {
+    let przychody = 0;
+    let koszty = 0;
+    for (const inv of invoices) {
+      if (inv.project_id !== p.id) continue;
+      if (inv.status !== "paid") continue;
+      const a = getInvoicePaidAmountInCurrency(inv, currency);
+      if (a == null) continue;
+      if (inv.invoice_type === "sales") przychody += a;
+      else koszty += a;
+    }
+    const brutto = Math.round((przychody - koszty) * 100) / 100;
+    const marzaPct = przychody > 0 ? (brutto / przychody) * 100 : null;
+    return { project: p, przychody, koszty, brutto, wynik: brutto, marzaPct };
+  });
+}
+
+export function formatCurrencyAmount(value, currency, locale = "pl-PL") {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  return `${n.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+}
+
 /** Dla przepływów gotówki — po zapłacie preferuj kurs z płatności. */
 export function getInvoicePlnForCashflow(inv) {
   if (inv.status !== "paid") return 0;
