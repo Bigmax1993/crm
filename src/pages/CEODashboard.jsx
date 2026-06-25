@@ -45,6 +45,18 @@ import { AlertTriangle, TrendingUp, Wallet, Building2 } from "lucide-react";
 
 const PIE_COLORS = ["#1F4E79", "#2E75B6", "#5B9BD5", "#9DC3E6", "#ED7D31", "#FFC000", "#70AD47"];
 
+function formatChartAmount(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "0";
+  return n.toLocaleString("pl-PL", { maximumFractionDigits: 2, minimumFractionDigits: 0 });
+}
+
+function roundChartAmount(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100) / 100;
+}
+
 const EXPENSE_PERIOD_LIMIT = { month: 18, quarter: 12, year: 8 };
 
 export default function CEODashboard() {
@@ -99,7 +111,7 @@ export default function CEODashboard() {
       .slice(0, 8)
       .map((x) => ({
         ...x,
-        koszt: convertPlnToDisplay(x.koszt),
+        koszt: roundChartAmount(convertPlnToDisplay(x.koszt)),
       }));
   }, [enriched, projects, convertPlnToDisplay]);
 
@@ -297,12 +309,20 @@ export default function CEODashboard() {
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={pieData} dataKey="koszt" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                    <Pie
+                      data={pieData}
+                      dataKey="koszt"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      label={({ name, value }) => `${name}: ${formatChartAmount(value)}`}
+                    >
                       {pieData.map((_, idx) => (
                         <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(v) => `${Number(v).toLocaleString("pl-PL")} ${displayCurrency}`} />
+                    <Tooltip formatter={(v) => `${formatChartAmount(v)} ${displayCurrency}`} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
