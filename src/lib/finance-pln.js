@@ -3,6 +3,10 @@
  * Zestawienie definicji metryk: `finance-metric-definitions.js`.
  */
 import { format, parseISO, startOfMonth, isValid } from "date-fns";
+import {
+  filterProjectsForReportingCurrency,
+  projectReportingCurrency,
+} from "@/lib/match-project";
 
 export const PLN = (v) => (typeof v === "number" && !Number.isNaN(v) ? v : 0);
 
@@ -94,13 +98,17 @@ export function currenciesInProjectCosts(invoices) {
 }
 
 /** Wszystkie waluty FV przypisanych do projektów (koszty, sprzedaż, opłacone). */
-export function currenciesInProjectMetrics(invoices) {
+export function currenciesInProjectMetrics(invoices, projects = []) {
   const set = new Set();
   for (const inv of invoices) {
     if (!inv.project_id) continue;
     const cur = normalizeInvoiceCurrency(inv);
     const src = getInvoiceSourceAmount(inv);
     if (src && src.currency === cur && src.amount > 0) set.add(cur);
+  }
+  for (const p of projects) {
+    const assigned = projectReportingCurrency(p);
+    if (assigned) set.add(assigned);
   }
   return sortProjectChartCurrencies([...set]);
 }
@@ -114,8 +122,9 @@ function sortProjectChartCurrencies(currencies) {
 }
 
 export function costByProjectInCurrency(invoices, projects, currency) {
+  const eligible = filterProjectsForReportingCurrency(projects, currency);
   const byId = {};
-  for (const p of projects) {
+  for (const p of eligible) {
     byId[p.id] = { project: p, koszt: 0 };
   }
   for (const inv of invoices) {
@@ -132,7 +141,8 @@ export function costByProjectInCurrency(invoices, projects, currency) {
 }
 
 export function projectProfitabilityInCurrency(invoices, projects, currency) {
-  return projects.map((p) => {
+  const eligible = filterProjectsForReportingCurrency(projects, currency);
+  return eligible.map((p) => {
     let przychody = 0;
     let koszty = 0;
     for (const inv of invoices) {
@@ -154,7 +164,8 @@ export function projectProfitabilityInCurrency(invoices, projects, currency) {
 }
 
 export function plByProjectInCurrency(invoices, projects, currency) {
-  return projects.map((p) => {
+  const eligible = filterProjectsForReportingCurrency(projects, currency);
+  return eligible.map((p) => {
     let przychody = 0;
     let koszty = 0;
     for (const inv of invoices) {

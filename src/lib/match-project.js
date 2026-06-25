@@ -57,6 +57,38 @@ export function inferProjectCountry(project) {
   return null;
 }
 
+/** Sieci DE raportowane wyłącznie w EUR na pulpicie CEO (np. REWE, EDEKA). */
+const EUR_ONLY_RETAIL_PATTERN = /\b(rewe|edeka)\b/i;
+
+/**
+ * Waluta raportowania projektu na wykresach CEO (PLN | EUR | null).
+ * null = brak przypisania — projekt pojawia się tylko w sekcji waluty, w której ma FV.
+ */
+export function projectReportingCurrency(project) {
+  if (!project) return null;
+  const country = inferProjectCountry(project);
+  if (country === "DE") return "EUR";
+  if (country === "PL") return "PLN";
+
+  const hay = [project.object_name, project.client_name, project.project_match_keywords]
+    .filter(Boolean)
+    .join(" ");
+  if (EUR_ONLY_RETAIL_PATTERN.test(hay)) return "EUR";
+
+  return null;
+}
+
+export function projectIncludedInReportingCurrency(project, currency) {
+  const assigned = projectReportingCurrency(project);
+  const cur = String(currency || "PLN").toUpperCase();
+  if (!assigned) return true;
+  return assigned === cur;
+}
+
+export function filterProjectsForReportingCurrency(projects, currency) {
+  return (projects || []).filter((p) => projectIncludedInReportingCurrency(p, currency));
+}
+
 function filterProjectsByCountry(projects, invoiceCountry) {
   if (!invoiceCountry) return projects;
   const withHint = projects.filter((p) => inferProjectCountry(p));

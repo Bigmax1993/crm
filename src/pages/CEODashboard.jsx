@@ -159,7 +159,7 @@ export default function CEODashboard() {
   }, [enriched, convertPlnToDisplay]);
 
   const projectChartsByCurrency = useMemo(() => {
-    const currencies = currenciesInProjectMetrics(enriched);
+    const currencies = currenciesInProjectMetrics(enriched, projects);
     return currencies.map((currency) => {
       const pieData = costByProjectInCurrency(enriched, projects, currency)
         .slice(0, 8)
@@ -169,6 +169,7 @@ export default function CEODashboard() {
           koszt: roundChartAmount(x.koszt),
         }));
       const top5 = [...projectProfitabilityInCurrency(enriched, projects, currency)]
+        .filter((r) => r.przychody > 0 || r.koszty > 0)
         .sort((a, b) => b.wynik - a.wynik)
         .slice(0, 5);
       const top5PaidOnly = [...plByProjectInCurrency(enriched, projects, currency)]

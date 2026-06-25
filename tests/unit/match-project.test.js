@@ -5,6 +5,9 @@ import {
   invoiceNipDigits,
   inferInvoiceCountry,
   inferProjectCountry,
+  projectReportingCurrency,
+  projectIncludedInReportingCurrency,
+  filterProjectsForReportingCurrency,
   attachProjectMatch,
   projectMatchReasonLabel,
 } from "@/lib/match-project";
@@ -28,6 +31,23 @@ describe("match-project", () => {
 
   it("inferProjectCountry: pierwsze słowo kluczowe DE", () => {
     expect(inferProjectCountry({ project_match_keywords: "DE, Kaufland, 234" })).toBe("DE");
+  });
+
+  it("projectReportingCurrency: REWE i EDEKA → EUR", () => {
+    expect(projectReportingCurrency({ object_name: "Rewe" })).toBe("EUR");
+    expect(projectReportingCurrency({ object_name: "Edeka", city: "Dresden" })).toBe("EUR");
+    expect(projectReportingCurrency({ object_name: "Aldi" })).toBeNull();
+  });
+
+  it("filterProjectsForReportingCurrency wyklucza sieci DE z PLN", () => {
+    const projects = [
+      { id: "rewe", object_name: "Rewe" },
+      { id: "aldi", object_name: "Aldi" },
+    ];
+    const pln = filterProjectsForReportingCurrency(projects, "PLN");
+    expect(pln.map((p) => p.id)).toEqual(["aldi"]);
+    expect(projectIncludedInReportingCurrency(projects[0], "PLN")).toBe(false);
+    expect(projectIncludedInReportingCurrency(projects[0], "EUR")).toBe(true);
   });
 
   it("dopasowuje projekt po nr zamówienia na obiekcie", () => {
