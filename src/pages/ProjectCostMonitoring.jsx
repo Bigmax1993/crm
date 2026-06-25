@@ -5,6 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getInvoicePlnAtIssue } from "@/lib/finance-pln";
 import { financeMetricSummary } from "@/lib/finance-metric-definitions";
+import { constructionWorkflowLabel } from "@/lib/construction-workflow";
 import { useClientEnrichedInvoices } from "@/hooks/useClientEnrichedInvoices";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -12,15 +13,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { AlertTriangle } from "lucide-react";
-
-const WORKFLOW_LABELS = {
-  oferta: "Oferta",
-  zlecenie: "Zlecenie",
-  realizacja: "Realizacja",
-  odbior: "Odbiór",
-  faktura: "Faktura",
-  zaplacono: "Zapłacono",
-};
 
 function parseSchedule(json) {
   if (!json) return [];
@@ -105,7 +97,7 @@ export default function ProjectCostMonitoring() {
                     <p className="text-sm text-muted-foreground">{r.project.client_name || "—"}</p>
                   </div>
                   <Badge variant="outline">
-                    {WORKFLOW_LABELS[r.project.workflow_status] || r.project.status || "—"}
+                    {constructionWorkflowLabel(r.project.workflow_status) || r.project.status || "—"}
                   </Badge>
                 </CardHeader>
                 <CardContent className="space-y-4">

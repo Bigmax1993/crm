@@ -1,22 +1,23 @@
 import React, { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
+import { Loader2, MapPin } from "lucide-react";
+import { toast } from "sonner";
 import { base44 } from "@/api/base44Client";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { financeMetricSummary } from "@/lib/finance-metric-definitions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { projectProfitabilityPln } from "@/lib/finance-pln";
 import { useClientEnrichedInvoices } from "@/hooks/useClientEnrichedInvoices";
+import { resolveSiteGeocode, siteHasCoords } from "@/lib/site-geocode";
+import {
+  CONSTRUCTION_WORKFLOW_MAP_COLORS,
+  CONSTRUCTION_WORKFLOW_STATUSES,
+} from "@/lib/construction-workflow";
 
-const STATUS_COLOR = {
-  oferta: "#2563eb",
-  zlecenie: "#7c3aed",
-  realizacja: "#d97706",
-  odbior: "#0d9488",
-  faktura: "#ea580c",
-  zaplacono: "#16a34a",
-};
+const STATUS_COLOR = CONSTRUCTION_WORKFLOW_MAP_COLORS;
 
 function FitBounds({ projects }) {
   const map = useMap();
@@ -33,6 +34,8 @@ function FitBounds({ projects }) {
 
 export default function ProjectsMap() {
   const [filter, setFilter] = useState("all");
+  const [geocodingAll, setGeocodingAll] = useState(false);
+  const queryClient = useQueryClient();
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["construction-sites"],
     queryFn: () => base44.entities.ConstructionSite.list(),
@@ -54,7 +57,44 @@ export default function ProjectsMap() {
     return projects.filter((p) => (p.workflow_status || "") === filter);
   }, [projects, filter]);
 
-  const withCoords = filtered.filter((p) => p.latitude != null && p.longitude != null);
+  const withCoords = filtered.filter((p) => siteHasCoords(p));
+  const missingCoords = projects.filter((p) => !siteHasCoords(p) && String(p.city ?? "").trim());
+
+  const fillMissingCoords = async () => {
+    if (!missingCoords.length) {
+      toast.message("Wszystkie obiekty mają już współrzędne GPS.");
+      return;
+    }
+    setGeocodingAll(true);
+    let ok = 0;
+    try {
+      for (const p of missingCoords) {
+        try {
+          const geo = await resolveSiteGeocode(p);
+          if (geo && geo.source !== "existing") {
+            await base44.entities.ConstructionSite.update(p.id, {
+              latitude: geo.latitude,
+              longitude: geo.longitude,
+              city: geo.city || p.city,
+            });
+            ok += 1;
+          }
+        } catch (e) {
+          console.warn("Geocode project:", p.id, e);
+        }
+      }
+      await queryClient.invalidateQueries({ queryKey: ["construction-sites"] });
+      if (ok > 0) {
+        toast.success(`Uzupełniono GPS dla ${ok} z ${missingCoords.length} obiektów.`);
+      } else {
+        toast.warning(
+          "Nie udało się ustalić GPS. Dla Polski wybierz miasto z listy w Budowie; dla Niemiec włącz Claude w Ustawieniach AI."
+        );
+      }
+    } finally {
+      setGeocodingAll(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -71,24 +111,42 @@ export default function ProjectsMap() {
           <div>
             <h1 className="text-3xl md:text-4xl font-bold">Mapa obiektów</h1>
             <p className="text-muted-foreground mt-1 max-w-xl text-sm">
-              Projekty na mapie Polski. Rentowność w dymku: {financeMetricSummary("projectProfitabilityMixedPln")}
+              Projekty z zapisanym GPS (szer. / dł. geogr. w module Budowa). Rentowność w dymku:{" "}
+              {financeMetricSummary("projectProfitabilityMixedPln")}
             </p>
           </div>
-          <div className="w-full md:w-64">
-            <Select value={filter} onValueChange={setFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Wszystkie</SelectItem>
-                <SelectItem value="oferta">Oferta</SelectItem>
-                <SelectItem value="zlecenie">Zlecenie</SelectItem>
-                <SelectItem value="realizacja">Realizacja</SelectItem>
-                <SelectItem value="odbior">Odbiór</SelectItem>
-                <SelectItem value="faktura">Faktura</SelectItem>
-                <SelectItem value="zaplacono">Zapłacono</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+            {missingCoords.length > 0 ? (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={geocodingAll}
+                onClick={fillMissingCoords}
+                className="border-amber-500/30"
+              >
+                {geocodingAll ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <MapPin className="h-4 w-4 mr-2" />
+                )}
+                Uzupełnij GPS ({missingCoords.length})
+              </Button>
+            ) : null}
+            <div className="w-full md:w-64">
+              <Select value={filter} onValueChange={setFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Wszystkie</SelectItem>
+                  {CONSTRUCTION_WORKFLOW_STATUSES.map((st) => (
+                    <SelectItem key={st.value} value={st.value}>
+                      {st.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </motion.div>
 
@@ -132,7 +190,9 @@ export default function ProjectsMap() {
             </div>
             {withCoords.length === 0 && (
               <p className="p-4 text-sm text-muted-foreground">
-                Brak projektów ze współrzędnymi. W module <strong>Budowa</strong> wybierz miejscowość z listy sugestii lub uzupełnij szer. / dł. geograficzną — zapisany obiekt pojawi się tutaj.
+                Brak projektów ze współrzędnymi ({projects.length} w bazie, {missingCoords.length} bez GPS). W module{" "}
+                <strong>Budowa</strong> przy zapisie ustawiane jest GPS automatycznie (Polska: Open-Meteo; za granicą: Claude).
+                Możesz też kliknąć <strong>Uzupełnij GPS</strong> powyżej.
               </p>
             )}
           </CardContent>

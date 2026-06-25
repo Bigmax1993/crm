@@ -9,12 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, Plus, X, Trash2, Loader2, Building, Pencil, Image as ImageIcon, Upload as UploadIcon } from 'lucide-react';
+import { Search, Plus, X, Trash2, Loader2, Building, Pencil, Image as ImageIcon, Upload as UploadIcon, MapPin } from 'lucide-react';
 import { ConstructionOffersAi } from '@/components/ai/ConstructionOffersAi';
 import { CityGeocodeInput } from '@/components/construction/CityGeocodeInput';
 import { OFFER_SEGMENT_OPTIONS, offerSegmentLabel } from '@/lib/offer-segments';
 import { getSiteExtension, patchSiteExtension } from '@/lib/crm-local-store';
 import { getUploadFilePublicUrl } from '@/lib/upload-file-url';
+import { resolveSiteGeocode, siteHasCoords } from '@/lib/site-geocode';
+import { CONSTRUCTION_WORKFLOW_STATUSES, constructionWorkflowLabel } from '@/lib/construction-workflow';
+import { toast } from 'sonner';
 
 function emptyLocalMeta() {
   return {
@@ -53,6 +56,7 @@ function siteRowToFormData(site) {
     longitude: site.longitude != null && site.longitude !== "" ? String(site.longitude) : "",
     client_name: s(site.client_name),
     workflow_status: site.workflow_status || "realizacja",
+    planned_date: s(site.planned_date).slice(0, 10),
     payment_schedule: s(site.payment_schedule),
     project_match_keywords: s(site.project_match_keywords),
   };
@@ -62,6 +66,7 @@ export default function Construction() {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [geoSaving, setGeoSaving] = useState(false);
   const [localMeta, setLocalMeta] = useState(() => emptyLocalMeta());
   const [formData, setFormData] = useState({
     city: '',
@@ -78,6 +83,7 @@ export default function Construction() {
     longitude: '',
     client_name: '',
     workflow_status: 'realizacja',
+    planned_date: '',
     payment_schedule: '',
     project_match_keywords: '',
   });
@@ -136,6 +142,7 @@ export default function Construction() {
       longitude: '',
     client_name: '',
     workflow_status: 'realizacja',
+    planned_date: '',
     payment_schedule: '',
     project_match_keywords: '',
     });
@@ -152,20 +159,45 @@ export default function Construction() {
     );
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const data = {
-      ...formData,
-      invoice_count: formData.invoice_count ? parseInt(formData.invoice_count) : null,
-      budget_planned: formData.budget_planned ? parseFloat(formData.budget_planned) : null,
-      latitude: formData.latitude !== '' && formData.latitude != null ? parseFloat(formData.latitude) : null,
-      longitude: formData.longitude !== '' && formData.longitude != null ? parseFloat(formData.longitude) : null,
-    };
-    
-    if (editingId) {
-      updateMutation.mutate({ id: editingId, data, extension: localMeta });
-    } else {
-      createMutation.mutate({ data, extension: localMeta });
+    setGeoSaving(true);
+    try {
+      let data = {
+        ...formData,
+        invoice_count: formData.invoice_count ? parseInt(formData.invoice_count) : null,
+        budget_planned: formData.budget_planned ? parseFloat(formData.budget_planned) : null,
+        latitude: formData.latitude !== '' && formData.latitude != null ? parseFloat(formData.latitude) : null,
+        longitude: formData.longitude !== '' && formData.longitude != null ? parseFloat(formData.longitude) : null,
+        planned_date: formData.planned_date ? String(formData.planned_date).slice(0, 10) : null,
+      };
+
+      if (!siteHasCoords(data) && String(data.city ?? '').trim()) {
+        const geo = await resolveSiteGeocode(data);
+        if (geo) {
+          data = {
+            ...data,
+            latitude: geo.latitude,
+            longitude: geo.longitude,
+            city: geo.city || data.city,
+          };
+          if (geo.source !== 'existing') {
+            toast.success('Uzupełniono GPS — obiekt pojawi się na mapie.');
+          }
+        } else {
+          toast.warning(
+            'Brak współrzędnych GPS. Wybierz miasto z listy sugestii (Polska) lub włącz Claude w Ustawieniach AI (np. Dresden, Saalfeld).'
+          );
+        }
+      }
+
+      if (editingId) {
+        updateMutation.mutate({ id: editingId, data, extension: localMeta });
+      } else {
+        createMutation.mutate({ data, extension: localMeta });
+      }
+    } finally {
+      setGeoSaving(false);
     }
   };
 
@@ -246,7 +278,7 @@ export default function Construction() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
                     <Label>Klient (inwestor)</Label>
                     <Input
@@ -271,14 +303,21 @@ export default function Construction() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="oferta">Oferta</SelectItem>
-                        <SelectItem value="zlecenie">Zlecenie</SelectItem>
-                        <SelectItem value="realizacja">Realizacja</SelectItem>
-                        <SelectItem value="odbior">Odbiór</SelectItem>
-                        <SelectItem value="faktura">Faktura</SelectItem>
-                        <SelectItem value="zaplacono">Zapłacono</SelectItem>
+                        {CONSTRUCTION_WORKFLOW_STATUSES.map((st) => (
+                          <SelectItem key={st.value} value={st.value}>
+                            {st.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div>
+                    <Label>Data planowana</Label>
+                    <Input
+                      type="date"
+                      value={formData.planned_date || ""}
+                      onChange={(e) => setFormData({ ...formData, planned_date: e.target.value })}
+                    />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -578,8 +617,8 @@ export default function Construction() {
                    <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingId(null); resetForm(); }}>
                      Anuluj
                    </Button>
-                   <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="bg-blue-600 hover:bg-blue-700">
-                     {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                   <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending || geoSaving} className="bg-blue-600 hover:bg-blue-700">
+                     {(createMutation.isPending || updateMutation.isPending || geoSaving) && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                      {editingId ? 'Aktualizuj obiekt' : 'Dodaj obiekt'}
                    </Button>
                  </div>
@@ -611,10 +650,12 @@ export default function Construction() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Miasto</TableHead>
+                    <TableHead>Mapa</TableHead>
                     <TableHead>Obiekt</TableHead>
                     <TableHead>Segment oferty</TableHead>
                     <TableHead>Kod pocztowy</TableHead>
-                    <TableHead>Okres rozliczenia</TableHead>
+                    <TableHead>Obieg</TableHead>
+                    <TableHead>Data plan.</TableHead>
                     <TableHead>Ilość faktur</TableHead>
                     <TableHead>Numery faktur</TableHead>
                     <TableHead>Uwagi</TableHead>
@@ -626,11 +667,11 @@ export default function Construction() {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={11} className="text-center py-8">Ładowanie...</TableCell>
+                      <TableCell colSpan={14} className="text-center py-8">Ładowanie...</TableCell>
                     </TableRow>
                   ) : filteredSites.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={11} className="text-center py-8 text-slate-500">
+                      <TableCell colSpan={14} className="text-center py-8 text-slate-500">
                         <Building className="h-8 w-8 mx-auto mb-2 text-slate-300" />
                         Brak obiektów budowlanych
                       </TableCell>
@@ -639,11 +680,29 @@ export default function Construction() {
                     filteredSites.map(site => (
                       <TableRow key={site.id}>
                         <TableCell className="font-medium">{site.city}</TableCell>
+                        <TableCell>
+                          {siteHasCoords(site) ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-emerald-700" title="Widoczny na mapie obiektów">
+                              <MapPin className="h-3.5 w-3.5" />
+                              GPS
+                            </span>
+                          ) : (
+                            <span className="text-xs text-amber-700" title="Brak współrzędnych — zapisz ponownie lub uzupełnij GPS">
+                              brak GPS
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="font-medium">{site.object_name}</TableCell>
                         <TableCell className="text-sm max-w-[180px]">
                           {offerSegmentLabel(getSiteExtension(site.id).offer_segment)}
                         </TableCell>
                         <TableCell>{site.postal_code || '-'}</TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">
+                          {constructionWorkflowLabel(site.workflow_status)}
+                        </TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">
+                          {site.planned_date ? String(site.planned_date).slice(0, 10) : '-'}
+                        </TableCell>
                         <TableCell>{site.settlement_period || '-'}</TableCell>
                         <TableCell className="text-center">
                           <Badge variant="outline">{site.invoice_count || 0}</Badge>

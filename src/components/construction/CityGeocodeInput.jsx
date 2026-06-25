@@ -176,7 +176,7 @@ export function CityGeocodeInput({ city, latitude, longitude, onPatch, disabled,
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Zacznij pisać (np. „Wroc”) — wybierz sugestię z listy (baza Open-Meteo, tylko Polska), aby ustawić nazwę z ogonkami i GPS. Obiekt z współrzędnymi pojawi się na{" "}
+        Zacznij pisać (np. „Wroc”) — wybierz sugestię z listy (baza Open-Meteo, tylko Polska), aby ustawić nazwę z ogonkami i GPS. Miasta za granicą (np. Dresden): użyj przycisku Claude poniżej lub zapisz obiekt ponownie po włączeniu AI. Obiekt z współrzędnymi pojawi się na{" "}
         <strong>Mapie obiektów</strong>.
       </p>
 
