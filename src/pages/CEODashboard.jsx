@@ -41,6 +41,9 @@ import {
   projectExpensesByPeriodPln,
   formatProjectExpensePeriodLabel,
   openPayableInvoices,
+  formatInvoiceSourceAmount,
+  formatPayablesTotalsByCurrency,
+  getInvoiceSourceAmount,
 } from "@/lib/finance-pln";
 import { displayInvoiceSeller } from "@/lib/invoice-schema";
 import { getProjectDisplayName } from "@/lib/match-project";
@@ -191,8 +194,12 @@ export default function CEODashboard() {
   );
 
   const payablesOpen = useMemo(() => openPayableInvoices(enriched), [enriched]);
-  const payablesOpenTotal = useMemo(
+  const payablesOpenTotalPln = useMemo(
     () => payablesOpen.reduce((s, i) => s + (getInvoicePlnAtIssue(i) ?? 0), 0),
+    [payablesOpen]
+  );
+  const payablesOpenTotalByCurrency = useMemo(
+    () => formatPayablesTotalsByCurrency(payablesOpen),
     [payablesOpen]
   );
   const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
@@ -324,10 +331,14 @@ export default function CEODashboard() {
           <CardHeader>
             <CardTitle>Faktury do zapłaty</CardTitle>
             <CardDescription className="text-xs">
-              {financeMetricSummary("payablesOpenPln")} Łącznie:{" "}
-              <span className="font-semibold text-foreground">
-                {formatDisplayAmount(payablesOpenTotal)} {displayCurrency}
-              </span>
+              {financeMetricSummary("payablesOpenPln")} Łącznie (waluta FV):{" "}
+              <span className="font-semibold text-foreground">{payablesOpenTotalByCurrency}</span>
+              {payablesOpenTotalPln > 0 && payablesOpen.some((i) => String(i.currency || "PLN").toUpperCase() !== "PLN") ? (
+                <span className="text-muted-foreground">
+                  {" "}
+                  · szac. {formatDisplayAmount(payablesOpenTotalPln)} PLN (NBP)
+                </span>
+              ) : null}
               {payablesOpen.length ? ` · ${payablesOpen.length} poz.` : ""}
             </CardDescription>
           </CardHeader>
@@ -352,6 +363,11 @@ export default function CEODashboard() {
                     {payablesOpen.map((inv) => {
                       const pln = getInvoicePlnAtIssue(inv);
                       const project = inv.project_id ? projectById.get(inv.project_id) : null;
+                      const src = getInvoiceSourceAmount(inv);
+                      const plnHint =
+                        src && src.currency !== "PLN" && pln != null
+                          ? `Szac. ${pln.toLocaleString("pl-PL", { minimumFractionDigits: 2 })} PLN (NBP)`
+                          : undefined;
                       return (
                         <TableRow key={inv.id || `${inv.invoice_number}-${inv.issue_date}`}>
                           <TableCell className="font-medium whitespace-nowrap">
@@ -369,8 +385,11 @@ export default function CEODashboard() {
                           <TableCell className="text-sm whitespace-nowrap">
                             {inv.payment_deadline ? String(inv.payment_deadline).slice(0, 10) : "—"}
                           </TableCell>
-                          <TableCell className="text-right font-medium whitespace-nowrap">
-                            {pln != null ? formatDisplayAmount(convertPlnToDisplay(pln)) : "—"}
+                          <TableCell
+                            className="text-right font-medium whitespace-nowrap"
+                            title={plnHint}
+                          >
+                            {formatInvoiceSourceAmount(inv)}
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline" className={invoicePayStatusClass(inv.status)}>

@@ -15,6 +15,9 @@ import {
   projectExpensesByPeriodPln,
   formatProjectExpensePeriodLabel,
   openPayableInvoices,
+  formatInvoiceSourceAmount,
+  formatPayablesTotalsByCurrency,
+  getInvoiceSourceAmount,
 } from "@/lib/finance-pln";
 
 describe("finance-pln (jednostkowe)", () => {
@@ -143,6 +146,20 @@ describe("finance-pln (jednostkowe)", () => {
       },
     ]);
     expect(rows.map((r) => r.invoice_number)).toEqual(["B", "A"]);
+  });
+
+  it("formatInvoiceSourceAmount pokazuje kwotę w walucie FV bez przeliczenia", () => {
+    expect(
+      formatInvoiceSourceAmount({
+        amount: 1074.5,
+        currency: "EUR",
+        amount_pln: 4585.8,
+      })
+    ).toBe("1074,50 EUR");
+    expect(formatPayablesTotalsByCurrency([
+      { amount: 1074.5, currency: "EUR", invoice_type: "cost", status: "unpaid" },
+      { amount: 100, currency: "PLN", invoice_type: "cost", status: "unpaid" },
+    ])).toBe("1074,50 EUR · 100,00 PLN");
   });
 
   it("monthlyCashFlowPaidPln grupuje wpływy i wydatki po miesiącu płatności", () => {

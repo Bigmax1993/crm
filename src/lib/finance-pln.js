@@ -21,6 +21,48 @@ export function getInvoicePlnAtIssue(inv) {
   return null;
 }
 
+/** Kwota faktury w walucie źródłowej (bez przeliczenia na PLN). */
+export function getInvoiceSourceAmount(inv) {
+  const currency = String(inv?.currency || "PLN").toUpperCase();
+  const amount = Number(inv?.amount);
+  if (Number.isFinite(amount)) return { amount, currency };
+  if (currency === "PLN") {
+    const pln = getInvoicePlnAtIssue(inv);
+    if (pln != null) return { amount: pln, currency: "PLN" };
+  }
+  return null;
+}
+
+export function formatInvoiceSourceAmount(inv, locale = "pl-PL") {
+  const src = getInvoiceSourceAmount(inv);
+  if (!src) return "—";
+  return `${src.amount.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${src.currency}`;
+}
+
+/** Suma zobowiązań wg waluty FV (do widoku listy — bez przeliczania na PLN). */
+export function sumOpenPayablesByCurrency(invoices) {
+  const map = {};
+  for (const inv of invoices) {
+    const src = getInvoiceSourceAmount(inv);
+    if (!src) continue;
+    map[src.currency] = (map[src.currency] || 0) + src.amount;
+  }
+  return Object.entries(map)
+    .map(([currency, amount]) => ({ currency, amount: Math.round(amount * 100) / 100 }))
+    .sort((a, b) => a.currency.localeCompare(b.currency));
+}
+
+export function formatPayablesTotalsByCurrency(invoices, locale = "pl-PL") {
+  const parts = sumOpenPayablesByCurrency(invoices);
+  if (!parts.length) return "0,00 PLN";
+  return parts
+    .map(
+      (p) =>
+        `${p.amount.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${p.currency}`
+    )
+    .join(" · ");
+}
+
 /** Dla przepływów gotówki — po zapłacie preferuj kurs z płatności. */
 export function getInvoicePlnForCashflow(inv) {
   if (inv.status !== "paid") return 0;
