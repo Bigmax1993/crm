@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Upload as UploadIcon, Loader2, CheckCircle, Package, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { createPageUrl } from "@/utils";
-import { extractWzFromPdf } from "@/lib/wz-extract";
+import { extractWzFromPdf, extractWzFromPdfClaude, extractWzFromPdfBase44, mapWzJsonToInternal, wzMappedHasUsableData } from "@/lib/wz-extract";
 import { isClaudeConfigured } from "@/lib/openai-crm";
 import {
   emptyMaterialDelivery,
@@ -22,6 +22,7 @@ import {
 import {
   attachProjectMatch,
   getProjectDisplayName,
+  normalizeTaxId,
   projectMatchReasonLabel,
 } from "@/lib/match-project";
 import { bulkCreateOrSequential, formatBase44Error } from "@/lib/base44-entity-save";
@@ -31,6 +32,22 @@ import {
   summarizeImportDuplicates,
   WZ_DUPLICATE_OPTIONS,
 } from "@/lib/duplicate-detection";
+
+function ExtractionSourceBadge({ source }) {
+  const labels = {
+    heuristic: "Heurystyka",
+    claude: "Claude",
+    openai: "Claude",
+    base44: "Base44 OCR",
+    manual: "Ręcznie / nieodczytane",
+  };
+  if (!source) return null;
+  return (
+    <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-muted text-muted-foreground border border-border whitespace-nowrap">
+      {labels[source] ?? source}
+    </span>
+  );
+}
 
 function ProjectMatchBadge({ row, projects }) {
   const project = projects.find((p) => p.id === row.project_id);
@@ -58,6 +75,7 @@ export default function UploadWZ() {
   const [processing, setProcessing] = useState(false);
   const [rows, setRows] = useState([]);
   const [dragOver, setDragOver] = useState(false);
+  const [reAiLoading, setReAiLoading] = useState(null);
 
   const { data: projects = [] } = useQuery({
     queryKey: ["construction-sites"],
@@ -69,6 +87,18 @@ export default function UploadWZ() {
   });
   const matchOpts = { contractors };
 
+  const enrichSupplierFromContractors = (wz) => {
+    if (String(wz.supplier_name ?? "").trim() || !String(wz.supplier_nip ?? "").trim()) {
+      return wz;
+    }
+    const nip = normalizeTaxId(wz.supplier_nip);
+    const supplier = contractors.find(
+      (c) => c.type === "supplier" && normalizeTaxId(c.nip) === nip
+    );
+    if (!supplier?.name) return wz;
+    return { ...wz, supplier_name: supplier.name };
+  };
+
   const withMatch = (wz) =>
     attachProjectMatch(
       {
@@ -78,6 +108,20 @@ export default function UploadWZ() {
       },
       projects,
       matchOpts
+    );
+
+  const buildReviewRow = (mapped, file, extra = {}) =>
+    withMatch(
+      enrichSupplierFromContractors({
+        ...emptyMaterialDelivery(mapped),
+        lines: normalizeLines(mapped?.lines).length
+          ? normalizeLines(mapped.lines)
+          : [{ name: "Piasek", unit: "t", quantity: 0 }],
+        fileName: mapped?.fileName || file?.name || "",
+        _pdfFileRef: file,
+        _extractionSource: mapped?._extractionSource || extra._extractionSource || "heuristic",
+        ...extra,
+      })
     );
 
   const onFilesAdded = useCallback((list) => {
@@ -98,31 +142,25 @@ export default function UploadWZ() {
         try {
           const { mapped } = await extractWzFromPdf(file);
           if (mapped) {
-            results.push(
-              withMatch({
-                ...emptyMaterialDelivery(mapped),
-                lines: normalizeLines(mapped.lines).length
-                  ? normalizeLines(mapped.lines)
-                  : [{ name: "Piasek", unit: "t", quantity: 0 }],
-              })
-            );
+            results.push(buildReviewRow(mapped, file));
           } else {
             results.push(
-              withMatch({
+              buildReviewRow(null, file, {
                 ...emptyMaterialDelivery({ fileName: file.name }),
                 _manualStub: true,
                 _extractionSource: "manual",
               })
             );
-            toast.warning(`„${file.name}”: nie rozpoznano — uzupełnij ręcznie.`);
+            toast.warning(`„${file.name}”: nie rozpoznano — uzupełnij ręcznie lub użyj „Popraw z AI”.`);
           }
         } catch (e) {
           console.warn("WZ extract:", e);
           toast.error(`${file.name}: ${e?.message || "błąd odczytu"}`);
           results.push(
-            withMatch({
+            buildReviewRow(null, file, {
               ...emptyMaterialDelivery({ fileName: file.name }),
               _manualStub: true,
+              _extractionSource: "manual",
             })
           );
         }
@@ -175,6 +213,63 @@ export default function UploadWZ() {
     }
     next[index] = row;
     setRows(next);
+  };
+
+  const reextractWithAi = async (idx) => {
+    const row = rows[idx];
+    const pdfFile = row._pdfFileRef;
+    if (!pdfFile) {
+      toast.error("Brak pliku w pamięci — dodaj plik ponownie i przetwórz.");
+      return;
+    }
+    setReAiLoading(idx);
+    try {
+      let mapped = null;
+      let extractionSource = null;
+
+      if (isClaudeConfigured()) {
+        try {
+          const { parsed } = await extractWzFromPdfClaude(pdfFile);
+          mapped = mapWzJsonToInternal(parsed, { fileName: row.fileName });
+          if (wzMappedHasUsableData(mapped)) {
+            extractionSource = "claude";
+          }
+        } catch (openErr) {
+          console.warn("Claude WZ re-extract:", openErr);
+          toast.message(
+            openErr?.message
+              ? `Claude: ${openErr.message.slice(0, 120)} — próbuję Base44…`
+              : "Próbuję Base44 OCR…"
+          );
+        }
+      }
+
+      if (!extractionSource) {
+        const { parsed } = await extractWzFromPdfBase44(pdfFile);
+        mapped = mapWzJsonToInternal(parsed, { fileName: row.fileName });
+        if (wzMappedHasUsableData(mapped)) {
+          extractionSource = "base44";
+        }
+      }
+
+      if (!wzMappedHasUsableData(mapped)) {
+        throw new Error("AI nie zwróciło numeru WZ ani dostawcy — sprawdź plik lub uzupełnij ręcznie.");
+      }
+
+      const next = [...rows];
+      next[idx] = buildReviewRow(mapped, pdfFile, {
+        _projectMatchManual: row._projectMatchManual,
+        project_id: row._projectMatchManual ? row.project_id : undefined,
+        _rejected: false,
+        _extractionSource: extractionSource,
+      });
+      setRows(next);
+      toast.success("Formularz WZ uzupełniony ponownie przez AI");
+    } catch (e) {
+      toast.error(e?.message || "Błąd AI (Claude / Base44)");
+    } finally {
+      setReAiLoading(null);
+    }
   };
 
   const saveAll = async () => {
@@ -239,7 +334,7 @@ export default function UploadWZ() {
         <p className="text-muted-foreground text-sm mt-1">
           Wgraj PDF wydania zewnętrznego od dostawcy (np. piasek). System odczyta heurystyką
           {isClaudeConfigured() ? " i przez Claude" : " (włącz Claude w Ustawieniach AI dla skanów)"}, przypisze projekt i zapisze
-          rejestr dostaw.
+          rejestr dostaw. Na etapie weryfikacji użyj „Popraw z AI” (Claude lub Base44 OCR).
         </p>
       </div>
 
@@ -316,15 +411,35 @@ export default function UploadWZ() {
                 className={`border rounded-lg p-4 space-y-3 ${row._rejected ? "opacity-50 bg-muted" : ""}`}
               >
                 <div className="flex flex-wrap gap-2 items-center justify-between">
-                  <span className="font-medium text-sm">
+                  <span className="font-medium text-sm flex flex-wrap items-center gap-2">
                     {row.fileName || `Dokument ${idx + 1}`}
                     {row._rejected ? (
-                      <span className="text-destructive ml-2">
+                      <span className="text-destructive">
                         (odrzucony{row._systemDuplicate ? " — duplikat w bazie" : ""})
                       </span>
                     ) : null}
+                    {!row._rejected ? <ExtractionSourceBadge source={row._extractionSource} /> : null}
                   </span>
-                  {!row._rejected ? <ProjectMatchBadge row={row} projects={projects} /> : null}
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {!row._rejected ? <ProjectMatchBadge row={row} projects={projects} /> : null}
+                    {!row._rejected && row._pdfFileRef ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={reAiLoading === idx}
+                        onClick={() => reextractWithAi(idx)}
+                        className="border-amber-500/30"
+                      >
+                        {reAiLoading === idx ? (
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4 mr-1 text-amber-600" />
+                        )}
+                        Popraw z AI
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
                 {row._duplicateReason ? (
                   <p className="text-sm text-destructive">{row._duplicateReason}</p>

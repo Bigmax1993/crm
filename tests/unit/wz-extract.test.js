@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { heuristicWzFromText, mapWzJsonToInternal } from "@/lib/wz-extract";
+import {
+  documentNumberFromFileName,
+  heuristicWzFromText,
+  heuristicWzIsComplete,
+  mapWzJsonToInternal,
+} from "@/lib/wz-extract";
 import { normalizeLines, projectMatchPayloadFromWz } from "@/lib/material-delivery-schema";
 
 describe("wz-extract", () => {
@@ -35,5 +40,33 @@ describe("wz-extract", () => {
     });
     expect(p.position).toMatch(/Piasek/);
     expect(p.order_number).toBe("PO-1");
+  });
+
+  it("numer SP z nazwy pliku gdy brak w tekście", () => {
+    const h = heuristicWzFromText("Piasek płukany 26,25 t", "SP 006546 26.pdf");
+    expect(h.document_number).toBe("SP 006546 26");
+    expect(heuristicWzIsComplete(h)).toBe(false);
+  });
+
+  it("heuristicWzIsComplete wymaga numeru i dostawcy", () => {
+    expect(
+      heuristicWzIsComplete({
+        document_number: "WZ-1",
+        supplier_name: "Kopalnia",
+        lines: [{ name: "Piasek", unit: "t", quantity: 1 }],
+      })
+    ).toBe(true);
+    expect(
+      heuristicWzIsComplete({
+        document_number: "",
+        supplier_name: "",
+        lines: [{ name: "Piasek", unit: "t", quantity: 1 }],
+      })
+    ).toBe(false);
+  });
+
+  it("documentNumberFromFileName rozpoznaje SP i WZ", () => {
+    expect(documentNumberFromFileName("SP 006546 26.pdf")).toBe("SP 006546 26");
+    expect(documentNumberFromFileName("WZ-12-2025.pdf")).toBe("WZ-12-2025");
   });
 });
