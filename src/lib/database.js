@@ -1,10 +1,23 @@
 import initSqlJs from "sql.js";
+import { join } from "node:path";
 import crmFixtureData from "@/fixtures/crm_fixture_data.json";
 
 const SQLJS_STORAGE_KEY = "fakturowo_sqljs_v1";
 
 /** URL WASM z `public/` — musi uwzględniać Vite `base` (np. GitHub Pages /crm/). */
 const SQL_WASM_URL = `${import.meta.env.BASE_URL}sql-wasm.wasm`;
+
+/** Vitest/jsdom: WASM z node_modules (brak hosta HTTP). */
+const TEST_SQL_WASM_DIST =
+  import.meta.env.MODE === "test"
+    ? join(process.cwd(), "node_modules", "sql.js", "dist")
+    : null;
+
+function sqlWasmLocateFile(file) {
+  if (!file.endsWith(".wasm")) return file;
+  if (TEST_SQL_WASM_DIST) return join(TEST_SQL_WASM_DIST, file);
+  return SQL_WASM_URL;
+}
 
 let db = null;
 let initPromise = null;
@@ -28,7 +41,7 @@ export const initDB = async () => {
   if (!initPromise) {
     initPromise = (async () => {
       const SQL = await initSqlJs({
-        locateFile: (file) => (file.endsWith(".wasm") ? SQL_WASM_URL : file),
+        locateFile: sqlWasmLocateFile,
       });
 
       const saved = localStorage.getItem(SQLJS_STORAGE_KEY);
