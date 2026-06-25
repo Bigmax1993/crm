@@ -30,6 +30,7 @@ import {
   ListChecks,
   ClipboardList,
   Calculator,
+  RotateCcw,
 } from "lucide-react";
 import { AppLogo } from "@/components/brand/AppLogo";
 import { EXPORT_ADDRESS, EXPORT_WEB } from "@/lib/brand-brief";
@@ -67,6 +68,7 @@ const PAGE_ICONS = {
   ProjectBoQ: Calculator,
   Invoices: FileText,
   Transfers: CreditCard,
+  ExpectedRefunds: RotateCcw,
   Transport: Truck,
   Hotels: Hotel,
   ProjectsMap: MapPinned,

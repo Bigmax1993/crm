@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { financeMetricSummary } from "@/lib/finance-metric-definitions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -45,7 +47,16 @@ import { getProjectDisplayName } from "@/lib/match-project";
 import { useClientEnrichedInvoices } from "@/hooks/useClientEnrichedInvoices";
 import { useCurrencyDisplay } from "@/contexts/CurrencyDisplayContext";
 import { format } from "date-fns";
-import { AlertTriangle, TrendingUp, Wallet, Building2 } from "lucide-react";
+import { AlertTriangle, TrendingUp, Wallet, Building2, RotateCcw } from "lucide-react";
+import { getRefundClaims } from "@/lib/crm-local-store";
+import {
+  isRefundFollowUpOverdue,
+  openRefundClaims,
+  refundClaimOutstanding,
+  refundClaimStatusLabel,
+  sumOpenRefundClaimsPln,
+} from "@/lib/refund-claims";
+import { createPageUrl } from "@/utils";
 
 const PIE_COLORS = ["#1F4E79", "#2E75B6", "#5B9BD5", "#9DC3E6", "#ED7D31", "#FFC000", "#70AD47"];
 
@@ -71,11 +82,19 @@ function invoicePayStatusClass(status) {
   return "bg-amber-100 text-amber-900 border-amber-200";
 }
 
+function refundStatusClass(status) {
+  if (status === "otrzymano") return "bg-green-100 text-green-800 border-green-200";
+  if (status === "odrzucono") return "bg-gray-100 text-gray-700 border-gray-200";
+  if (status === "czesciowy") return "bg-violet-100 text-violet-900 border-violet-200";
+  return "bg-amber-100 text-amber-900 border-amber-200";
+}
+
 const EXPENSE_PERIOD_LIMIT = { month: 18, quarter: 12, year: 8 };
 
 export default function CEODashboard() {
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [expensePeriod, setExpensePeriod] = useState("month");
+  const [refundClaims, setRefundClaims] = useState([]);
   const { data: invoices = [], isLoading: loadingInv } = useQuery({
     queryKey: ["invoices"],
     queryFn: () => base44.entities.Invoice.list(),
@@ -88,6 +107,20 @@ export default function CEODashboard() {
   const enriched = useClientEnrichedInvoices(invoices);
   const { formatDisplayAmount, convertPlnToDisplay, displayCurrency } = useCurrencyDisplay();
   const loading = loadingInv || loadingPr;
+
+  useEffect(() => {
+    const load = () => setRefundClaims(getRefundClaims());
+    load();
+    window.addEventListener("fakturowo-crm-local", load);
+    return () => window.removeEventListener("fakturowo-crm-local", load);
+  }, []);
+
+  const refundOpen = useMemo(() => openRefundClaims(refundClaims), [refundClaims]);
+  const refundOpenTotal = useMemo(() => sumOpenRefundClaimsPln(refundClaims), [refundClaims]);
+  const refundOverdue = useMemo(
+    () => refundOpen.filter((c) => isRefundFollowUpOverdue(c)),
+    [refundOpen]
+  );
 
   const kpis = useMemo(() => {
     const naleznosci = sumReceivablesPln(enriched);
@@ -225,7 +258,7 @@ export default function CEODashboard() {
           </p>
         </motion.div>
 
-        {(bAlerts.length > 0 || overdue.length > 0) && (
+        {(bAlerts.length > 0 || overdue.length > 0 || refundOverdue.length > 0) && (
           <div className="grid gap-3 md:grid-cols-2">
             {bAlerts.length > 0 && (
               <Alert variant="destructive">
@@ -248,6 +281,16 @@ export default function CEODashboard() {
                 <AlertDescription>
                   {overdue.length} faktur po terminie płatności (łącznie ok.{" "}
                   {formatDisplayAmount(overduePlnSum)} w widoku {displayCurrency}, wartość PLN wg NBP).
+                </AlertDescription>
+              </Alert>
+            )}
+            {refundOverdue.length > 0 && (
+              <Alert>
+                <RotateCcw className="h-4 w-4" />
+                <AlertTitle>Zwroty po terminie follow-up</AlertTitle>
+                <AlertDescription>
+                  {refundOverdue.length} spraw wymaga kontaktu z dostawcą (łącznie do odzyskania ok.{" "}
+                  {refundOpenTotal.toLocaleString("pl-PL", { minimumFractionDigits: 2 })} PLN).
                 </AlertDescription>
               </Alert>
             )}
@@ -332,6 +375,85 @@ export default function CEODashboard() {
                           <TableCell>
                             <Badge variant="outline" className={invoicePayStatusClass(inv.status)}>
                               {invoicePayStatusLabel(inv.status)}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <RotateCcw className="h-5 w-5 text-primary" />
+                Zwroty do odzyskania
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Oczekiwane zwroty po rezygnacji z materiału lub usługi. Łącznie:{" "}
+                <span className="font-semibold text-foreground">
+                  {refundOpenTotal.toLocaleString("pl-PL", { minimumFractionDigits: 2 })} PLN
+                </span>
+                {refundOpen.length ? ` · ${refundOpen.length} otwartych` : ""}
+              </CardDescription>
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <Link to={createPageUrl("ExpectedRefunds")}>Zarządzaj</Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="p-0">
+            {refundOpen.length === 0 ? (
+              <p className="text-muted-foreground text-sm p-6">
+                Brak otwartych zwrotów.{" "}
+                <Link to={createPageUrl("ExpectedRefunds")} className="text-primary underline">
+                  Dodaj ręcznie
+                </Link>{" "}
+                lub wgraj potwierdzenie wpływu na stronie Oczekiwane zwroty.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Dostawca</TableHead>
+                      <TableHead>Projekt</TableHead>
+                      <TableHead>FV / materiał</TableHead>
+                      <TableHead>Follow-up</TableHead>
+                      <TableHead className="text-right">Pozostało</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {refundOpen.slice(0, 12).map((c) => {
+                      const project = c.project_id ? projectById.get(c.project_id) : null;
+                      const overdue = isRefundFollowUpOverdue(c);
+                      const left = refundClaimOutstanding(c);
+                      return (
+                        <TableRow key={c.id}>
+                          <TableCell className="font-medium whitespace-nowrap">{c.supplier_name}</TableCell>
+                          <TableCell className="text-sm whitespace-nowrap">
+                            {project ? getProjectDisplayName(project) : "—"}
+                          </TableCell>
+                          <TableCell className="text-sm max-w-[180px]">
+                            <div>{c.invoice_number || "—"}</div>
+                            {c.material_description && (
+                              <div className="text-xs text-muted-foreground truncate">{c.material_description}</div>
+                            )}
+                          </TableCell>
+                          <TableCell className={`text-sm whitespace-nowrap ${overdue ? "text-red-600 font-medium" : ""}`}>
+                            {c.follow_up_date ? String(c.follow_up_date).slice(0, 10) : "—"}
+                          </TableCell>
+                          <TableCell className="text-right font-medium tabular-nums whitespace-nowrap">
+                            {left.toLocaleString("pl-PL", { minimumFractionDigits: 2 })} {c.currency || "PLN"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={refundStatusClass(c.status)}>
+                              {refundClaimStatusLabel(c.status)}
                             </Badge>
                           </TableCell>
                         </TableRow>

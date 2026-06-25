@@ -59,6 +59,7 @@ import Hotels from './pages/Hotels';
 import IncomeStatement from './pages/IncomeStatement';
 import Invoices from './pages/Invoices';
 import Leads from './pages/Leads';
+import ExpectedRefunds from './pages/ExpectedRefunds';
 import ExportReports from './pages/ExportReports';
 import Portfolio from './pages/Portfolio';
 import MultiCurrencyDashboard from './pages/MultiCurrencyDashboard';
@@ -88,6 +89,7 @@ export const PAGES = {
     "Contractors": Contractors,
     "Dashboard": Dashboard,
     "Employees": Employees,
+    "ExpectedRefunds": ExpectedRefunds,
     "FinancialForecasts": FinancialForecasts,
     "Hotels": Hotels,
     "IncomeStatement": IncomeStatement,

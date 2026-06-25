@@ -11,6 +11,9 @@ import {
   setSuppliers,
   getPortfolio,
   setPortfolio,
+  getRefundClaims,
+  setRefundClaims,
+  upsertRefundClaim,
   getExpiringCertifications,
 } from "@/lib/crm-local-store";
 
@@ -87,5 +90,14 @@ describe("crm-local-store", () => {
     const s = loadCrmLocalState();
     expect(s.leads).toEqual([]);
     expect(s.siteExtensions).toEqual({});
+    expect(s.refundClaims).toEqual([]);
+  });
+
+  it("upsertRefundClaim zapisuje i aktualizuje wpis", () => {
+    upsertRefundClaim({ id: "ref_1", supplier_name: "Test", status: "oczekuje", amount_expected: 100 });
+    expect(getRefundClaims()).toHaveLength(1);
+    upsertRefundClaim({ id: "ref_1", supplier_name: "Test", status: "otrzymano", amount_expected: 100, amount_received: 100 });
+    expect(getRefundClaims()[0].status).toBe("otrzymano");
+    setRefundClaims([]);
   });
 });

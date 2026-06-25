@@ -12,6 +12,7 @@ function defaultState() {
     leads: [],
     suppliers: [],
     portfolio: [],
+    refundClaims: [],
   };
 }
 
@@ -20,7 +21,7 @@ export function loadCrmLocalState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultState();
     const p = JSON.parse(raw);
-    return { ...defaultState(), ...p, siteExtensions: p.siteExtensions || {} };
+    return { ...defaultState(), ...p, siteExtensions: p.siteExtensions || {}, refundClaims: p.refundClaims || [] };
   } catch {
     return defaultState();
   }
@@ -109,6 +110,27 @@ export function getPortfolio() {
 export function setPortfolio(portfolio) {
   const st = loadCrmLocalState();
   st.portfolio = portfolio;
+  saveCrmLocalState(st);
+}
+
+export function getRefundClaims() {
+  return loadCrmLocalState().refundClaims || [];
+}
+
+export function setRefundClaims(refundClaims) {
+  const st = loadCrmLocalState();
+  st.refundClaims = refundClaims;
+  saveCrmLocalState(st);
+}
+
+export function upsertRefundClaim(claim) {
+  if (!claim?.id) return;
+  const st = loadCrmLocalState();
+  const list = st.refundClaims || [];
+  const idx = list.findIndex((c) => c.id === claim.id);
+  if (idx >= 0) list[idx] = claim;
+  else list.unshift(claim);
+  st.refundClaims = list;
   saveCrmLocalState(st);
 }
 

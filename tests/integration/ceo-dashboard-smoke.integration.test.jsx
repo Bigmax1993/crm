@@ -2,6 +2,7 @@ import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 
 const dashMocks = vi.hoisted(() => ({
   listInvoices: vi.fn(),
@@ -23,7 +24,9 @@ function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <CEODashboard />
+      <MemoryRouter>
+        <CEODashboard />
+      </MemoryRouter>
     </QueryClientProvider>
   );
 }

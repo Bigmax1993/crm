@@ -13,6 +13,14 @@ import { transferFingerprint } from '@/lib/duplicate-detection';
 import { getUploadFilePublicUrl } from '@/lib/upload-file-url';
 import { parseCSV } from '@/lib/transfers-parse';
 import { DEFAULT_INVOICE_PAYER } from '@/lib/invoice-schema';
+import {
+  buildRefundReceiptExtractPrompt,
+  normalizeRefundReceiptLlmResult,
+  REFUND_RECEIPT_JSON_SCHEMA,
+} from '@/lib/refund-receipt-extract';
+import { getRefundClaims, upsertRefundClaim } from '@/lib/crm-local-store';
+import { applyRefundReceiptToClaim, refundClaimStatusLabel } from '@/lib/refund-claims';
+import { matchIncomingTransferToRefundClaim, normalizeIncomingRefundTransfer } from '@/lib/refund-transfer-match';
 
 export default function Transfers() {
   const [files, setFiles] = useState([]);
@@ -111,6 +119,7 @@ Zwróć wyłącznie poprawny JSON ze schematem.`;
     const allTransfers = [];
     const matched = [];
     const unmatched = [];
+    const matchedRefunds = [];
 
     try {
       for (const file of files) {
@@ -127,6 +136,28 @@ Zwróć wyłącznie poprawny JSON ze schematem.`;
               uploadRes?.message ||
                 "Upload PDF nie zwrócił adresu pliku — sprawdź integrację Base44 (tak samo jak przy uploadzie faktur)."
             );
+          }
+
+          const refundResult = await base44.integrations.Core.InvokeLLM({
+            prompt: buildRefundReceiptExtractPrompt(),
+            file_urls: [fileUrl],
+            response_json_schema: REFUND_RECEIPT_JSON_SCHEMA,
+          });
+          const refundNormalized = normalizeRefundReceiptLlmResult(refundResult);
+          if (refundNormalized) {
+            refundNormalized.file_url = fileUrl;
+            const transfer = normalizeIncomingRefundTransfer(refundNormalized);
+            const claims = getRefundClaims();
+            const refundMatch = matchIncomingTransferToRefundClaim(transfer, claims);
+            if (refundMatch) {
+              const updated = applyRefundReceiptToClaim(refundMatch.claim, transfer);
+              upsertRefundClaim(updated);
+              matchedRefunds.push({ claim: updated, transfer });
+              toast.success(
+                `Dopasowano zwrot: ${refundClaimStatusLabel(updated.status)} (${updated.amount_received} ${updated.currency})`
+              );
+              continue;
+            }
           }
 
           const prompt = `Przeanalizuj dokument (potwierdzenie przelewu, wycinek z bankowości) i wyekstrahuj JEDEN zestaw pól — zwróć wyłącznie JSON zgodny ze schemą (bez markdown).
@@ -188,7 +219,7 @@ Nie uzupełniaj pól domyślnymi wartościami z pamięci — tylko treść dokum
         toCreate.push(t);
       }
 
-      if (toCreate.length === 0) {
+      if (toCreate.length === 0 && matchedRefunds.length === 0) {
         toast.warning(
           skippedDuplicates.length
             ? `Wszystkie ${skippedDuplicates.length} przelewów to duplikaty — nic nie zapisano.`
@@ -197,11 +228,24 @@ Nie uzupełniaj pól domyślnymi wartościami z pamięci — tylko treść dokum
         setResults({
           matched: [],
           unmatched: [],
+          matchedRefunds,
           total: 0,
           skippedDuplicates: skippedDuplicates.length,
           totalParsed: allTransfers.length,
         });
         queryClient.invalidateQueries(['transfers']);
+        return;
+      }
+
+      if (toCreate.length === 0 && matchedRefunds.length > 0) {
+        setResults({
+          matched: [],
+          unmatched: [],
+          matchedRefunds,
+          total: 0,
+          skippedDuplicates: skippedDuplicates.length,
+          totalParsed: allTransfers.length,
+        });
         return;
       }
 
@@ -257,6 +301,7 @@ Nie uzupełniaj pól domyślnymi wartościami z pamięci — tylko treść dokum
       setResults({
         matched,
         unmatched,
+        matchedRefunds,
         total: toCreate.length,
         skippedDuplicates: skippedDuplicates.length,
         totalParsed: allTransfers.length,
@@ -369,6 +414,13 @@ Nie uzupełniaj pól domyślnymi wartościami z pamięci — tylko treść dokum
                         Dopasowano do faktur:{' '}
                         <span className="tabular-nums">{results.matched.length}</span> | Niedopasowane:{' '}
                         <span className="tabular-nums">{results.unmatched.length}</span>
+                        {results.matchedRefunds?.length > 0 && (
+                          <span className="text-green-700 dark:text-green-400">
+                            {' '}
+                            | Zwroty zaktualizowane:{' '}
+                            <span className="tabular-nums">{results.matchedRefunds.length}</span>
+                          </span>
+                        )}
                         {results.skippedDuplicates > 0 && (
                           <span className="text-amber-700 dark:text-amber-500">
                             {' '}
@@ -379,6 +431,32 @@ Nie uzupełniaj pól domyślnymi wartościami z pamięci — tylko treść dokum
                       </p>
                     </div>
                   </div>
+
+                  {results.matchedRefunds?.length > 0 && (
+                    <div className="border-t border-border pt-4">
+                      <h4 className="font-semibold mb-3 text-green-700 dark:text-green-400">
+                        ✓ Zaktualizowane oczekiwane zwroty:
+                      </h4>
+                      <div className="space-y-2">
+                        {results.matchedRefunds.map((m, idx) => (
+                          <div
+                            key={idx}
+                            className="rounded-lg border border-green-500/20 bg-green-500/10 p-3 text-sm dark:bg-green-500/15"
+                          >
+                            <p>
+                              <strong>Dostawca:</strong> {m.claim.supplier_name}
+                            </p>
+                            <p className="tabular-nums">
+                              <strong>Wpływ:</strong> {m.transfer.amount} {m.transfer.currency}
+                            </p>
+                            <p>
+                              <strong>Status:</strong> {refundClaimStatusLabel(m.claim.status)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {results.matched.length > 0 && (
                     <div className="border-t border-border pt-4">
