@@ -17,6 +17,7 @@ import {
   openPayableInvoices,
   formatInvoiceSourceAmount,
   formatPayablesTotalsByCurrency,
+  payablesKpiDisplayLines,
   getInvoiceSourceAmount,
   currenciesInProjectMetrics,
   costByProjectInCurrency,
@@ -165,6 +166,32 @@ describe("finance-pln (jednostkowe)", () => {
       { amount: 1074.5, currency: "EUR", invoice_type: "cost", status: "unpaid" },
       { amount: 100, currency: "PLN", invoice_type: "cost", status: "unpaid" },
     ])).toBe("1074,50 EUR · 100,00 PLN");
+  });
+
+  it("payablesKpiDisplayLines — EUR i PLN na KPI zobowiązań", () => {
+    expect(payablesKpiDisplayLines([])).toEqual(["0,00 PLN"]);
+
+    const onlyEur = [
+      { amount: 1083.55, currency: "EUR", amount_pln: 4585.8, invoice_type: "cost", status: "unpaid" },
+    ];
+    expect(payablesKpiDisplayLines(onlyEur)).toEqual([
+      "1083,55 EUR",
+      "4585,80 PLN (szac. NBP)",
+    ]);
+
+    const onlyPln = [
+      { amount: 500, currency: "PLN", amount_pln: 500, invoice_type: "cost", status: "unpaid" },
+    ];
+    expect(payablesKpiDisplayLines(onlyPln)).toEqual(["500,00 PLN"]);
+
+    const mixed = [
+      { amount: 1083.55, currency: "EUR", amount_pln: 4585.8, invoice_type: "cost", status: "unpaid" },
+      { amount: 200, currency: "PLN", amount_pln: 200, invoice_type: "cost", status: "unpaid" },
+    ];
+    expect(payablesKpiDisplayLines(mixed)).toEqual([
+      "1083,55 EUR · 200,00 PLN",
+      "łącznie szac. 4785,80 PLN (NBP)",
+    ]);
   });
 
   it("monthlyCashFlowPaidPln grupuje wpływy i wydatki po miesiącu płatności", () => {

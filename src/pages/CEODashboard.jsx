@@ -45,6 +45,7 @@ import {
   openPayableInvoices,
   formatInvoiceSourceAmount,
   formatPayablesTotalsByCurrency,
+  payablesKpiDisplayLines,
   getInvoiceSourceAmount,
 } from "@/lib/finance-pln";
 import { displayInvoiceSeller } from "@/lib/invoice-schema";
@@ -196,6 +197,7 @@ export default function CEODashboard() {
     () => formatPayablesTotalsByCurrency(payablesOpen),
     [payablesOpen]
   );
+  const payablesKpiLines = useMemo(() => payablesKpiDisplayLines(payablesOpen), [payablesOpen]);
   const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
 
   const projectsSorted = useMemo(
@@ -301,7 +303,7 @@ export default function CEODashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           {[
             { title: "Suma należności", value: kpis.naleznosci, icon: Wallet },
-            { title: "Suma zobowiązań", value: kpis.zobowiazania, icon: TrendingUp },
+            { title: "Suma zobowiązań", lines: payablesKpiLines, icon: TrendingUp },
             { title: "Wynik netto (FV zapłacone)", value: kpis.wynikNetto, icon: TrendingUp },
             { title: "Aktywne projekty", value: kpis.active, icon: Building2, format: "int" },
           ].map((k, i) => (
@@ -312,9 +314,22 @@ export default function CEODashboard() {
                   <k.icon className="h-5 w-5 text-primary" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
-                    {k.format === "int" ? k.value : formatDisplayAmount(k.value)}
-                  </div>
+                  {k.lines ? (
+                    <div className="space-y-1">
+                      {k.lines.map((line, idx) => (
+                        <div
+                          key={idx}
+                          className={idx === 0 ? "text-2xl font-bold leading-tight" : "text-sm font-medium text-muted-foreground"}
+                        >
+                          {line}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-2xl font-bold">
+                      {k.format === "int" ? k.value : formatDisplayAmount(k.value)}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>

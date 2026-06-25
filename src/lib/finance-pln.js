@@ -67,6 +67,29 @@ export function formatPayablesTotalsByCurrency(invoices, locale = "pl-PL") {
     .join(" · ");
 }
 
+/** Linie KPI „Suma zobowiązań” — kwoty w walucie FV oraz PLN (szac. NBP) gdy są FV w obcej walucie. */
+export function payablesKpiDisplayLines(invoices, locale = "pl-PL") {
+  const parts = sumOpenPayablesByCurrency(invoices);
+  if (!parts.length) return ["0,00 PLN"];
+
+  const sourceLine = formatPayablesTotalsByCurrency(invoices, locale);
+  const hasForeign = parts.some((p) => p.currency !== "PLN" && p.amount > 0);
+  const hasPlnSource = parts.some((p) => p.currency === "PLN" && p.amount > 0);
+  const plnEstimate = invoices.reduce((s, i) => s + (getInvoicePlnAtIssue(i) ?? 0), 0);
+
+  const lines = [sourceLine];
+
+  if (hasForeign && plnEstimate > 0) {
+    const plnStr = `${plnEstimate.toLocaleString(locale, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} PLN`;
+    lines.push(hasPlnSource ? `łącznie szac. ${plnStr} (NBP)` : `${plnStr} (szac. NBP)`);
+  }
+
+  return lines;
+}
+
 export function normalizeInvoiceCurrency(inv) {
   return String(inv?.currency || "PLN").toUpperCase();
 }
