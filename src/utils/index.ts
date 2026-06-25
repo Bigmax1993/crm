@@ -13,3 +13,8 @@ export function createAbsolutePageHref(pageName: string) {
   const rest = path.replace(/^\/+/, "");
   return `/${base}/${rest}`.replace(/\/+/g, "/");
 }
+
+/** Link do edycji obiektu budowlanego (moduł Budowa). */
+export function constructionSitePageUrl(siteId: string) {
+  return `${createPageUrl("Construction")}?site=${encodeURIComponent(siteId)}`;
+}

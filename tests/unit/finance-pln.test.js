@@ -14,6 +14,7 @@ import {
   isUnpaidStatus,
   projectExpensesByPeriodPln,
   formatProjectExpensePeriodLabel,
+  openPayableInvoices,
 } from "@/lib/finance-pln";
 
 describe("finance-pln (jednostkowe)", () => {
@@ -114,6 +115,34 @@ describe("finance-pln (jednostkowe)", () => {
       },
     ];
     expect(sumPayablesPln(invoices)).toBe(200);
+  });
+
+  it("openPayableInvoices zwraca tylko zakup niezapłacony, przeterminowane pierwsze", () => {
+    const rows = openPayableInvoices([
+      {
+        invoice_type: "cost",
+        status: "unpaid",
+        payment_deadline: "2026-12-01",
+        invoice_number: "A",
+      },
+      {
+        invoice_type: "cost",
+        status: "overdue",
+        payment_deadline: "2026-01-01",
+        invoice_number: "B",
+      },
+      {
+        invoice_type: "sales",
+        status: "unpaid",
+        invoice_number: "C",
+      },
+      {
+        invoice_type: "cost",
+        status: "paid",
+        invoice_number: "D",
+      },
+    ]);
+    expect(rows.map((r) => r.invoice_number)).toEqual(["B", "A"]);
   });
 
   it("monthlyCashFlowPaidPln grupuje wpływy i wydatki po miesiącu płatności", () => {

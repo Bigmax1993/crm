@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { financeMetricSummary } from "@/lib/finance-metric-definitions";
@@ -36,7 +38,9 @@ import {
   getInvoicePlnAtIssue,
   projectExpensesByPeriodPln,
   formatProjectExpensePeriodLabel,
+  openPayableInvoices,
 } from "@/lib/finance-pln";
+import { displayInvoiceSeller } from "@/lib/invoice-schema";
 import { getProjectDisplayName } from "@/lib/match-project";
 import { useClientEnrichedInvoices } from "@/hooks/useClientEnrichedInvoices";
 import { useCurrencyDisplay } from "@/contexts/CurrencyDisplayContext";
@@ -55,6 +59,16 @@ function roundChartAmount(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 0;
   return Math.round(n * 100) / 100;
+}
+
+function invoicePayStatusLabel(status) {
+  if (status === "overdue") return "Przeterminowano";
+  return "Nieopłacono";
+}
+
+function invoicePayStatusClass(status) {
+  if (status === "overdue") return "bg-red-100 text-red-800 border-red-200";
+  return "bg-amber-100 text-amber-900 border-amber-200";
 }
 
 const EXPENSE_PERIOD_LIMIT = { month: 18, quarter: 12, year: 8 };
@@ -142,6 +156,13 @@ export default function CEODashboard() {
     () => overdue.reduce((s, i) => s + (getInvoicePlnAtIssue(i) ?? 0), 0),
     [overdue]
   );
+
+  const payablesOpen = useMemo(() => openPayableInvoices(enriched), [enriched]);
+  const payablesOpenTotal = useMemo(
+    () => payablesOpen.reduce((s, i) => s + (getInvoicePlnAtIssue(i) ?? 0), 0),
+    [payablesOpen]
+  );
+  const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
 
   const projectsSorted = useMemo(
     () =>
@@ -255,6 +276,73 @@ export default function CEODashboard() {
             </motion.div>
           ))}
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Faktury do zapłaty</CardTitle>
+            <CardDescription className="text-xs">
+              {financeMetricSummary("payablesOpenPln")} Łącznie:{" "}
+              <span className="font-semibold text-foreground">
+                {formatDisplayAmount(payablesOpenTotal)} {displayCurrency}
+              </span>
+              {payablesOpen.length ? ` · ${payablesOpen.length} poz.` : ""}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            {payablesOpen.length === 0 ? (
+              <p className="text-muted-foreground text-sm p-6">Brak nieopłaconych faktur zakupowych.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Numer FV</TableHead>
+                      <TableHead>Dostawca</TableHead>
+                      <TableHead>Projekt</TableHead>
+                      <TableHead>Wystawienie</TableHead>
+                      <TableHead>Termin płatności</TableHead>
+                      <TableHead className="text-right">Kwota</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {payablesOpen.map((inv) => {
+                      const pln = getInvoicePlnAtIssue(inv);
+                      const project = inv.project_id ? projectById.get(inv.project_id) : null;
+                      return (
+                        <TableRow key={inv.id || `${inv.invoice_number}-${inv.issue_date}`}>
+                          <TableCell className="font-medium whitespace-nowrap">
+                            {inv.invoice_number || "—"}
+                          </TableCell>
+                          <TableCell className="max-w-[200px] truncate">
+                            {displayInvoiceSeller(inv) || inv.contractor_name || "—"}
+                          </TableCell>
+                          <TableCell className="text-sm whitespace-nowrap">
+                            {project ? getProjectDisplayName(project) : "—"}
+                          </TableCell>
+                          <TableCell className="text-sm whitespace-nowrap">
+                            {inv.issue_date ? String(inv.issue_date).slice(0, 10) : "—"}
+                          </TableCell>
+                          <TableCell className="text-sm whitespace-nowrap">
+                            {inv.payment_deadline ? String(inv.payment_deadline).slice(0, 10) : "—"}
+                          </TableCell>
+                          <TableCell className="text-right font-medium whitespace-nowrap">
+                            {pln != null ? formatDisplayAmount(convertPlnToDisplay(pln)) : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={invoicePayStatusClass(inv.status)}>
+                              {invoicePayStatusLabel(inv.status)}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>

@@ -26,3 +26,21 @@ export const CONSTRUCTION_WORKFLOW_MAP_COLORS = {
 export function constructionWorkflowLabel(status) {
   return CONSTRUCTION_WORKFLOW_LABELS[status] || status || "—";
 }
+
+/** Etapy zakończone lub jeszcze nieuruchomione — nie wliczamy do „aktywnych projektów”. */
+export const CONSTRUCTION_INACTIVE_WORKFLOW_STATUSES = ["zaplanowany", "zaplacono"];
+
+const INACTIVE_SITE_STATUSES = new Set(["zakończony", "zawieszony"]);
+
+/** Czy obiekt budowlany jest aktywny (Pulpit CEO, statystyki). */
+export function isActiveConstructionProject(project) {
+  if (!project) return false;
+  const siteStatus = project.status;
+  if (INACTIVE_SITE_STATUSES.has(siteStatus)) return false;
+
+  const workflow = project.workflow_status;
+  if (workflow && CONSTRUCTION_INACTIVE_WORKFLOW_STATUSES.includes(workflow)) return false;
+
+  if (workflow) return true;
+  return siteStatus === "aktywny";
+}

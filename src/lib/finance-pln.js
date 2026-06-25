@@ -252,3 +252,16 @@ export function projectExpensesByPeriodPln(invoices, projectId, period = "month"
   }
   return Object.values(map).sort((a, b) => a.period.localeCompare(b.period));
 }
+
+/** Nieopłacone FV zakupowe — jak sumPayablesPln, posortowane: przeterminowane, potem termin. */
+export function openPayableInvoices(invoices) {
+  return invoices
+    .filter((i) => i.invoice_type !== "sales" && isUnpaidStatus(i.status))
+    .sort((a, b) => {
+      if (a.status === "overdue" && b.status !== "overdue") return -1;
+      if (b.status === "overdue" && a.status !== "overdue") return 1;
+      const da = a.payment_deadline || "9999-99-99";
+      const db = b.payment_deadline || "9999-99-99";
+      return String(da).localeCompare(String(db));
+    });
+}

@@ -11,7 +11,7 @@ test("strona główna — React montuje UI (bez mocków)", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle", timeout: 60_000 });
   await page.waitForTimeout(1500);
 
-  await expect(page.getByText(/Fakturowo · workspace/i)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText(/Fakturowo · przestrzeń robocza/i)).toBeVisible({ timeout: 10_000 });
 
   const text = (await page.locator("body").innerText()).replace(/\s+/g, " ").trim();
   const hasContent =

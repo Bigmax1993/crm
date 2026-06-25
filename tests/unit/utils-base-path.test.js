@@ -11,8 +11,9 @@ describe("utils — createAbsolutePageHref przy base jak na GitHub Pages", () =>
 
   it("prefixuje ścieżkę repozytorium (/crm/)", async () => {
     vi.stubEnv("BASE_URL", "/crm/");
-    const { createAbsolutePageHref } = await import("@/utils/index.ts");
+    const { createAbsolutePageHref, constructionSitePageUrl } = await import("@/utils/index.ts");
     expect(createAbsolutePageHref("Settings")).toBe("/crm/Settings");
     expect(createAbsolutePageHref("CEODashboard")).toBe("/crm/CEODashboard");
+    expect(constructionSitePageUrl("abc-123")).toBe("/Construction?site=abc-123");
   });
 });

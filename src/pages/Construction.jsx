@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,7 +17,7 @@ import { OFFER_SEGMENT_OPTIONS, offerSegmentLabel } from '@/lib/offer-segments';
 import { getSiteExtension, patchSiteExtension } from '@/lib/crm-local-store';
 import { getUploadFilePublicUrl } from '@/lib/upload-file-url';
 import { resolveSiteGeocode, siteHasCoords } from '@/lib/site-geocode';
-import { CONSTRUCTION_WORKFLOW_STATUSES, constructionWorkflowLabel } from '@/lib/construction-workflow';
+import { CONSTRUCTION_WORKFLOW_STATUSES, constructionWorkflowLabel, isActiveConstructionProject } from '@/lib/construction-workflow';
 import { toast } from 'sonner';
 
 function emptyLocalMeta() {
@@ -63,6 +64,8 @@ function siteRowToFormData(site) {
 }
 
 export default function Construction() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -94,37 +97,6 @@ export default function Construction() {
     queryFn: () => base44.entities.ConstructionSite.list('-created_date'),
   });
 
-  const createMutation = useMutation({
-    mutationFn: async ({ data, extension }) => {
-      const created = await base44.entities.ConstructionSite.create(data);
-      if (created?.id) patchSiteExtension(created.id, normalizeExtension(extension));
-      return created;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['construction-sites']);
-      setShowForm(false);
-      resetForm();
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data, extension }) => {
-      await base44.entities.ConstructionSite.update(id, data);
-      if (id) patchSiteExtension(id, normalizeExtension(extension));
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['construction-sites']);
-      setShowForm(false);
-      setEditingId(null);
-      resetForm();
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.ConstructionSite.delete(id),
-    onSuccess: () => queryClient.invalidateQueries(['construction-sites']),
-  });
-
   const resetForm = () => {
     setLocalMeta(emptyLocalMeta());
     setFormData({
@@ -147,6 +119,46 @@ export default function Construction() {
     project_match_keywords: '',
     });
   };
+
+  const dismissForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    resetForm();
+    const params = new URLSearchParams(location.search);
+    if (params.has('site')) {
+      params.delete('site');
+      const qs = params.toString();
+      navigate({ pathname: location.pathname, search: qs ? `?${qs}` : '' }, { replace: true });
+    }
+  };
+
+  const createMutation = useMutation({
+    mutationFn: async ({ data, extension }) => {
+      const created = await base44.entities.ConstructionSite.create(data);
+      if (created?.id) patchSiteExtension(created.id, normalizeExtension(extension));
+      return created;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['construction-sites']);
+      dismissForm();
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data, extension }) => {
+      await base44.entities.ConstructionSite.update(id, data);
+      if (id) patchSiteExtension(id, normalizeExtension(extension));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['construction-sites']);
+      dismissForm();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => base44.entities.ConstructionSite.delete(id),
+    onSuccess: () => queryClient.invalidateQueries(['construction-sites']),
+  });
 
   const filteredSites = sites.filter(site => {
     const searchLower = search.toLowerCase();
@@ -214,6 +226,14 @@ export default function Construction() {
     setShowForm(true);
   };
 
+  useEffect(() => {
+    const siteId = new URLSearchParams(location.search).get('site');
+    if (!siteId || isLoading || !sites.length) return;
+    if (editingId === siteId && showForm) return;
+    const site = sites.find((s) => s.id === siteId);
+    if (site) handleEdit(site);
+  }, [location.search, sites, isLoading, editingId, showForm]);
+
   const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -244,7 +264,7 @@ export default function Construction() {
           <Card className="bg-background shadow-lg mb-6">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>{editingId ? 'Edytuj obiekt budowlany' : 'Nowy obiekt budowlany'}</CardTitle>
-              <Button variant="ghost" size="icon" onClick={() => { setShowForm(false); setEditingId(null); resetForm(); }}>
+              <Button variant="ghost" size="icon" onClick={dismissForm}>
                 <X className="h-4 w-4" />
               </Button>
             </CardHeader>
@@ -614,7 +634,7 @@ export default function Construction() {
                    </div>
                 </div>
                 <div className="flex gap-3 justify-end">
-                   <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingId(null); resetForm(); }}>
+                   <Button type="button" variant="outline" onClick={dismissForm}>
                      Anuluj
                    </Button>
                    <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending || geoSaving} className="bg-blue-600 hover:bg-blue-700">
@@ -779,7 +799,7 @@ export default function Construction() {
               <CardContent className="pt-6">
                 <p className="text-sm text-green-600">Aktywne obiekty</p>
                 <p className="text-2xl font-bold text-green-900">
-                  {filteredSites.filter(s => s.status === 'aktywny').length}
+                  {filteredSites.filter(isActiveConstructionProject).length}
                 </p>
               </CardContent>
             </Card>

@@ -2,6 +2,7 @@ import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { patchSiteExtension } from "@/lib/crm-local-store";
 
 vi.mock("@/components/ai/ConstructionOffersAi", () => ({
@@ -32,11 +33,15 @@ vi.mock("@/api/base44Client", () => ({
 
 import Construction from "@/pages/Construction";
 
-function renderPage() {
+function renderPage(initialPath = "/Construction") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <Construction />
+      <MemoryRouter initialEntries={[initialPath]}>
+        <Routes>
+          <Route path="/Construction" element={<Construction />} />
+        </Routes>
+      </MemoryRouter>
     </QueryClientProvider>
   );
 }
@@ -87,5 +92,14 @@ describe("Construction — segment oferty (local store + edycja)", () => {
 
     expect(await screen.findByText("Edytuj obiekt budowlany")).toBeInTheDocument();
     expect(screen.getAllByText("Boiska piłkarskie").length).toBeGreaterThan(0);
+  });
+
+  it("parametr ?site= otwiera formularz edycji wskazanego obiektu", async () => {
+    patchSiteExtension("site_seg_1", { offer_segment: "hale_sportowe" });
+    renderPage("/Construction?site=site_seg_1");
+
+    await waitFor(() => expect(constructionMocks.listSites).toHaveBeenCalled());
+    expect(await screen.findByText("Edytuj obiekt budowlany")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Obiekt segmentu")).toBeInTheDocument();
   });
 });

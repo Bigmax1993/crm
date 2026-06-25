@@ -3,6 +3,7 @@
  * Dla PLN z NBP i wielu walut — `finance-pln.js` + `finance-metric-definitions.js`.
  */
 import { format, parseISO, startOfMonth, isValid } from "date-fns";
+import { isActiveConstructionProject } from "./construction-workflow";
 
 const PLN = (v) => (typeof v === "number" && !Number.isNaN(v) ? v : 0);
 
@@ -112,11 +113,7 @@ export function projectProfitability(invoices, projects, currency = "PLN") {
 }
 
 export function activeProjectsCount(projects) {
-  return projects.filter((p) => {
-    if (p.workflow_status === "zaplacono") return false;
-    if (p.workflow_status) return true;
-    return p.status === "aktywny";
-  }).length;
+  return projects.filter(isActiveConstructionProject).length;
 }
 
 /** @see FINANCE_METRICS.budgetUtilizationPln (tu: amount w walucie faktury, bez NBP) */

@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
 import { Loader2, MapPin } from "lucide-react";
 import { toast } from "sonner";
+import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,11 +12,14 @@ import { financeMetricSummary } from "@/lib/finance-metric-definitions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { projectProfitabilityPln } from "@/lib/finance-pln";
 import { useClientEnrichedInvoices } from "@/hooks/useClientEnrichedInvoices";
+import { getProjectDisplayName } from "@/lib/match-project";
 import { resolveSiteGeocode, siteHasCoords } from "@/lib/site-geocode";
 import {
   CONSTRUCTION_WORKFLOW_MAP_COLORS,
   CONSTRUCTION_WORKFLOW_STATUSES,
+  constructionWorkflowLabel,
 } from "@/lib/construction-workflow";
+import { constructionSitePageUrl } from "@/utils";
 
 const STATUS_COLOR = CONSTRUCTION_WORKFLOW_MAP_COLORS;
 
@@ -174,12 +178,19 @@ export default function ProjectsMap() {
                       radius={10}
                       pathOptions={{ color, fillColor: color, fillOpacity: 0.85 }}
                     >
-                      <Popup>
+                      <Popup closeOnClick={false}>
                         <div className="text-sm space-y-1 min-w-[200px]">
-                          <p className="font-semibold">{p.object_name}</p>
+                          <p className="font-semibold">
+                            <Link
+                              to={constructionSitePageUrl(p.id)}
+                              className="text-primary hover:underline"
+                            >
+                              {getProjectDisplayName(p)}
+                            </Link>
+                          </p>
                           <p>Klient: {p.client_name || "—"}</p>
                           <p>Budżet: {(Number(p.budget_planned) || 0).toLocaleString("pl-PL")} PLN</p>
-                          <p>Status: {st}</p>
+                          <p>Status: {constructionWorkflowLabel(st)}</p>
                           <p>Rentowność: {pr ? `${pr.wynik.toLocaleString("pl-PL")} PLN` : "—"}</p>
                         </div>
                       </Popup>
