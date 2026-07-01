@@ -39,7 +39,7 @@ describe("business-nav — NAV_GROUP_ORDER", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("grupa Dokumenty: faktury, WZ i LV", () => {
+  it("grupa Dokumenty: faktury, WZ, LV i plany budowy", () => {
     const dokumenty = NAV_GROUP_ORDER.find((g) => g.id === "dokumenty");
     expect(dokumenty?.pages).toEqual([
       "Upload",
@@ -47,9 +47,13 @@ describe("business-nav — NAV_GROUP_ORDER", () => {
       "MaterialDeliveries",
       "UploadLV",
       "ProjectBoQ",
+      "UploadPlan",
+      "ConstructionPlans",
     ]);
     expect(PAGE_TITLES.UploadLV).toBe("Import kosztorysu LV");
     expect(PAGE_TITLES.ProjectBoQ).toBe("Kosztorysy LV");
+    expect(PAGE_TITLES.UploadPlan).toBe("Import planów budowy");
+    expect(PAGE_TITLES.ConstructionPlans).toBe("Plany budowy");
   });
 
   it("grupa System: Roadmap, SettingsAI, Settings (bez Security — strona usunięta)", () => {
