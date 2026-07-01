@@ -77,7 +77,9 @@ import Upload from './pages/Upload';
 import UploadWZ from './pages/UploadWZ';
 import MaterialDeliveries from './pages/MaterialDeliveries';
 import UploadLV from './pages/UploadLV';
+import UploadPlan from './pages/UploadPlan';
 import ProjectBoQ from './pages/ProjectBoQ';
+import ConstructionPlans from './pages/ConstructionPlans';
 import __Layout from './Layout.jsx';
 
 
@@ -112,7 +114,9 @@ export const PAGES = {
     "UploadWZ": UploadWZ,
     "MaterialDeliveries": MaterialDeliveries,
     "UploadLV": UploadLV,
+    "UploadPlan": UploadPlan,
     "ProjectBoQ": ProjectBoQ,
+    "ConstructionPlans": ConstructionPlans,
 }
 
 export const pagesConfig = {

@@ -40,8 +40,9 @@ import {
   globalPLPln,
   budgetAlertsPln,
   getInvoicePlnAtIssue,
-  projectExpensesByPeriodPln,
+  projectExpensesByPeriod,
   formatProjectExpensePeriodLabel,
+  projectExpenseAmountForReporting,
   openPayableInvoices,
   formatInvoiceSourceAmount,
   formatPayablesTotalsByCurrency,
@@ -49,7 +50,7 @@ import {
   getInvoiceSourceAmount,
 } from "@/lib/finance-pln";
 import { displayInvoiceSeller } from "@/lib/invoice-schema";
-import { getProjectDisplayName } from "@/lib/match-project";
+import { getProjectDisplayName, projectReportingCurrency } from "@/lib/match-project";
 import { useClientEnrichedInvoices } from "@/hooks/useClientEnrichedInvoices";
 import { useCurrencyDisplay } from "@/contexts/CurrencyDisplayContext";
 import { format } from "date-fns";
@@ -222,30 +223,57 @@ export default function CEODashboard() {
       return;
     }
     if (selectedProjectId && projectsSorted.some((p) => p.id === selectedProjectId)) return;
-    const withCosts = projectsSorted.find((p) =>
-      enriched.some(
-        (inv) => inv.project_id === p.id && inv.invoice_type !== "sales" && getInvoicePlnAtIssue(inv) != null
-      )
-    );
+    const projectHasPurchaseInvoices = (p) =>
+      enriched.some((inv) => {
+        if (inv.project_id !== p.id || inv.invoice_type === "sales") return false;
+        const cur = projectReportingCurrency(p) || "PLN";
+        return projectExpenseAmountForReporting(inv, cur) != null;
+      });
+    const withCosts = projectsSorted.find(projectHasPurchaseInvoices);
     setSelectedProjectId((withCosts || projectsSorted[0]).id);
   }, [projectsSorted, enriched, selectedProjectId]);
 
+  const selectedProject = projectsSorted.find((p) => p.id === selectedProjectId);
+  const selectedProjectReportingCurrency = selectedProject
+    ? projectReportingCurrency(selectedProject) || "PLN"
+    : "PLN";
+
   const projectExpenseChart = useMemo(() => {
-    if (!selectedProjectId) return [];
+    if (!selectedProjectId || !selectedProject) return [];
     const limit = EXPENSE_PERIOD_LIMIT[expensePeriod] ?? 18;
-    return projectExpensesByPeriodPln(enriched, selectedProjectId, expensePeriod)
+    return projectExpensesByPeriod(enriched, selectedProjectId, expensePeriod, selectedProject)
       .slice(-limit)
       .map((r) => ({
         period: r.period,
         label: formatProjectExpensePeriodLabel(r.period, expensePeriod),
-        wydatki: convertPlnToDisplay(r.wydatki),
-        wydatkiPln: r.wydatki,
+        wydatki: r.wydatki,
+        currency: r.currency || selectedProjectReportingCurrency,
       }));
-  }, [enriched, selectedProjectId, expensePeriod, convertPlnToDisplay]);
+  }, [enriched, selectedProjectId, selectedProject, expensePeriod, selectedProjectReportingCurrency]);
 
-  const selectedProject = projectsSorted.find((p) => p.id === selectedProjectId);
+  const projectsWithCostsElsewhere = useMemo(() => {
+    if (!selectedProjectId || projectExpenseChart.length > 0) return [];
+    return projectsSorted
+      .filter((p) => p.id !== selectedProjectId)
+      .filter((p) => {
+        const cur = projectReportingCurrency(p) || "PLN";
+        return enriched.some(
+          (inv) =>
+            inv.project_id === p.id &&
+            inv.invoice_type !== "sales" &&
+            projectExpenseAmountForReporting(inv, cur) != null
+        );
+      })
+      .map((p) => {
+        const cur = projectReportingCurrency(p) || "PLN";
+        const total = enriched
+          .filter((inv) => inv.project_id === p.id && inv.invoice_type !== "sales")
+          .reduce((s, inv) => s + (projectExpenseAmountForReporting(inv, cur) ?? 0), 0);
+        return { project: p, total, currency: cur };
+      });
+  }, [projectsSorted, enriched, selectedProjectId, projectExpenseChart.length]);
   const projectExpenseTotal = useMemo(
-    () => projectExpenseChart.reduce((s, r) => s + r.wydatkiPln, 0),
+    () => projectExpenseChart.reduce((s, r) => s + r.wydatki, 0),
     [projectExpenseChart]
   );
 
@@ -704,7 +732,7 @@ export default function CEODashboard() {
                 <p className="text-sm text-muted-foreground sm:ml-auto pb-2">
                   Suma na wykresie:{" "}
                   <span className="font-semibold text-foreground">
-                    {formatDisplayAmount(projectExpenseTotal)} {displayCurrency}
+                    {formatCurrencyAmount(projectExpenseTotal, selectedProjectReportingCurrency)}
                   </span>
                 </p>
               ) : null}
@@ -714,9 +742,30 @@ export default function CEODashboard() {
             {!selectedProjectId ? (
               <p className="text-muted-foreground text-sm">Dodaj projekt w module Budowa, aby zobaczyć wydatki.</p>
             ) : projectExpenseChart.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                Brak wydatków (FV zakupowych) przypisanych do „{getProjectDisplayName(selectedProject)}”.
-              </p>
+              <div className="text-muted-foreground text-sm space-y-2">
+                <p>
+                  Brak wydatków (FV zakupowych) przypisanych do „{getProjectDisplayName(selectedProject)}”.
+                </p>
+                {projectsWithCostsElsewhere.length > 0 ? (
+                  <p className="text-xs">
+                    Koszty są przypisane do innych projektów:{" "}
+                    {projectsWithCostsElsewhere.map(({ project, total, currency }, i) => (
+                      <span key={project.id}>
+                        {i > 0 ? "; " : ""}
+                        <button
+                          type="button"
+                          className="text-primary underline-offset-2 hover:underline font-medium"
+                          onClick={() => setSelectedProjectId(project.id)}
+                        >
+                          {getProjectDisplayName(project)}
+                        </button>
+                        {total > 0 ? ` (${formatCurrencyAmount(total, currency)})` : ""}
+                      </span>
+                    ))}
+                    . Sprawdź przypisanie FV w module Faktury lub scal duplikaty obiektów w Budowie.
+                  </p>
+                ) : null}
+              </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={projectExpenseChart}>
@@ -724,7 +773,9 @@ export default function CEODashboard() {
                   <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip
-                    formatter={(v) => `${Number(v).toLocaleString("pl-PL")} ${displayCurrency}`}
+                    formatter={(v) =>
+                      formatCurrencyAmount(v, projectExpenseChart[0]?.currency || selectedProjectReportingCurrency)
+                    }
                     labelFormatter={(_, payload) => {
                       const row = payload?.[0]?.payload;
                       return row ? `${row.label} (${row.period})` : "";

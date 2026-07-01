@@ -13,6 +13,8 @@ import {
   budgetAlertsPln,
   isUnpaidStatus,
   projectExpensesByPeriodPln,
+  projectExpensesByPeriod,
+  projectExpenseAmountForReporting,
   formatProjectExpensePeriodLabel,
   openPayableInvoices,
   formatInvoiceSourceAmount,
@@ -406,6 +408,53 @@ describe("finance-pln (jednostkowe)", () => {
     const yearly = projectExpensesByPeriodPln(invoices, "p1", "year");
     expect(yearly).toHaveLength(1);
     expect(yearly[0].wydatki).toBe(300);
+  });
+
+  it("projectExpensesByPeriod — EUR dla REWE/EDEKA bez amount_pln (jak wykres kołowy)", () => {
+    const reweEmmerich = {
+      id: "rewe-emmerich",
+      object_name: "Rewe Emmerich",
+      city: "Emmerich am Rhein",
+      project_match_keywords: "DE, Rewe",
+    };
+    const edekaEmmerich = {
+      id: "edeka-emmerich",
+      object_name: "Edeka (Emmerich)",
+      city: "Emmerich am Rhein",
+      project_match_keywords: "DE, Edeka",
+    };
+    const invoices = [
+      {
+        project_id: "rewe-emmerich",
+        invoice_type: "cost",
+        currency: "EUR",
+        amount: 7252.11,
+        paid_at: "2024-06-15",
+      },
+      {
+        project_id: "edeka-emmerich",
+        invoice_type: "cost",
+        currency: "EUR",
+        amount: 999,
+        issue_date: "2024-01-10",
+      },
+    ];
+    const reweMonthly = projectExpensesByPeriod(invoices, "rewe-emmerich", "month", reweEmmerich);
+    expect(reweMonthly).toHaveLength(1);
+    expect(reweMonthly[0].wydatki).toBeCloseTo(7252.11, 2);
+    expect(reweMonthly[0].currency).toBe("EUR");
+
+    const edekaMonthly = projectExpensesByPeriod(invoices, "edeka-emmerich", "month", edekaEmmerich);
+    expect(edekaMonthly).toHaveLength(1);
+    expect(edekaMonthly[0].wydatki).toBe(999);
+
+    expect(projectExpensesByPeriodPln(invoices, "rewe-emmerich", "month")).toHaveLength(0);
+  });
+
+  it("projectExpenseAmountForReporting preferuje EUR dla projektu DE", () => {
+    const inv = { currency: "EUR", amount: 100, invoice_type: "cost" };
+    expect(projectExpenseAmountForReporting(inv, "EUR")).toBe(100);
+    expect(projectExpenseAmountForReporting(inv, "PLN")).toBeNull();
   });
 
   it("formatProjectExpensePeriodLabel", () => {

@@ -198,6 +198,7 @@ Nie uzupełniaj pól domyślnymi wartościami z pamięci — tylko treść dokum
           if (result) {
             result.amount = Math.abs(result.amount || 0);
             result.payer = DEFAULT_INVOICE_PAYER;
+            result.file_url = fileUrl;
             allTransfers.push(result);
           }
         }

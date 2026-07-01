@@ -35,6 +35,8 @@ import { toast } from 'sonner';
 import { findInvoiceNumberConflict } from '@/lib/duplicate-detection';
 import { getUploadFilePublicUrl } from '@/lib/upload-file-url';
 import { ensureContractorsForInvoice } from '@/lib/invoice-contractor-sync';
+import { TransferConfirmationsTab } from '@/components/invoices/TransferConfirmationsTab';
+import { listAllTransferConfirmations } from '@/lib/transfer-schema';
 
 const MONTHS_PL = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
 
@@ -109,6 +111,10 @@ export default function Invoices() {
     queryKey: ['invoices'],
     queryFn: () => base44.entities.Invoice.list('-created_date'),
   });
+  const { data: transfers = [] } = useQuery({
+    queryKey: ['transfers'],
+    queryFn: () => base44.entities.Transfer.list(),
+  });
   const { data: constructionSites = [] } = useQuery({
     queryKey: ['construction-sites'],
     queryFn: () => base44.entities.ConstructionSite.list(),
@@ -118,6 +124,10 @@ export default function Invoices() {
     [constructionSites]
   );
   const enrichedInvoices = useClientEnrichedInvoices(invoices);
+  const transferConfirmationCount = React.useMemo(
+    () => listAllTransferConfirmations(transfers, invoices).length,
+    [transfers, invoices]
+  );
   const enrichedById = React.useMemo(
     () => Object.fromEntries(enrichedInvoices.map((i) => [i.id, i])),
     [enrichedInvoices]
@@ -521,26 +531,38 @@ export default function Invoices() {
 
         <Card className="bg-background shadow-lg mb-6">
           <CardContent className="py-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
                 <p className="text-sm text-slate-600">Łącznie faktur w systemie:</p>
                 <p className="text-2xl font-bold text-slate-900">{invoices.length}</p>
               </div>
               <div>
-                <p className="text-sm text-slate-600">Wyniki po filtrach:</p>
-                <p className="text-2xl font-bold text-blue-600">{filteredInvoices.length}</p>
+                <p className="text-sm text-slate-600">Potwierdzenia przelewów:</p>
+                <p className="text-2xl font-bold text-violet-700">{transferConfirmationCount}</p>
               </div>
+              {activeTab !== 'transfer_confirmations' ? (
+                <div>
+                  <p className="text-sm text-slate-600">Wyniki po filtrach:</p>
+                  <p className="text-2xl font-bold text-blue-600">{filteredInvoices.length}</p>
+                </div>
+              ) : null}
             </div>
           </CardContent>
         </Card>
 
-        <Tabs defaultValue="all" className="mb-4" onValueChange={(val) => { setActiveTab(val); setActiveMonthTab('all_months'); }}>
-          <TabsList className="bg-background">
+        <Tabs value={activeTab} className="mb-4" onValueChange={(val) => { setActiveTab(val); setActiveMonthTab('all_months'); }}>
+          <TabsList className="bg-background flex-wrap h-auto">
             <TabsTrigger value="all">Wszystkie faktury</TabsTrigger>
             <TabsTrigger value="purchase">Faktury zakupowe</TabsTrigger>
             <TabsTrigger value="sales">Faktury sprzedażowe</TabsTrigger>
+            <TabsTrigger value="transfer_confirmations">Potwierdzenia przelewów</TabsTrigger>
           </TabsList>
         </Tabs>
+
+        {activeTab === 'transfer_confirmations' ? (
+          <TransferConfirmationsTab />
+        ) : (
+        <>
 
         {(activeTab === 'sales' || activeTab === 'purchase') && availableMonths.length > 0 && (
           <div className="mb-6 overflow-x-auto">
@@ -873,6 +895,9 @@ export default function Invoices() {
                   <div style={{ height: "1px", minWidth: `${INVOICES_TABLE_MIN_WIDTH_PX}px` }} />
                 </div>
                 )}
+
+        </>
+        )}
 
                 {uploadingInvoiceId && (
           <Dialog open={!!uploadingInvoiceId} onOpenChange={() => setUploadingInvoiceId(null)}>

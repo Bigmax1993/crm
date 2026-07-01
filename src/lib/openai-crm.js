@@ -382,6 +382,15 @@ export async function claudeInvokeWithFile({
   const model = modelOverride || getAiSettings().model || DEFAULT_SETTINGS.model;
   const base64 = await fileToBase64(file);
   const mediaType = file.type || "application/pdf";
+  const fileBlock = mediaType.startsWith("image/")
+    ? {
+        type: "image",
+        source: { type: "base64", media_type: mediaType, data: base64 },
+      }
+    : {
+        type: "document",
+        source: { type: "base64", media_type: mediaType, data: base64 },
+      };
   const extra = response_json_schema
     ? "\n\nZwróć wyłącznie jeden obiekt JSON zgodny z przekazanym schematem (bez markdown)."
     : "";
@@ -393,17 +402,7 @@ export async function claudeInvokeWithFile({
     messages: [
       {
         role: "user",
-        content: [
-          {
-            type: "document",
-            source: {
-              type: "base64",
-              media_type: mediaType,
-              data: base64,
-            },
-          },
-          { type: "text", text: `${prompt}${extra}` },
-        ],
+        content: [fileBlock, { type: "text", text: `${prompt}${extra}` }],
       },
     ],
   });

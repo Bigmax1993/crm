@@ -48,7 +48,11 @@ export const PAGE_TITLES = {
 
   UploadLV: "Import kosztorysu LV",
 
+  UploadPlan: "Import planów budowy",
+
   ProjectBoQ: "Kosztorysy LV",
+
+  ConstructionPlans: "Plany budowy",
 
   Invoices: "Faktury",
 
@@ -128,7 +132,7 @@ export const NAV_GROUP_ORDER = [
 
     label: "Dokumenty",
 
-    pages: ["Upload", "UploadWZ", "MaterialDeliveries", "UploadLV", "ProjectBoQ"],
+    pages: ["Upload", "UploadWZ", "MaterialDeliveries", "UploadLV", "ProjectBoQ", "UploadPlan", "ConstructionPlans"],
 
   },
 

@@ -228,6 +228,48 @@ export const LV_DUPLICATE_OPTIONS = {
   numberLabel: "kosztorys",
 };
 
+/** Plan budowy — duplikat po numerze arkusza + rewizja lub tytuł + data. */
+export function planDuplicateKey(row) {
+  const sheet = normalizeDocumentNumberKey(row?.sheet_number);
+  const rev = normalizeDocumentNumberKey(row?.revision);
+  if (sheet && rev) return `sr:${sheet}|${rev}`;
+  if (sheet) return `s:${sheet}`;
+  const title = String(row?.title ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+  const date = String(row?.issue_date ?? "").trim().slice(0, 10);
+  if (title && date) return `td:${title}|${date}`;
+  if (title) return `t:${title.slice(0, 160)}`;
+  return "";
+}
+
+export function planRecordsMatch(a, b) {
+  const ka = planDuplicateKey(a);
+  const kb = planDuplicateKey(b);
+  if (ka && kb && ka === kb) return true;
+  const sa = String(a?.sheet_number ?? "").trim();
+  const sb = String(b?.sheet_number ?? "").trim();
+  if (sa && sb && documentNumberMatches(sa, sb)) {
+    const ra = normalizeDocumentNumberKey(a?.revision);
+    const rb = normalizeDocumentNumberKey(b?.revision);
+    if (!ra || !rb || ra === rb) return true;
+  }
+  return false;
+}
+
+export function findDuplicateConstructionPlan(existing, candidate) {
+  if (!planDuplicateKey(candidate)) return null;
+  return existing.find((ex) => planRecordsMatch(ex, candidate)) ?? null;
+}
+
+export const PLAN_DUPLICATE_OPTIONS = {
+  matches: (ex, row) => planRecordsMatch(ex, row),
+  getBatchKey: (row) => planDuplicateKey(row),
+  entityLabel: "Plan budowy",
+  numberLabel: "arkusz",
+};
+
 export const INVOICE_DUPLICATE_OPTIONS = {
   matches: (ex, row) => invoiceNumberMatches(ex.invoice_number, row.invoice_number),
   getBatchKey: (row) => normalizeInvoiceNumberKey(row.invoice_number),

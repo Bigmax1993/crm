@@ -65,8 +65,8 @@ export const FINANCE_METRICS = {
   },
   projectExpensesByPeriodPln: {
     summary:
-      "Wydatki projektu w czasie: zakupy (FV kosztowe) z project_id; miesiąc/kwartał/rok wg daty wystawienia; PLN z wystawienia.",
-    detail: "projectExpensesByPeriodPln — bez wymogu zapłaty, wyłącza FV sprzedaży.",
+      "Wydatki projektu w czasie: zakupy (FV kosztowe) z project_id; miesiąc/kwartał/rok wg daty wystawienia (lub płatności); waluta raportowania projektu (EUR dla REWE/EDEKA, inaczej PLN).",
+    detail: "projectExpensesByPeriod — bez wymogu zapłaty, wyłącza FV sprzedaży.",
   },
   receivablesPayablesRawSingleCurrency: {
     summary:

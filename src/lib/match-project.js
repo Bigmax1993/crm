@@ -233,6 +233,7 @@ export function projectMatchReasonLabel(reason) {
     client: "klient",
     object: "obiekt",
     nip_client: "NIP klienta",
+    claude: "Claude AI",
     manual: "ręcznie",
   };
   return labels[reason] || null;

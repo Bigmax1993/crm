@@ -34,6 +34,7 @@ export function createLocalCrmClient() {
       Contact: entity("Contact"),
       Interaction: entity("Interaction"),
       MaterialDelivery: entity("MaterialDelivery"),
+      ConstructionPlan: entity("ConstructionPlan"),
       ProjectBoQ: entity("ProjectBoQ"),
       RefundClaim: entity("RefundClaim"),
       Lead: entity("Lead"),

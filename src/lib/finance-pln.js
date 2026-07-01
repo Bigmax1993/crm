@@ -422,25 +422,58 @@ export function formatProjectExpensePeriodLabel(periodKey, period = "month") {
   return periodKey;
 }
 
+/** Data do wykresu wydatków projektu: wystawienie, potem płatność. */
+export function invoiceExpenseDate(inv) {
+  if (inv.issue_date && isValid(parseISO(String(inv.issue_date)))) return parseISO(String(inv.issue_date));
+  return invoicePaidDate(inv);
+}
+
+/** Kwota wydatku w walucie raportowania projektu (EUR dla REWE/EDEKA) lub PLN. */
+export function projectExpenseAmountForReporting(inv, reportingCurrency) {
+  const cur = String(reportingCurrency || "PLN").toUpperCase();
+  if (cur !== "PLN") {
+    const src = getInvoiceAmountInCurrency(inv, cur);
+    if (src != null) return src;
+  }
+  return getInvoicePlnAtIssue(inv);
+}
+
 /**
- * Wydatki (FV zakupowe) jednego projektu wg miesiąca, kwartału lub roku (data wystawienia, PLN z wystawienia).
+ * Wydatki (FV zakupowe) jednego projektu wg miesiąca, kwartału lub roku.
+ * Dla projektów DE (REWE/EDEKA) sumuje w EUR jak wykres „Koszty wg projektu”.
  * @param {'month'|'quarter'|'year'} [period='month']
  */
-export function projectExpensesByPeriodPln(invoices, projectId, period = "month") {
+export function projectExpensesByPeriod(invoices, projectId, period = "month", project = null) {
   if (!projectId) return [];
+  const reportingCurrency = project ? projectReportingCurrency(project) : null;
+  const currency = reportingCurrency || "PLN";
   const map = {};
   for (const inv of invoices) {
     if (inv.project_id !== projectId) continue;
     if (inv.invoice_type === "sales") continue;
-    const d = inv.issue_date && isValid(parseISO(String(inv.issue_date))) ? parseISO(String(inv.issue_date)) : null;
+    const d = invoiceExpenseDate(inv);
     if (!d) continue;
-    const amt = getInvoicePlnAtIssue(inv);
+    const amt = projectExpenseAmountForReporting(inv, currency);
     if (amt == null) continue;
     const key = expensePeriodKey(d, period);
-    if (!map[key]) map[key] = { period: key, wydatki: 0 };
+    if (!map[key]) map[key] = { period: key, wydatki: 0, currency };
     map[key].wydatki += amt;
   }
-  return Object.values(map).sort((a, b) => a.period.localeCompare(b.period));
+  return Object.values(map)
+    .map((r) => ({ ...r, wydatki: Math.round(r.wydatki * 100) / 100 }))
+    .sort((a, b) => a.period.localeCompare(b.period));
+}
+
+/**
+ * Wydatki (FV zakupowe) jednego projektu wg miesiąca, kwartału lub roku (data wystawienia, PLN z wystawienia).
+ * @param {'month'|'quarter'|'year'} [period='month']
+ * @deprecated Preferuj projectExpensesByPeriod z obiektem projektu (obsługa EUR).
+ */
+export function projectExpensesByPeriodPln(invoices, projectId, period = "month") {
+  return projectExpensesByPeriod(invoices, projectId, period, null).map(({ period: p, wydatki }) => ({
+    period: p,
+    wydatki,
+  }));
 }
 
 /** Nieopłacone FV zakupowe — jak sumPayablesPln, posortowane: przeterminowane, potem termin. */
