@@ -63,7 +63,7 @@ export function ProjectLogisticsChecklist({ value, onChange }) {
           <div className="space-y-1">
             <p className="text-sm font-semibold text-foreground">Checklista logistyki</p>
             <p className="text-sm text-muted-foreground">
-              Cement PL→DE, piasek, Radlader + kierowca. Wstaw szablon i odhaczaj na tym projekcie.
+              Cement PL→DE, piasek, płytki, Radlader + kierowca. Wstaw szablon i odhaczaj na tym projekcie.
             </p>
           </div>
         </div>
@@ -81,7 +81,7 @@ export function ProjectLogisticsChecklist({ value, onChange }) {
         <div>
           <p className="text-sm font-semibold text-foreground">Checklista logistyki</p>
           <p className="text-xs text-muted-foreground">
-            Cement, piasek, rozładunek — kopiujesz szablon na każdy projekt; komentarze zostają lokalnie.
+            Cement, piasek, płytki, rozładunek — kopiujesz szablon na każdy projekt; komentarze zostają lokalnie.
           </p>
         </div>
         <div className="flex items-center gap-2">

@@ -45,7 +45,7 @@ describe("business-notifications", () => {
     const logistics = items.find((i) => i.id === "logistics-p1");
     expect(logistics).toBeTruthy();
     expect(logistics.title).toContain("REWE Dresden");
-    expect(logistics.body).toMatch(/10 do załatwienia/);
+    expect(logistics.body).toMatch(/14 do załatwienia/);
     expect(logistics.href).toContain("Construction?site=p1");
   });
 });

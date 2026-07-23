@@ -11,7 +11,7 @@ import {
 describe("project-logistics-checklist", () => {
   it("szablon ma cement, piasek i Radlader", () => {
     const ids = LOGISTICS_CHECKLIST_TEMPLATE.sections.map((s) => s.id);
-    expect(ids).toEqual(["cement", "sand", "unload"]);
+    expect(ids).toEqual(["cement", "sand", "tiles", "unload"]);
     const checklist = createLogisticsChecklistFromTemplate();
     expect(checklist.cement_load_date).toBe("");
     expect(checklist.cement_unload_date).toBe("");
@@ -40,15 +40,35 @@ describe("project-logistics-checklist", () => {
     expect(n.sections[0].items[0].comment).toBe("OK");
   });
 
+  it("normalize dokłada sekcję płytek do starej checklisty", () => {
+    const legacy = {
+      version: 1,
+      cement_load_date: "",
+      cement_unload_date: "",
+      sections: [
+        {
+          id: "cement",
+          title: "Cement (PL → DE)",
+          items: [{ id: "cement_order", label: "Zamówienie cementu", status: "done", comment: "ok" }],
+        },
+      ],
+    };
+    const n = normalizeLogisticsChecklist(legacy);
+    expect(n.sections.map((s) => s.id)).toEqual(["cement", "sand", "tiles", "unload"]);
+    expect(n.sections.find((s) => s.id === "cement").items[0].status).toBe("done");
+    expect(n.sections.find((s) => s.id === "tiles").items).toHaveLength(4);
+    expect(n.sections.find((s) => s.id === "tiles").items.every((i) => i.status === "todo")).toBe(true);
+  });
+
   it("progress liczy done + N/D jako domknięte", () => {
     const c = createLogisticsChecklistFromTemplate();
-    expect(logisticsChecklistProgress(c).label).toBe("0/11");
+    expect(logisticsChecklistProgress(c).label).toBe("0/15");
     c.sections[0].items[0].status = "done";
     c.sections[0].items[1].status = "na";
     const p = logisticsChecklistProgress(c);
     expect(p.done).toBe(2);
-    expect(p.open).toBe(9);
-    expect(p.label).toBe("2/11");
+    expect(p.open).toBe(13);
+    expect(p.label).toBe("2/15");
   });
 
   it("normalize(null) → null", () => {
@@ -62,7 +82,7 @@ describe("project-logistics-checklist", () => {
     c.sections[0].items[1].status = "na";
     c.sections[0].items[2].comment = "tir jutro";
     const open = listOpenLogisticsItems(c);
-    expect(open).toHaveLength(9);
+    expect(open).toHaveLength(13);
     expect(open.find((i) => i.id === "cement_slot")?.comment).toBe("tir jutro");
   });
 
@@ -80,6 +100,6 @@ describe("project-logistics-checklist", () => {
     });
     expect(rows).toHaveLength(1);
     expect(rows[0].project.id).toBe("a");
-    expect(rows[0].openItems).toHaveLength(11);
+    expect(rows[0].openItems).toHaveLength(15);
   });
 });

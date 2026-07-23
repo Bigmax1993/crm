@@ -350,7 +350,7 @@ export default function CEODashboard() {
                   Logistyka do załatwienia ({logisticsOpenByProject.reduce((s, r) => s + r.openItems.length, 0)} poz.)
                 </AlertTitle>
                 <AlertDescription>
-                  {logisticsOpenByProject.length} projekt(ów) z otwartą checklistą (cement / piasek / Radlader).
+                  {logisticsOpenByProject.length} projekt(ów) z otwartą checklistą (cement / piasek / płytki / Radlader).
                 </AlertDescription>
               </Alert>
             )}
@@ -403,7 +403,7 @@ export default function CEODashboard() {
                     Logistyka do załatwienia
                   </CardTitle>
                   <CardDescription className="text-xs mt-1">
-                    Nieodhaczone pozycje checklisty (cement PL→DE, piasek, Radlader) przy projektach.
+                    Nieodhaczone pozycje checklisty (cement PL→DE, piasek, płytki, Radlader) przy projektach.
                   </CardDescription>
                 </div>
                 <Badge variant="outline" className="border-amber-400 text-amber-900 bg-amber-50">

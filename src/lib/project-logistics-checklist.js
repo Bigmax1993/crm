@@ -1,5 +1,5 @@
 /**
- * Checklista logistyki budowy (cement PL→DE, piasek, Radlader).
+ * Checklista logistyki budowy (cement PL→DE, piasek, płytki, Radlader).
  * Szablon kopiowany na każdy projekt; komentarze i daty są per obiekt.
  */
 
@@ -15,7 +15,7 @@ export const CHECKLIST_STATUS_LABELS = Object.fromEntries(
 
 /** Statyczny szablon — bez komentarzy / dat projektu. */
 export const LOGISTICS_CHECKLIST_TEMPLATE = {
-  version: 1,
+  version: 2,
   cement_load_date: "",
   cement_unload_date: "",
   sections: [
@@ -36,6 +36,16 @@ export const LOGISTICS_CHECKLIST_TEMPLATE = {
         { id: "sand_order", label: "Zamówienie piasku" },
         { id: "sand_supplier", label: "Dostawca / źródło potwierdzone" },
         { id: "sand_delivered", label: "Piasek na budowie" },
+      ],
+    },
+    {
+      id: "tiles",
+      title: "Płytki",
+      items: [
+        { id: "tiles_order", label: "Zamówienie płytek" },
+        { id: "tiles_supplier", label: "Dostawca płytek potwierdzony" },
+        { id: "tiles_delivery", label: "Termin / transport dostawy ustalony" },
+        { id: "tiles_delivered", label: "Płytki na budowie" },
       ],
     },
     {
@@ -85,7 +95,7 @@ export function normalizeLogisticsChecklist(raw) {
   const bySection = new Map((raw.sections || []).map((s) => [s.id, s]));
 
   return {
-    version: 1,
+    version: LOGISTICS_CHECKLIST_TEMPLATE.version,
     cement_load_date: raw.cement_load_date ? String(raw.cement_load_date).slice(0, 10) : "",
     cement_unload_date: raw.cement_unload_date ? String(raw.cement_unload_date).slice(0, 10) : "",
     sections: tpl.sections.map((secTpl) => {
