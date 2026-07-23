@@ -7,27 +7,54 @@ import {
   canMakeAiRequest,
   aiGateErrorMessage,
 } from "@/lib/openai-crm";
+import { putBlob } from "@/lib/blob-file-store";
+import { resolveStoredFileUrl } from "@/lib/resolve-stored-file-url";
+
+/** Małe obrazy mogą zostać jako data URL; PDF i większe pliki → IndexedDB. */
+const INLINE_MAX_BYTES = 120_000;
+
+function approxDataUrlBytes(dataUrl) {
+  const i = dataUrl.indexOf(",");
+  if (i < 0) return dataUrl.length;
+  return Math.ceil((dataUrl.length - i - 1) * 0.75);
+}
+
+async function blobFromUploadInput(file) {
+  if (file instanceof File || file instanceof Blob) return file;
+  if (file instanceof ArrayBuffer) return new Blob([file]);
+  if (ArrayBuffer.isView(file)) return new Blob([file.buffer]);
+  if (typeof file === "string" && file.startsWith("data:")) {
+    const res = await fetch(file);
+    return res.blob();
+  }
+  return null;
+}
 
 /**
- * Lokalny odpowiednik Core.UploadFile — trwały data URL (przeżywa odświeżenie / SQLite).
- * Obsługuje File, Blob, ArrayBuffer oraz data URL.
+ * Lokalny odpowiednik Core.UploadFile — małe pliki jako data URL, duże w IndexedDB.
  */
 export async function localUploadFile({ file }) {
   if (typeof file === "string" && file.startsWith("data:")) {
+    if (approxDataUrlBytes(file) > INLINE_MAX_BYTES) {
+      const blob = await blobFromUploadInput(file);
+      if (!blob) throw new Error("UploadFile (lokalny): nie udało się odczytać data URL.");
+      const ref = await putBlob(blob);
+      return { url: ref };
+    }
     return { url: file };
   }
 
-  let blob = null;
-  if (file instanceof File || file instanceof Blob) {
-    blob = file;
-  } else if (file instanceof ArrayBuffer) {
-    blob = new Blob([file]);
-  } else if (ArrayBuffer.isView(file)) {
-    blob = new Blob([file.buffer]);
-  }
-
+  const blob = await blobFromUploadInput(file);
   if (!blob) {
     throw new Error("UploadFile (lokalny): oczekiwano File, Blob, ArrayBuffer lub data URL.");
+  }
+
+  const name = file instanceof File ? file.name : "";
+  const isPdf = blob.type === "application/pdf" || /\.pdf$/i.test(name);
+
+  if (isPdf || blob.size > INLINE_MAX_BYTES) {
+    const ref = await putBlob(blob, { name, type: blob.type });
+    return { url: ref };
   }
 
   const dataUrl = await new Promise((resolve, reject) => {
@@ -58,7 +85,8 @@ export async function localInvokeLLM({ prompt, file_urls, response_json_schema }
   const model = getAiSettings().model || "claude-sonnet-4-6";
 
   if (file_urls?.length) {
-    const res = await fetch(file_urls[0]);
+    const resolvedUrl = await resolveStoredFileUrl(file_urls[0]);
+    const res = await fetch(resolvedUrl);
     if (!res.ok) throw new Error(`Odczyt pliku dla AI nie powiódł się (HTTP ${res.status}).`);
     const blob = await res.blob();
     const fname = blob.type?.includes("pdf") ? "document.pdf" : "upload.bin";

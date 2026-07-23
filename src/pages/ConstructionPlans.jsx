@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Map, Plus, Search, Trash2, Upload, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import { openStoredFile } from "@/lib/resolve-stored-file-url";
 import { createPageUrl } from "@/utils";
 import { CONSTRUCTION_PLAN_TYPES } from "@/lib/construction-plan-schema";
 import { getProjectDisplayName } from "@/lib/match-project";
@@ -171,15 +172,18 @@ export default function ConstructionPlans() {
                       </TableCell>
                       <TableCell>
                         {r.file_url ? (
-                          <a
-                            href={r.file_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openStoredFile(r.file_url).catch((e) =>
+                                toast.error(e?.message || "Nie udało się otworzyć pliku")
+                              )
+                            }
                             className="text-violet-600 hover:underline inline-flex items-center gap-1 text-xs"
                           >
                             <ExternalLink className="h-3 w-3" />
                             Otwórz
-                          </a>
+                          </button>
                         ) : (
                           "—"
                         )}

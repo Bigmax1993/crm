@@ -264,7 +264,14 @@ export default function UploadPlan() {
       toast.success(`Zapisano ${payloads.length} planów budowy`);
       navigate(createPageUrl("ConstructionPlans"));
     } catch (e) {
-      toast.error(formatBase44Error(e) || "Błąd zapisu planów");
+      const msg = formatBase44Error(e) || e?.message || "Błąd zapisu planów";
+      if (/quota|miejsca w pamięci|localStorage/i.test(msg)) {
+        toast.error(
+          "Brak miejsca w pamięci przeglądarki. Odśwież stronę (Ctrl+F5) i zapisz ponownie — PDF trafi do IndexedDB. W razie potrzeby: Ustawienia → reset bazy."
+        );
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setProcessing(false);
     }

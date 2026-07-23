@@ -82,8 +82,14 @@ export const saveDB = () => {
     const data = db.export();
     localStorage.setItem(SQLJS_STORAGE_KEY, JSON.stringify(Array.from(data)));
   } catch (e) {
-     
     console.error("saveDB / localStorage:", e);
+    const name = e?.name || "";
+    const msg = String(e?.message || e || "");
+    if (name === "QuotaExceededError" || /quota/i.test(msg)) {
+      throw new Error(
+        "Brak miejsca w pamięci przeglądarki (localStorage). Usuń stare dane w Ustawieniach → reset bazy lub wyczyść duże pliki. Nowe PDF trafiają do IndexedDB — zapisz plan ponownie po odświeżeniu."
+      );
+    }
     throw e;
   }
 };

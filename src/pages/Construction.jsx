@@ -26,7 +26,7 @@ import {
   logisticsChecklistProgress,
   normalizeLogisticsChecklist,
 } from '@/lib/project-logistics-checklist';
-import { toast } from 'sonner';
+import { resolveStoredFileUrl, openStoredFile, downloadStoredFile } from "@/lib/resolve-stored-file-url";
 
 const SITE_STATUS_OPTIONS = [
   { value: 'aktywny', label: 'Aktywny' },
@@ -49,38 +49,15 @@ function photoDownloadFilename(siteName) {
 }
 
 /** Otwórz zdjęcie w nowej karcie. */
-function openPhotoDocumentation(url) {
+async function openPhotoDocumentation(url) {
   if (!url) return;
-  window.open(url, '_blank', 'noopener,noreferrer');
+  await openStoredFile(url);
 }
 
-/** Pobierz zdjęcie (data URL lub http). */
+/** Pobierz zdjęcie (data URL, http lub IndexedDB). */
 async function downloadPhotoDocumentation(url, filename) {
   if (!url) return;
-  const name = filename || 'dokumentacja.jpg';
-  try {
-    if (url.startsWith('data:')) {
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      return;
-    }
-    const res = await fetch(url);
-    const blob = await res.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = objectUrl;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(objectUrl);
-  } catch {
-    window.open(url, '_blank', 'noopener,noreferrer');
-  }
+  await downloadStoredFile(url, filename || "dokumentacja.jpg");
 }
 
 function emptyLocalMeta() {
@@ -155,6 +132,7 @@ export default function Construction() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [geoSaving, setGeoSaving] = useState(false);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState('');
   const [localMeta, setLocalMeta] = useState(() => emptyLocalMeta());
   const [formData, setFormData] = useState({
     city: '',
@@ -374,6 +352,21 @@ export default function Construction() {
     });
     setShowForm(true);
   };
+
+  useEffect(() => {
+    const url = formData.photo_documentation;
+    if (!url) {
+      setPhotoPreviewUrl('');
+      return;
+    }
+    let cancelled = false;
+    resolveStoredFileUrl(url).then((resolved) => {
+      if (!cancelled) setPhotoPreviewUrl(resolved || url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.photo_documentation]);
 
   useEffect(() => {
     const siteId = new URLSearchParams(location.search).get('site');
@@ -772,19 +765,18 @@ export default function Construction() {
                    {formData.photo_documentation ? (
                      <div className="mt-2 rounded-lg border border-green-200 bg-green-50/40 p-3 space-y-3">
                        <div className="flex flex-col sm:flex-row gap-3 items-start">
-                         <a
-                           href={formData.photo_documentation}
-                           target="_blank"
-                           rel="noopener noreferrer"
+                         <button
+                           type="button"
+                           onClick={() => openPhotoDocumentation(formData.photo_documentation)}
                            className="shrink-0 block rounded-md overflow-hidden border bg-background"
                            title="Otwórz podgląd"
                          >
                            <img
-                             src={formData.photo_documentation}
+                             src={photoPreviewUrl || formData.photo_documentation}
                              alt="Dokumentacja fotograficzna"
                              className="h-28 w-40 object-cover"
                            />
-                         </a>
+                         </button>
                          <div className="flex-1 space-y-2 min-w-0">
                            <p className="text-sm font-medium text-green-800 flex items-center gap-2">
                              <ImageIcon className="h-4 w-4" />
@@ -1001,10 +993,18 @@ export default function Construction() {
                          </TableCell>
                          <TableCell>
                            {site.photo_documentation ? (
-                             <a href={site.photo_documentation} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 flex items-center gap-2">
+                             <button
+                               type="button"
+                               onClick={() =>
+                                 openPhotoDocumentation(site.photo_documentation).catch((e) =>
+                                   toast.error(e?.message || 'Nie udało się otworzyć zdjęcia')
+                                 )
+                               }
+                               className="text-blue-600 hover:text-blue-800 flex items-center gap-2"
+                             >
                                <ImageIcon className="h-4 w-4" />
                                <span className="text-sm">Otwórz</span>
-                             </a>
+                             </button>
                            ) : (
                              <span className="text-slate-400">-</span>
                            )}
