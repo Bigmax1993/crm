@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Search, Plus, X, Trash2, Loader2, Building, Pencil, Image as ImageIcon, Upload as UploadIcon, MapPin } from 'lucide-react';
 import { ConstructionOffersAi } from '@/components/ai/ConstructionOffersAi';
 import { CityGeocodeInput } from '@/components/construction/CityGeocodeInput';
+import { ProjectLogisticsChecklist } from '@/components/construction/ProjectLogisticsChecklist';
 import { OFFER_SEGMENT_OPTIONS, offerSegmentLabel } from '@/lib/offer-segments';
 import { getSiteExtension } from '@/lib/crm-local-store';
 import { listSiteExtensions, patchSiteExtensionEntity, removeSiteExtensionEntity } from '@/lib/crm-entity-store';
@@ -20,6 +21,11 @@ import { logAuditEvent, AUDIT_ACTIONS } from '@/lib/audit-log';
 import { getUploadFilePublicUrl } from '@/lib/upload-file-url';
 import { resolveSiteGeocode, siteHasCoords } from '@/lib/site-geocode';
 import { CONSTRUCTION_WORKFLOW_STATUSES, constructionWorkflowLabel, isActiveConstructionProject } from '@/lib/construction-workflow';
+import {
+  createLogisticsChecklistFromTemplate,
+  logisticsChecklistProgress,
+  normalizeLogisticsChecklist,
+} from '@/lib/project-logistics-checklist';
 import { toast } from 'sonner';
 
 function emptyLocalMeta() {
@@ -28,6 +34,7 @@ function emptyLocalMeta() {
     norms_note: '',
     certifications: [],
     subsidy: { program: '', stage: '', deadline: '', amount_pln: '', notes: '' },
+    logistics_checklist: createLogisticsChecklistFromTemplate(),
   };
 }
 
@@ -37,7 +44,11 @@ function normalizeExtension(ext) {
     const { _rowId, ...rest } = c;
     return rest;
   });
-  return { ...ext, certifications };
+  return {
+    ...ext,
+    certifications,
+    logistics_checklist: normalizeLogisticsChecklist(ext.logistics_checklist),
+  };
 }
 
 /** API może zwracać null — kontrolowane pola formularza muszą być stringami (unikamy value={null} na input). */
@@ -78,6 +89,7 @@ function extensionFromRow(row) {
       amount_pln: row.subsidy?.amount_pln || '',
       notes: row.subsidy?.notes || '',
     },
+    logistics_checklist: normalizeLogisticsChecklist(row.logistics_checklist),
   };
 }
 
@@ -277,6 +289,7 @@ export default function Construction() {
       norms_note: ext.norms_note || '',
       certifications: Array.isArray(ext.certifications) ? [...ext.certifications] : [],
       subsidy: { ...emptyLocalMeta().subsidy, ...(ext.subsidy || {}) },
+      logistics_checklist: normalizeLogisticsChecklist(ext.logistics_checklist),
     });
     setShowForm(true);
   };
@@ -310,7 +323,14 @@ export default function Construction() {
             <h1 className="text-4xl font-bold text-foreground mb-2">Budowa</h1>
             <p className="text-muted-foreground">Zarządzaj obiektami budowlanymi</p>
           </div>
-          <Button onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-700">
+          <Button
+            onClick={() => {
+              setEditingId(null);
+              resetForm();
+              setShowForm(true);
+            }}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
             <Plus className="mr-2 h-4 w-4" /> Dodaj obiekt
           </Button>
         </div>
@@ -650,6 +670,11 @@ export default function Construction() {
                   </div>
                 </div>
 
+                <ProjectLogisticsChecklist
+                  value={localMeta.logistics_checklist}
+                  onChange={(next) => setLocalMeta({ ...localMeta, logistics_checklist: next })}
+                />
+
                 <div>
                    <Label>Dokumentacja fotograficzna</Label>
                    <div className="flex gap-2 items-end">
@@ -728,6 +753,7 @@ export default function Construction() {
                     <TableHead>Mapa</TableHead>
                     <TableHead>Obiekt</TableHead>
                     <TableHead>Segment oferty</TableHead>
+                    <TableHead>Logistyka</TableHead>
                     <TableHead>Kod pocztowy</TableHead>
                     <TableHead>Obieg</TableHead>
                     <TableHead>Data plan.</TableHead>
@@ -770,6 +796,27 @@ export default function Construction() {
                         <TableCell className="font-medium">{site.object_name}</TableCell>
                         <TableCell className="text-sm max-w-[180px]">
                           {offerSegmentLabel(getSiteExt(site.id).offer_segment)}
+                        </TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">
+                          {(() => {
+                            const progress = logisticsChecklistProgress(getSiteExt(site.id).logistics_checklist);
+                            if (!progress.total) {
+                              return <span className="text-slate-400">—</span>;
+                            }
+                            return (
+                              <Badge
+                                variant="outline"
+                                className={
+                                  progress.open > 0
+                                    ? 'border-amber-400 text-amber-800 bg-amber-50'
+                                    : 'border-emerald-400 text-emerald-800 bg-emerald-50'
+                                }
+                                title={progress.open > 0 ? `${progress.open} otwartych` : 'Logistyka domknięta'}
+                              >
+                                {progress.label}
+                              </Badge>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell>{site.postal_code || '-'}</TableCell>
                         <TableCell className="text-sm whitespace-nowrap">

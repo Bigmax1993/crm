@@ -55,6 +55,7 @@ function emptySiteExtension() {
       amount_pln: "",
       notes: "",
     },
+    logistics_checklist: null,
     updatedAt: null,
   };
 }
@@ -73,11 +74,14 @@ export function patchSiteExtension(siteId, partial) {
   const prev = st.siteExtensions[siteId] || emptySiteExtension();
   const nextCert = partial.certifications != null ? partial.certifications : prev.certifications;
   const nextSub = { ...prev.subsidy, ...(partial.subsidy || {}) };
+  const nextChecklist =
+    partial.logistics_checklist !== undefined ? partial.logistics_checklist : prev.logistics_checklist;
   st.siteExtensions[siteId] = {
     ...prev,
     ...partial,
     certifications: Array.isArray(nextCert) ? nextCert : [],
     subsidy: nextSub,
+    logistics_checklist: nextChecklist ?? null,
     updatedAt: new Date().toISOString(),
   };
   saveCrmLocalState(st);

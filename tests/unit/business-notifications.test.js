@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { buildBusinessNotifications, saveNotificationSettings } from "@/lib/business-notifications";
+import { createLogisticsChecklistFromTemplate } from "@/lib/project-logistics-checklist";
 
 describe("business-notifications", () => {
   beforeEach(() => {
@@ -30,5 +31,21 @@ describe("business-notifications", () => {
       settings: { wlaczone: false, dni_przed_terminem: 3, prog_budzetu_pct: 80 },
     });
     expect(items).toHaveLength(0);
+  });
+
+  it("alertuje o otwartej logistyce projektu", () => {
+    const checklist = createLogisticsChecklistFromTemplate();
+    checklist.sections[0].items[0].status = "done";
+    const items = buildBusinessNotifications({
+      invoices: [],
+      projects: [{ id: "p1", object_name: "REWE Dresden", city: "Dresden", status: "aktywny" }],
+      refundClaims: [],
+      siteExtensions: [{ site_id: "p1", logistics_checklist: checklist }],
+    });
+    const logistics = items.find((i) => i.id === "logistics-p1");
+    expect(logistics).toBeTruthy();
+    expect(logistics.title).toContain("REWE Dresden");
+    expect(logistics.body).toMatch(/10 do załatwienia/);
+    expect(logistics.href).toContain("Construction?site=p1");
   });
 });

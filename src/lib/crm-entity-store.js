@@ -69,6 +69,7 @@ function emptySiteExtensionPayload() {
     norms_note: "",
     certifications: [],
     subsidy: { program: "", stage: "", deadline: "", amount_pln: "", notes: "" },
+    logistics_checklist: null,
   };
 }
 
@@ -253,6 +254,7 @@ export async function fetchSiteExtension(siteId) {
           norms_note: row.norms_note || "",
           certifications: row.certifications || [],
           subsidy: { ...emptySiteExtensionPayload().subsidy, ...(row.subsidy || {}) },
+          logistics_checklist: row.logistics_checklist ?? null,
           updatedAt: row.updated_at || row.updatedAt || null,
         };
       }
@@ -269,12 +271,15 @@ export async function patchSiteExtensionEntity(siteId, partial) {
   const prev = await fetchSiteExtension(siteId);
   const nextCert = partial.certifications != null ? partial.certifications : prev.certifications;
   const nextSub = { ...prev.subsidy, ...(partial.subsidy || {}) };
+  const nextChecklist =
+    partial.logistics_checklist !== undefined ? partial.logistics_checklist : prev.logistics_checklist;
   const payload = {
     site_id: siteId,
     offer_segment: partial.offer_segment ?? prev.offer_segment,
     norms_note: partial.norms_note ?? prev.norms_note,
     certifications: Array.isArray(nextCert) ? nextCert : [],
     subsidy: nextSub,
+    logistics_checklist: nextChecklist ?? null,
     updated_at: new Date().toISOString(),
   };
 
@@ -293,7 +298,14 @@ export async function patchSiteExtensionEntity(siteId, partial) {
   }
   const st = loadCrmLocalState();
   st.siteExtensions = st.siteExtensions || {};
-  st.siteExtensions[siteId] = { ...prev, ...partial, certifications: payload.certifications, subsidy: nextSub, updatedAt: payload.updated_at };
+  st.siteExtensions[siteId] = {
+    ...prev,
+    ...partial,
+    certifications: payload.certifications,
+    subsidy: nextSub,
+    logistics_checklist: payload.logistics_checklist,
+    updatedAt: payload.updated_at,
+  };
   saveCrmLocalState(st);
 }
 

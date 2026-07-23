@@ -1,10 +1,11 @@
 /**
- * Powiadomienia biznesowe (terminy płatności, budżet, zwroty) — teksty po polsku.
+ * Powiadomienia biznesowe (terminy płatności, budżet, zwroty, logistyka) — teksty po polsku.
  */
 import { parseISO, differenceInCalendarDays, isValid } from "date-fns";
 import { budgetAlertsPln } from "@/lib/finance-pln";
 import { isRefundFollowUpOverdue } from "@/lib/refund-claims";
 import { activeProjectsCount } from "@/lib/finance";
+import { projectsWithOpenLogistics } from "@/lib/project-logistics-checklist";
 
 const SETTINGS_KEY = "fakturowo_powiadomienia_v1";
 
@@ -39,6 +40,10 @@ function deadlineDays(invoice) {
   return differenceInCalendarDays(d, new Date());
 }
 
+function projectLabel(project) {
+  return project?.object_name || project?.city || "Projekt";
+}
+
 /**
  * @returns {Array<{ id: string, severity: 'warning'|'danger'|'info', title: string, body: string, href?: string }>}
  */
@@ -46,6 +51,7 @@ export function buildBusinessNotifications({
   invoices = [],
   projects = [],
   refundClaims = [],
+  siteExtensions = [],
   settings = loadNotificationSettings(),
 }) {
   if (!settings.wlaczone) return [];
@@ -80,7 +86,7 @@ export function buildBusinessNotifications({
 
   const alerts = budgetAlertsPln(projects, invoices, settings.prog_budzetu_pct / 100);
   for (const a of alerts.slice(0, 5)) {
-    const name = a.project.object_name || a.project.city || "Projekt";
+    const name = projectLabel(a.project);
     items.push({
       id: `budget-${a.project.id}`,
       severity: "warning",
@@ -98,6 +104,23 @@ export function buildBusinessNotifications({
       title: "Zwrot po terminie follow-up",
       body: `${claim.supplier_name || "Dostawca"} — ${claim.invoice_number || "bez nr FV"}`,
       href: "/ExpectedRefunds",
+    });
+  }
+
+  const logisticsOpen = projectsWithOpenLogistics({ projects, siteExtensions });
+  for (const row of logisticsOpen.slice(0, 8)) {
+    const name = projectLabel(row.project);
+    const preview = row.openItems
+      .slice(0, 3)
+      .map((it) => it.label)
+      .join(" · ");
+    const more = row.openItems.length > 3 ? ` (+${row.openItems.length - 3})` : "";
+    items.push({
+      id: `logistics-${row.project.id}`,
+      severity: "warning",
+      title: `Logistyka: ${name}`,
+      body: `${row.openItems.length} do załatwienia: ${preview}${more}`,
+      href: `/Construction?site=${encodeURIComponent(row.project.id)}`,
     });
   }
 

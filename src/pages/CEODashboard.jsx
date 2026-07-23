@@ -54,8 +54,8 @@ import { getProjectDisplayName, projectReportingCurrency } from "@/lib/match-pro
 import { useClientEnrichedInvoices } from "@/hooks/useClientEnrichedInvoices";
 import { useCurrencyDisplay } from "@/contexts/CurrencyDisplayContext";
 import { format } from "date-fns";
-import { AlertTriangle, TrendingUp, Wallet, Building2, RotateCcw } from "lucide-react";
-import { listRefundClaims } from "@/lib/crm-entity-store";
+import { AlertTriangle, TrendingUp, Wallet, Building2, RotateCcw, ClipboardList } from "lucide-react";
+import { listRefundClaims, listSiteExtensions } from "@/lib/crm-entity-store";
 import { PayablesReconciliation } from "@/components/finance/PayablesReconciliation";
 import {
   isRefundFollowUpOverdue,
@@ -64,7 +64,8 @@ import {
   refundClaimStatusLabel,
   sumOpenRefundClaimsPln,
 } from "@/lib/refund-claims";
-import { createPageUrl } from "@/utils";
+import { projectsWithOpenLogistics } from "@/lib/project-logistics-checklist";
+import { createPageUrl, constructionSitePageUrl } from "@/utils";
 
 const PIE_COLORS = ["#1F4E79", "#2E75B6", "#5B9BD5", "#9DC3E6", "#ED7D31", "#FFC000", "#70AD47"];
 
@@ -114,6 +115,10 @@ export default function CEODashboard() {
   const { data: transfers = [] } = useQuery({
     queryKey: ["transfers"],
     queryFn: () => base44.entities.Transfer.list(),
+  });
+  const { data: siteExtensions = [] } = useQuery({
+    queryKey: ["site-extensions"],
+    queryFn: () => listSiteExtensions(),
   });
 
   const enriched = useClientEnrichedInvoices(invoices);
@@ -277,6 +282,11 @@ export default function CEODashboard() {
     [projectExpenseChart]
   );
 
+  const logisticsOpenByProject = useMemo(
+    () => projectsWithOpenLogistics({ projects, siteExtensions }),
+    [projects, siteExtensions]
+  );
+
   if (loading) {
     return (
       <div className="flex min-h-[50vh] w-full items-center justify-center text-muted-foreground">
@@ -297,7 +307,7 @@ export default function CEODashboard() {
           </p>
         </motion.div>
 
-        {(bAlerts.length > 0 || overdue.length > 0 || refundOverdue.length > 0) && (
+        {(bAlerts.length > 0 || overdue.length > 0 || refundOverdue.length > 0 || logisticsOpenByProject.length > 0) && (
           <div className="grid gap-3 md:grid-cols-2">
             {bAlerts.length > 0 && (
               <Alert variant="destructive">
@@ -330,6 +340,17 @@ export default function CEODashboard() {
                 <AlertDescription>
                   {refundOverdue.length} spraw wymaga kontaktu z dostawcą (łącznie do odzyskania ok.{" "}
                   {refundOpenTotal.toLocaleString("pl-PL", { minimumFractionDigits: 2 })} PLN).
+                </AlertDescription>
+              </Alert>
+            )}
+            {logisticsOpenByProject.length > 0 && (
+              <Alert className="md:col-span-2 border-amber-300 bg-amber-50/60 dark:bg-amber-950/20">
+                <ClipboardList className="h-4 w-4" />
+                <AlertTitle>
+                  Logistyka do załatwienia ({logisticsOpenByProject.reduce((s, r) => s + r.openItems.length, 0)} poz.)
+                </AlertTitle>
+                <AlertDescription>
+                  {logisticsOpenByProject.length} projekt(ów) z otwartą checklistą (cement / piasek / Radlader).
                 </AlertDescription>
               </Alert>
             )}
@@ -371,6 +392,70 @@ export default function CEODashboard() {
             </motion.div>
           ))}
         </div>
+
+        {logisticsOpenByProject.length > 0 && (
+          <Card className="border-amber-200 shadow-md">
+            <CardHeader className="pb-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <ClipboardList className="h-5 w-5 text-amber-700" />
+                    Logistyka do załatwienia
+                  </CardTitle>
+                  <CardDescription className="text-xs mt-1">
+                    Nieodhaczone pozycje checklisty (cement PL→DE, piasek, Radlader) przy projektach.
+                  </CardDescription>
+                </div>
+                <Badge variant="outline" className="border-amber-400 text-amber-900 bg-amber-50">
+                  {logisticsOpenByProject.reduce((s, r) => s + r.openItems.length, 0)} otwartych
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {logisticsOpenByProject.map(({ project, openItems, progress, cement_load_date, cement_unload_date }) => (
+                <div
+                  key={project.id}
+                  className="rounded-lg border border-amber-200/80 bg-amber-50/40 dark:bg-amber-950/10 p-3 space-y-2"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-foreground">{getProjectDisplayName(project)}</p>
+                      {(cement_load_date || cement_unload_date) && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {cement_load_date ? `Załadunek: ${cement_load_date}` : null}
+                          {cement_load_date && cement_unload_date ? " · " : null}
+                          {cement_unload_date ? `Rozładunek: ${cement_unload_date}` : null}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">{progress.label}</Badge>
+                      <Button asChild variant="outline" size="sm">
+                        <Link to={constructionSitePageUrl(project.id)}>Otwórz projekt</Link>
+                      </Button>
+                    </div>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {openItems.map((item) => (
+                      <li key={item.id} className="text-sm flex gap-2">
+                        <span className="text-amber-700 shrink-0">•</span>
+                        <span>
+                          <span className="text-muted-foreground text-xs uppercase tracking-wide mr-1">
+                            {item.sectionTitle}:
+                          </span>
+                          {item.label}
+                          {item.comment ? (
+                            <span className="block text-xs text-muted-foreground mt-0.5">{item.comment}</span>
+                          ) : null}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>

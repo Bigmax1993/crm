@@ -14,9 +14,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { buildBusinessNotifications, loadNotificationSettings } from "@/lib/business-notifications";
-import { listRefundClaims } from "@/lib/crm-entity-store";
+import { listRefundClaims, listSiteExtensions } from "@/lib/crm-entity-store";
 import { useClientEnrichedInvoices } from "@/hooks/useClientEnrichedInvoices";
-import { createPageUrl } from "@/utils";
+import { createPageUrl, constructionSitePageUrl } from "@/utils";
 import { cn } from "@/lib/utils";
 
 const SEVERITY_CLASS = {
@@ -24,6 +24,13 @@ const SEVERITY_CLASS = {
   warning: "border-amber-200 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100",
   info: "border-border bg-muted/50 text-foreground",
 };
+
+function notificationTo(href) {
+  if (!href) return createPageUrl("CEODashboard");
+  const m = String(href).match(/^\/Construction\?site=(.+)$/);
+  if (m) return constructionSitePageUrl(decodeURIComponent(m[1]));
+  return createPageUrl(String(href).replace(/^\//, "").split("?")[0] || "CEODashboard");
+}
 
 export function BusinessNotificationsBell() {
   const [settings, setSettings] = useState(loadNotificationSettings);
@@ -40,6 +47,10 @@ export function BusinessNotificationsBell() {
     queryKey: ["refund-claims"],
     queryFn: () => listRefundClaims(),
   });
+  const { data: siteExtensions = [] } = useQuery({
+    queryKey: ["site-extensions"],
+    queryFn: () => listSiteExtensions(),
+  });
 
   const enriched = useClientEnrichedInvoices(invoices);
 
@@ -55,9 +66,10 @@ export function BusinessNotificationsBell() {
         invoices: enriched,
         projects,
         refundClaims,
+        siteExtensions,
         settings,
       }),
-    [enriched, projects, refundClaims, settings]
+    [enriched, projects, refundClaims, siteExtensions, settings]
   );
 
   const dangerCount = notifications.filter((n) => n.severity === "danger").length;
@@ -88,7 +100,7 @@ export function BusinessNotificationsBell() {
           notifications.slice(0, 12).map((n) => (
             <DropdownMenuItem key={n.id} asChild className="cursor-pointer p-0 focus:bg-transparent">
               <Link
-                to={createPageUrl(n.href?.replace(/^\//, "") || "CEODashboard")}
+                to={notificationTo(n.href)}
                 className={cn("block w-full px-2 py-2 rounded-sm border mb-1 text-left", SEVERITY_CLASS[n.severity])}
               >
                 <p className="text-xs font-semibold">{n.title}</p>
