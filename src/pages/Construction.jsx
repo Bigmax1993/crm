@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, Plus, X, Trash2, Loader2, Building, Pencil, Image as ImageIcon, Upload as UploadIcon, MapPin } from 'lucide-react';
+import { Search, Plus, X, Trash2, Loader2, Building, Pencil, Image as ImageIcon, Upload as UploadIcon, MapPin, ExternalLink, Download } from 'lucide-react';
 import { ConstructionOffersAi } from '@/components/ai/ConstructionOffersAi';
 import { CityGeocodeInput } from '@/components/construction/CityGeocodeInput';
 import { ProjectLogisticsChecklist } from '@/components/construction/ProjectLogisticsChecklist';
@@ -38,6 +38,49 @@ function siteStatusSelectClass(status) {
   if (status === 'aktywny') return 'border-green-300 bg-green-50 text-green-800';
   if (status === 'zakończony') return 'border-slate-300 bg-slate-100 text-slate-800';
   return 'border-amber-300 bg-amber-50 text-amber-900';
+}
+
+function photoDownloadFilename(siteName) {
+  const base = String(siteName || 'dokumentacja')
+    .replace(/[^\w\-ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]+/gi, '_')
+    .replace(/_+/g, '_')
+    .slice(0, 40);
+  return `${base || 'dokumentacja'}_foto.jpg`;
+}
+
+/** Otwórz zdjęcie w nowej karcie. */
+function openPhotoDocumentation(url) {
+  if (!url) return;
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+/** Pobierz zdjęcie (data URL lub http). */
+async function downloadPhotoDocumentation(url, filename) {
+  if (!url) return;
+  const name = filename || 'dokumentacja.jpg';
+  try {
+    if (url.startsWith('data:')) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      return;
+    }
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+  } catch {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
 }
 
 function emptyLocalMeta() {
@@ -726,41 +769,87 @@ export default function Construction() {
 
                 <div>
                    <Label>Dokumentacja fotograficzna</Label>
-                   <div className="flex gap-2 items-end">
-                     <div className="flex-1">
-                       <div className="relative border border-dashed border-slate-300 rounded-lg p-4 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
-                         <input
-                           type="file"
-                           accept="image/*"
-                           onChange={handlePhotoUpload}
-                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                         />
-                         <div className="flex flex-col items-center">
-                           {formData.photo_documentation ? (
-                             <>
-                               <ImageIcon className="h-6 w-6 text-green-600 mb-2" />
-                               <span className="text-sm text-green-600 font-medium">Zdjęcie wgrane</span>
-                             </>
-                           ) : (
-                             <>
-                               <UploadIcon className="h-6 w-6 text-slate-400 mb-2" />
-                               <span className="text-sm text-slate-600">Kliknij, aby wgrać zdjęcie</span>
-                             </>
-                           )}
+                   {formData.photo_documentation ? (
+                     <div className="mt-2 rounded-lg border border-green-200 bg-green-50/40 p-3 space-y-3">
+                       <div className="flex flex-col sm:flex-row gap-3 items-start">
+                         <a
+                           href={formData.photo_documentation}
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           className="shrink-0 block rounded-md overflow-hidden border bg-background"
+                           title="Otwórz podgląd"
+                         >
+                           <img
+                             src={formData.photo_documentation}
+                             alt="Dokumentacja fotograficzna"
+                             className="h-28 w-40 object-cover"
+                           />
+                         </a>
+                         <div className="flex-1 space-y-2 min-w-0">
+                           <p className="text-sm font-medium text-green-800 flex items-center gap-2">
+                             <ImageIcon className="h-4 w-4" />
+                             Zdjęcie wgrane
+                           </p>
+                           <div className="flex flex-wrap gap-2">
+                             <Button
+                               type="button"
+                               variant="outline"
+                               size="sm"
+                               onClick={() => openPhotoDocumentation(formData.photo_documentation)}
+                             >
+                               <ExternalLink className="h-4 w-4 mr-1" />
+                               Otwórz
+                             </Button>
+                             <Button
+                               type="button"
+                               variant="outline"
+                               size="sm"
+                               onClick={() =>
+                                 downloadPhotoDocumentation(
+                                   formData.photo_documentation,
+                                   photoDownloadFilename(formData.object_name || formData.city)
+                                 ).catch((err) => toast.error(err?.message || 'Nie udało się pobrać zdjęcia'))
+                               }
+                             >
+                               <Download className="h-4 w-4 mr-1" />
+                               Pobierz
+                             </Button>
+                             <label className="inline-flex items-center justify-center gap-1 h-8 px-3 rounded-md border border-input bg-background text-sm font-medium cursor-pointer hover:bg-accent relative overflow-hidden">
+                               <UploadIcon className="h-4 w-4" />
+                               Zamień
+                               <input
+                                 type="file"
+                                 accept="image/*"
+                                 onChange={handlePhotoUpload}
+                                 className="absolute inset-0 opacity-0 cursor-pointer"
+                               />
+                             </label>
+                             <Button
+                               type="button"
+                               variant="ghost"
+                               size="sm"
+                               onClick={() => setFormData({ ...formData, photo_documentation: '' })}
+                             >
+                               Usuń
+                             </Button>
+                           </div>
                          </div>
                        </div>
                      </div>
-                     {formData.photo_documentation && (
-                       <Button
-                         type="button"
-                         variant="ghost"
-                         size="sm"
-                         onClick={() => setFormData({ ...formData, photo_documentation: '' })}
-                       >
-                         Usuń
-                       </Button>
-                     )}
-                   </div>
+                   ) : (
+                     <div className="mt-2 relative border border-dashed border-slate-300 rounded-lg p-4 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
+                       <input
+                         type="file"
+                         accept="image/*"
+                         onChange={handlePhotoUpload}
+                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                       />
+                       <div className="flex flex-col items-center">
+                         <UploadIcon className="h-6 w-6 text-slate-400 mb-2" />
+                         <span className="text-sm text-slate-600">Kliknij, aby wgrać zdjęcie</span>
+                       </div>
+                     </div>
+                   )}
                 </div>
                 <div className="flex gap-3 justify-end">
                    <Button type="button" variant="outline" onClick={dismissForm}>
