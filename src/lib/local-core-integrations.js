@@ -19,6 +19,23 @@ function approxDataUrlBytes(dataUrl) {
   return Math.ceil((dataUrl.length - i - 1) * 0.75);
 }
 
+/** Dekoduj data URL → bajty (bez fetch/Blob — stabilne w jsdom/CI). */
+function dataUrlToUint8(dataUrl) {
+  const comma = dataUrl.indexOf(",");
+  if (comma < 0) throw new Error("Niepoprawny data URL");
+  const meta = dataUrl.slice(0, comma);
+  const payload = dataUrl.slice(comma + 1);
+  const binary = meta.includes(";base64") ? atob(payload) : decodeURIComponent(payload);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) out[i] = binary.charCodeAt(i);
+  return out;
+}
+
+function dataUrlMime(dataUrl) {
+  const m = /^data:([^;,]+)/i.exec(dataUrl);
+  return m?.[1] || "application/octet-stream";
+}
+
 /**
  * Stare zdjęcia zapisane jako data:image… w SQLite/localStorage szybko wyczerpują quota.
  * Przenieś duże data URL do IndexedDB i zwróć krótki fakturowo-blob://…
@@ -26,9 +43,8 @@ function approxDataUrlBytes(dataUrl) {
 export async function externalizeLargeDataUrl(url) {
   if (typeof url !== "string" || !url.startsWith("data:")) return url;
   if (approxDataUrlBytes(url) <= INLINE_MAX_BYTES) return url;
-  const blob = await blobFromUploadInput(url);
-  if (!blob) return url;
-  return putBlob(blob, { type: blob.type || "image/jpeg" });
+  const bytes = dataUrlToUint8(url);
+  return putBlob(bytes, { type: dataUrlMime(url) });
 }
 
 async function blobFromUploadInput(file) {
@@ -36,8 +52,8 @@ async function blobFromUploadInput(file) {
   if (file instanceof ArrayBuffer) return new Blob([file]);
   if (ArrayBuffer.isView(file)) return new Blob([file.buffer]);
   if (typeof file === "string" && file.startsWith("data:")) {
-    const res = await fetch(file);
-    return res.blob();
+    const bytes = dataUrlToUint8(file);
+    return new Blob([bytes], { type: dataUrlMime(file) });
   }
   return null;
 }
