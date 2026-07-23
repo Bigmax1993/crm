@@ -10,10 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, Plus, X, Trash2, Loader2, Building, Pencil, Image as ImageIcon, Upload as UploadIcon, MapPin, ExternalLink, Download } from 'lucide-react';
+import { Search, Plus, X, Trash2, Loader2, Building, Pencil, Image as ImageIcon, MapPin } from 'lucide-react';
 import { ConstructionOffersAi } from '@/components/ai/ConstructionOffersAi';
 import { CityGeocodeInput } from '@/components/construction/CityGeocodeInput';
 import { ProjectLogisticsChecklist } from '@/components/construction/ProjectLogisticsChecklist';
+import { SitePhotoGallery } from '@/components/construction/SitePhotoGallery';
 import { OFFER_SEGMENT_OPTIONS, offerSegmentLabel } from '@/lib/offer-segments';
 import { getSiteExtension } from '@/lib/crm-local-store';
 import { listSiteExtensions, patchSiteExtensionEntity, removeSiteExtensionEntity } from '@/lib/crm-entity-store';
@@ -25,7 +26,13 @@ import {
   logisticsChecklistProgress,
   normalizeLogisticsChecklist,
 } from '@/lib/project-logistics-checklist';
-import { resolveStoredFileUrl, openStoredFile, downloadStoredFile } from "@/lib/resolve-stored-file-url";
+import {
+  normalizeSitePhotos,
+  primarySitePhoto,
+  sitePhotosLabel,
+  SITE_PHOTOS_MAX,
+} from '@/lib/site-photos';
+import { openStoredFile, downloadStoredFile } from "@/lib/resolve-stored-file-url";
 import { externalizeLargeDataUrl } from "@/lib/local-core-integrations";
 import { toast } from "sonner";
 
@@ -69,6 +76,7 @@ function emptyLocalMeta() {
     subsidy: { program: '', stage: '', deadline: '', amount_pln: '', notes: '' },
     // Nowy obiekt: bez pełnej checklisty — wstawisz szablon przyciskiem (krótszy formularz).
     logistics_checklist: null,
+    photos: [],
   };
 }
 
@@ -82,6 +90,7 @@ function normalizeExtension(ext) {
     ...ext,
     certifications,
     logistics_checklist: normalizeLogisticsChecklist(ext.logistics_checklist),
+    photos: normalizeSitePhotos({ photos: ext.photos, photo_documentation: ext.photo_documentation }),
   };
 }
 
@@ -124,6 +133,7 @@ function extensionFromRow(row) {
       notes: row.subsidy?.notes || '',
     },
     logistics_checklist: normalizeLogisticsChecklist(row.logistics_checklist),
+    photos: normalizeSitePhotos({ photos: row.photos }),
   };
 }
 
@@ -134,7 +144,7 @@ export default function Construction() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [geoSaving, setGeoSaving] = useState(false);
-  const [photoPreviewUrl, setPhotoPreviewUrl] = useState('');
+  const [photoUploading, setPhotoUploading] = useState(false);
   const [localMeta, setLocalMeta] = useState(() => emptyLocalMeta());
   const [formData, setFormData] = useState({
     city: '',
@@ -365,14 +375,23 @@ export default function Construction() {
     }
     setGeoSaving(true);
     try {
-      // Duże data:image w polu photo_documentation puchną localStorage → QuotaExceeded przy zapisie.
-      let photoUrl = formData.photo_documentation;
-      if (typeof photoUrl === 'string' && photoUrl.startsWith('data:')) {
-        const next = await externalizeLargeDataUrl(photoUrl);
-        if (next !== photoUrl) {
-          photoUrl = next;
-          setFormData((prev) => ({ ...prev, photo_documentation: next }));
+      // Duże data:image w galerii puchną localStorage → QuotaExceeded przy zapisie.
+      const rawPhotos = normalizeSitePhotos({
+        photos: localMeta.photos,
+        photo_documentation: formData.photo_documentation,
+      });
+      const photos = [];
+      for (const url of rawPhotos) {
+        if (typeof url === 'string' && url.startsWith('data:')) {
+          photos.push(await externalizeLargeDataUrl(url));
+        } else {
+          photos.push(url);
         }
+      }
+      const photoUrl = primarySitePhoto(photos);
+      if (photoUrl !== formData.photo_documentation || photos.length !== (localMeta.photos || []).length) {
+        setFormData((prev) => ({ ...prev, photo_documentation: photoUrl }));
+        setLocalMeta((prev) => ({ ...prev, photos }));
       }
 
       let data = {
@@ -384,6 +403,8 @@ export default function Construction() {
         longitude: formData.longitude !== '' && formData.longitude != null ? parseFloat(formData.longitude) : null,
         planned_date: formData.planned_date ? String(formData.planned_date).slice(0, 10) : null,
       };
+
+      const extension = { ...localMeta, photos };
 
       if (!siteHasCoords(data) && String(data.city ?? '').trim()) {
         const geo = await resolveSiteGeocode(data);
@@ -405,9 +426,9 @@ export default function Construction() {
       }
 
       if (editingId) {
-        updateMutation.mutate({ id: editingId, data, extension: localMeta });
+        updateMutation.mutate({ id: editingId, data, extension });
       } else {
-        createMutation.mutate({ data, extension: localMeta });
+        createMutation.mutate({ data, extension });
       }
     } catch (err) {
       const msg = err?.message || String(err);
@@ -427,30 +448,64 @@ export default function Construction() {
     setFormData(siteRowToFormData(site));
     setEditingId(site.id);
     const ext = getSiteExt(site.id);
+    const photos = normalizeSitePhotos({
+      photos: ext.photos,
+      photo_documentation: site.photo_documentation,
+    });
     setLocalMeta({
       offer_segment: ext.offer_segment || '',
       norms_note: ext.norms_note || '',
       certifications: Array.isArray(ext.certifications) ? [...ext.certifications] : [],
       subsidy: { ...emptyLocalMeta().subsidy, ...(ext.subsidy || {}) },
       logistics_checklist: normalizeLogisticsChecklist(ext.logistics_checklist),
+      photos,
     });
     setShowForm(true);
   };
 
-  useEffect(() => {
-    const url = formData.photo_documentation;
-    if (!url) {
-      setPhotoPreviewUrl('');
+  const handlePhotoUpload = async (files) => {
+    const list = Array.isArray(files) ? files : [];
+    if (!list.length) return;
+
+    const current = normalizeSitePhotos({
+      photos: localMeta.photos,
+      photo_documentation: formData.photo_documentation,
+    });
+    const room = SITE_PHOTOS_MAX - current.length;
+    if (room <= 0) {
+      toast.error(`Limit ${SITE_PHOTOS_MAX} zdjęć na obiekt.`);
       return;
     }
-    let cancelled = false;
-    resolveStoredFileUrl(url).then((resolved) => {
-      if (!cancelled) setPhotoPreviewUrl(resolved || url);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [formData.photo_documentation]);
+
+    setPhotoUploading(true);
+    try {
+      const added = [];
+      for (const file of list.slice(0, room)) {
+        if (!file.type?.startsWith('image/')) {
+          toast.error(`Pominięto „${file.name || 'plik'}” — to nie jest obraz.`);
+          continue;
+        }
+        const uploadRes = await base44.integrations.Core.UploadFile({ file });
+        const url = getUploadFilePublicUrl(uploadRes);
+        if (!url) throw new Error('Brak adresu pliku po wgraniu.');
+        added.push(url);
+      }
+      if (!added.length) return;
+      const photos = normalizeSitePhotos({ photos: [...current, ...added] });
+      setLocalMeta((prev) => ({ ...prev, photos }));
+      setFormData((prev) => ({ ...prev, photo_documentation: primarySitePhoto(photos) }));
+      toast.success(
+        added.length === 1
+          ? 'Zdjęcie wgrane — kliknij „Aktualizuj obiekt”, aby zapisać.'
+          : `Wgrano ${added.length} zdjęcia — kliknij „Aktualizuj obiekt”, aby zapisać.`
+      );
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.message || 'Nie udało się wgrać zdjęcia.');
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
 
   useEffect(() => {
     const siteId = new URLSearchParams(location.search).get('site');
@@ -459,28 +514,6 @@ export default function Construction() {
     const site = sites.find((s) => s.id === siteId);
     if (site) handleEdit(site);
   }, [location.search, sites, isLoading, editingId, showForm]);
-
-  const handlePhotoUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      if (!file.type?.startsWith("image/")) {
-        toast.error("Wybierz plik obrazu (JPG, PNG, WebP…).");
-        return;
-      }
-      const uploadRes = await base44.integrations.Core.UploadFile({ file });
-      const url = getUploadFilePublicUrl(uploadRes);
-      if (!url) throw new Error("Brak adresu pliku po wgraniu.");
-      setFormData((prev) => ({ ...prev, photo_documentation: url }));
-      toast.success("Zdjęcie wgrane — kliknij „Aktualizuj obiekt”, aby zapisać.");
-    } catch (err) {
-      console.error(err);
-      toast.error(err?.message || "Nie udało się wgrać zdjęcia.");
-    } finally {
-      e.target.value = "";
-    }
-  };
 
   return (
     <div className="w-full p-6">
@@ -856,89 +889,34 @@ export default function Construction() {
                   onChange={(next) => setLocalMeta({ ...localMeta, logistics_checklist: next })}
                 />
 
-                <div>
-                   <Label>Dokumentacja fotograficzna</Label>
-                   {formData.photo_documentation ? (
-                     <div className="mt-2 rounded-lg border border-green-200 bg-green-50/40 p-3 space-y-3">
-                       <div className="flex flex-col sm:flex-row gap-3 items-start">
-                         <button
-                           type="button"
-                           onClick={() => openPhotoDocumentation(formData.photo_documentation)}
-                           className="shrink-0 block rounded-md overflow-hidden border bg-background"
-                           title="Otwórz podgląd"
-                         >
-                           <img
-                             src={photoPreviewUrl || formData.photo_documentation}
-                             alt="Dokumentacja fotograficzna"
-                             className="h-28 w-40 object-cover"
-                           />
-                         </button>
-                         <div className="flex-1 space-y-2 min-w-0">
-                           <p className="text-sm font-medium text-green-800 flex items-center gap-2">
-                             <ImageIcon className="h-4 w-4" />
-                             Zdjęcie wgrane
-                           </p>
-                           <div className="flex flex-wrap gap-2">
-                             <Button
-                               type="button"
-                               variant="outline"
-                               size="sm"
-                               onClick={() => openPhotoDocumentation(formData.photo_documentation)}
-                             >
-                               <ExternalLink className="h-4 w-4 mr-1" />
-                               Otwórz
-                             </Button>
-                             <Button
-                               type="button"
-                               variant="outline"
-                               size="sm"
-                               onClick={() =>
-                                 downloadPhotoDocumentation(
-                                   formData.photo_documentation,
-                                   photoDownloadFilename(formData.object_name || formData.city)
-                                 ).catch((err) => toast.error(err?.message || 'Nie udało się pobrać zdjęcia'))
-                               }
-                             >
-                               <Download className="h-4 w-4 mr-1" />
-                               Pobierz
-                             </Button>
-                             <label className="inline-flex items-center justify-center gap-1 h-8 px-3 rounded-md border border-input bg-background text-sm font-medium cursor-pointer hover:bg-accent relative overflow-hidden">
-                               <UploadIcon className="h-4 w-4" />
-                               Zamień
-                               <input
-                                 type="file"
-                                 accept="image/*"
-                                 onChange={handlePhotoUpload}
-                                 className="absolute inset-0 opacity-0 cursor-pointer"
-                               />
-                             </label>
-                             <Button
-                               type="button"
-                               variant="ghost"
-                               size="sm"
-                               onClick={() => setFormData({ ...formData, photo_documentation: '' })}
-                             >
-                               Usuń
-                             </Button>
-                           </div>
-                         </div>
-                       </div>
-                     </div>
-                   ) : (
-                     <div className="mt-2 relative border border-dashed border-slate-300 rounded-lg p-4 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
-                       <input
-                         type="file"
-                         accept="image/*"
-                         onChange={handlePhotoUpload}
-                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                       />
-                       <div className="flex flex-col items-center">
-                         <UploadIcon className="h-6 w-6 text-slate-400 mb-2" />
-                         <span className="text-sm text-slate-600">Kliknij, aby wgrać zdjęcie</span>
-                       </div>
-                     </div>
-                   )}
-                </div>
+                <SitePhotoGallery
+                  photos={normalizeSitePhotos({
+                    photos: localMeta.photos,
+                    photo_documentation: formData.photo_documentation,
+                  })}
+                  uploading={photoUploading}
+                  objectLabel={formData.object_name || formData.city || ''}
+                  onChange={(photos) => {
+                    const next = normalizeSitePhotos({ photos });
+                    setLocalMeta((prev) => ({ ...prev, photos: next }));
+                    setFormData((prev) => ({ ...prev, photo_documentation: primarySitePhoto(next) }));
+                  }}
+                  onUploadFiles={handlePhotoUpload}
+                  onOpen={(url) =>
+                    openPhotoDocumentation(url).catch((e) =>
+                      toast.error(e?.message || 'Nie udało się otworzyć zdjęcia')
+                    )
+                  }
+                  onDownload={(url, idx) =>
+                    downloadPhotoDocumentation(
+                      url,
+                      photoDownloadFilename(
+                        `${formData.object_name || formData.city || 'dokumentacja'}_${idx + 1}`
+                      )
+                    ).catch((err) => toast.error(err?.message || 'Nie udało się pobrać zdjęcia'))
+                  }
+                />
+
                 <div className="flex gap-3 justify-end">
                    <Button type="button" variant="outline" onClick={dismissForm}>
                      Anuluj
@@ -1088,22 +1066,30 @@ export default function Construction() {
                            )}
                          </TableCell>
                          <TableCell>
-                           {site.photo_documentation ? (
-                             <button
-                               type="button"
-                               onClick={() =>
-                                 openPhotoDocumentation(site.photo_documentation).catch((e) =>
-                                   toast.error(e?.message || 'Nie udało się otworzyć zdjęcia')
-                                 )
-                               }
-                               className="text-blue-600 hover:text-blue-800 flex items-center gap-2"
-                             >
-                               <ImageIcon className="h-4 w-4" />
-                               <span className="text-sm">Otwórz</span>
-                             </button>
-                           ) : (
-                             <span className="text-slate-400">-</span>
-                           )}
+                           {(() => {
+                             const photos = normalizeSitePhotos({
+                               photos: getSiteExt(site.id).photos,
+                               photo_documentation: site.photo_documentation,
+                             });
+                             if (!photos.length) {
+                               return <span className="text-slate-400">-</span>;
+                             }
+                             return (
+                               <button
+                                 type="button"
+                                 onClick={() =>
+                                   openPhotoDocumentation(photos[0]).catch((e) =>
+                                     toast.error(e?.message || 'Nie udało się otworzyć zdjęcia')
+                                   )
+                                 }
+                                 className="text-blue-600 hover:text-blue-800 flex items-center gap-2"
+                                 title={sitePhotosLabel(photos.length)}
+                               >
+                                 <ImageIcon className="h-4 w-4" />
+                                 <span className="text-sm">{sitePhotosLabel(photos.length)}</span>
+                               </button>
+                             );
+                           })()}
                          </TableCell>
                          <TableCell className="min-w-[140px]">
                           <Select

@@ -56,6 +56,7 @@ function emptySiteExtension() {
       notes: "",
     },
     logistics_checklist: null,
+    photos: [],
     updatedAt: null,
   };
 }
@@ -76,12 +77,14 @@ export function patchSiteExtension(siteId, partial) {
   const nextSub = { ...prev.subsidy, ...(partial.subsidy || {}) };
   const nextChecklist =
     partial.logistics_checklist !== undefined ? partial.logistics_checklist : prev.logistics_checklist;
+  const nextPhotos = partial.photos !== undefined ? partial.photos : prev.photos;
   st.siteExtensions[siteId] = {
     ...prev,
     ...partial,
     certifications: Array.isArray(nextCert) ? nextCert : [],
     subsidy: nextSub,
     logistics_checklist: nextChecklist ?? null,
+    photos: Array.isArray(nextPhotos) ? nextPhotos : [],
     updatedAt: new Date().toISOString(),
   };
   saveCrmLocalState(st);

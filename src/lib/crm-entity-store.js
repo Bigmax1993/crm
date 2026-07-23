@@ -70,6 +70,7 @@ function emptySiteExtensionPayload() {
     certifications: [],
     subsidy: { program: "", stage: "", deadline: "", amount_pln: "", notes: "" },
     logistics_checklist: null,
+    photos: [],
   };
 }
 
@@ -255,6 +256,7 @@ export async function fetchSiteExtension(siteId) {
           certifications: row.certifications || [],
           subsidy: { ...emptySiteExtensionPayload().subsidy, ...(row.subsidy || {}) },
           logistics_checklist: row.logistics_checklist ?? null,
+          photos: Array.isArray(row.photos) ? row.photos : [],
           updatedAt: row.updated_at || row.updatedAt || null,
         };
       }
@@ -273,6 +275,7 @@ export async function patchSiteExtensionEntity(siteId, partial) {
   const nextSub = { ...prev.subsidy, ...(partial.subsidy || {}) };
   const nextChecklist =
     partial.logistics_checklist !== undefined ? partial.logistics_checklist : prev.logistics_checklist;
+  const nextPhotos = partial.photos !== undefined ? partial.photos : prev.photos;
   const payload = {
     site_id: siteId,
     offer_segment: partial.offer_segment ?? prev.offer_segment,
@@ -280,6 +283,7 @@ export async function patchSiteExtensionEntity(siteId, partial) {
     certifications: Array.isArray(nextCert) ? nextCert : [],
     subsidy: nextSub,
     logistics_checklist: nextChecklist ?? null,
+    photos: Array.isArray(nextPhotos) ? nextPhotos : [],
     updated_at: new Date().toISOString(),
   };
 
@@ -304,6 +308,7 @@ export async function patchSiteExtensionEntity(siteId, partial) {
     certifications: payload.certifications,
     subsidy: nextSub,
     logistics_checklist: payload.logistics_checklist,
+    photos: payload.photos,
     updatedAt: payload.updated_at,
   };
   saveCrmLocalState(st);
