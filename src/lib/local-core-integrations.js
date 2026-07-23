@@ -11,12 +11,24 @@ import { putBlob } from "@/lib/blob-file-store";
 import { resolveStoredFileUrl } from "@/lib/resolve-stored-file-url";
 
 /** Małe obrazy mogą zostać jako data URL; PDF i większe pliki → IndexedDB. */
-const INLINE_MAX_BYTES = 120_000;
+export const INLINE_MAX_BYTES = 80_000;
 
 function approxDataUrlBytes(dataUrl) {
   const i = dataUrl.indexOf(",");
   if (i < 0) return dataUrl.length;
   return Math.ceil((dataUrl.length - i - 1) * 0.75);
+}
+
+/**
+ * Stare zdjęcia zapisane jako data:image… w SQLite/localStorage szybko wyczerpują quota.
+ * Przenieś duże data URL do IndexedDB i zwróć krótki fakturowo-blob://…
+ */
+export async function externalizeLargeDataUrl(url) {
+  if (typeof url !== "string" || !url.startsWith("data:")) return url;
+  if (approxDataUrlBytes(url) <= INLINE_MAX_BYTES) return url;
+  const blob = await blobFromUploadInput(url);
+  if (!blob) return url;
+  return putBlob(blob, { type: blob.type || "image/jpeg" });
 }
 
 async function blobFromUploadInput(file) {

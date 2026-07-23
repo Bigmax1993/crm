@@ -26,6 +26,8 @@ import {
   normalizeLogisticsChecklist,
 } from '@/lib/project-logistics-checklist';
 import { resolveStoredFileUrl, openStoredFile, downloadStoredFile } from "@/lib/resolve-stored-file-url";
+import { externalizeLargeDataUrl } from "@/lib/local-core-integrations";
+import { toast } from "sonner";
 
 const SITE_STATUS_OPTIONS = [
   { value: 'aktywny', label: 'Aktywny' },
@@ -160,6 +162,42 @@ export default function Construction() {
     queryFn: () => base44.entities.ConstructionSite.list('-created_date'),
   });
 
+  const photoMigrateOnceRef = React.useRef(false);
+  /** Jednorazowo: stare duże data:image w bazie → IndexedDB (odblokowuje zapis przy pełnym localStorage). */
+  useEffect(() => {
+    if (isLoading || !sites.length || photoMigrateOnceRef.current) return;
+    photoMigrateOnceRef.current = true;
+    let cancelled = false;
+    (async () => {
+      let migrated = 0;
+      for (const site of sites) {
+        if (cancelled) return;
+        const url = site.photo_documentation;
+        if (typeof url !== 'string' || !url.startsWith('data:')) continue;
+        try {
+          const next = await externalizeLargeDataUrl(url);
+          if (next && next !== url) {
+            await base44.entities.ConstructionSite.update(site.id, { photo_documentation: next });
+            migrated += 1;
+          }
+        } catch (err) {
+          console.warn('Migracja zdjęcia obiektu do IndexedDB:', site.id, err);
+        }
+      }
+      if (!cancelled && migrated > 0) {
+        queryClient.invalidateQueries(['construction-sites']);
+        toast.success(
+          migrated === 1
+            ? 'Przeniesiono 1 zdjęcie do IndexedDB — zapis powinien znów działać.'
+            : `Przeniesiono ${migrated} zdjęcia do IndexedDB — zapis powinien znów działać.`
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoading, sites, queryClient]);
+
   const { data: siteExtensions = [] } = useQuery({
     queryKey: ['site-extensions'],
     queryFn: () => listSiteExtensions(),
@@ -260,7 +298,9 @@ export default function Construction() {
     onError: (err) => {
       const msg = err?.message || String(err);
       if (/quota|miejsca w pamięci|localStorage/i.test(msg)) {
-        toast.error('Brak miejsca w pamięci przeglądarki. Odśwież (Ctrl+F5) lub Ustawienia → reset bazy.');
+        toast.error(
+          'Brak miejsca w pamięci przeglądarki. Usuń zdjęcie (Usuń), zapisz bez niego, potem wgraj ponownie — albo Ustawienia → reset bazy.'
+        );
       } else {
         toast.error(msg || 'Nie udało się zaktualizować obiektu');
       }
@@ -319,14 +359,25 @@ export default function Construction() {
     e.preventDefault();
     if (!String(formData.object_name ?? '').trim()) {
       toast.error('Podaj nazwę obiektu (pole „Obiekt *” na górze formularza).');
-      document.getElementById('construction-object-name')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      document.getElementById('construction-object-name')?.focus();
+      document.getElementById('construction-object-name')?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+      document.getElementById('construction-object-name')?.focus?.();
       return;
     }
     setGeoSaving(true);
     try {
+      // Duże data:image w polu photo_documentation puchną localStorage → QuotaExceeded przy zapisie.
+      let photoUrl = formData.photo_documentation;
+      if (typeof photoUrl === 'string' && photoUrl.startsWith('data:')) {
+        const next = await externalizeLargeDataUrl(photoUrl);
+        if (next !== photoUrl) {
+          photoUrl = next;
+          setFormData((prev) => ({ ...prev, photo_documentation: next }));
+        }
+      }
+
       let data = {
         ...formData,
+        photo_documentation: photoUrl,
         invoice_count: formData.invoice_count ? parseInt(formData.invoice_count) : null,
         budget_planned: formData.budget_planned ? parseFloat(formData.budget_planned) : null,
         latitude: formData.latitude !== '' && formData.latitude != null ? parseFloat(formData.latitude) : null,
@@ -361,7 +412,9 @@ export default function Construction() {
     } catch (err) {
       const msg = err?.message || String(err);
       if (/quota|miejsca w pamięci|localStorage/i.test(msg)) {
-        toast.error('Brak miejsca w pamięci przeglądarki. Odśwież (Ctrl+F5) lub Ustawienia → reset bazy.');
+        toast.error(
+          'Brak miejsca w pamięci przeglądarki. Usuń zdjęcie obiektu (przycisk Usuń), zapisz, potem wgraj zdjęcie ponownie — albo Ustawienia → reset bazy.'
+        );
       } else {
         toast.error(msg || 'Nie udało się zapisać obiektu');
       }
@@ -443,8 +496,8 @@ export default function Construction() {
               resetForm();
               setShowForm(true);
               requestAnimationFrame(() => {
-                document.getElementById('construction-site-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                document.getElementById('construction-object-name')?.focus();
+                document.getElementById('construction-site-form')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+                document.getElementById('construction-object-name')?.focus?.();
               });
             }}
             className="bg-blue-600 hover:bg-blue-700"

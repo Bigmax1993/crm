@@ -15,8 +15,21 @@ if (typeof window !== "undefined") {
     dispatchEvent: vi.fn(),
   }));
 
-  /** jsdom: domyślne scrollTo loguje „Not implemented” — Layout przewija po zmianie trasy */
+  /** jsdom: scrollIntoView / createObjectURL */
   window.scrollTo = vi.fn();
+  if (!Element.prototype.scrollIntoView) {
+    Element.prototype.scrollIntoView = vi.fn();
+  } else {
+    Element.prototype.scrollIntoView = vi.fn();
+  }
+  if (typeof URL !== "undefined") {
+    if (typeof URL.createObjectURL !== "function") {
+      URL.createObjectURL = vi.fn(() => `blob:http://localhost/${Math.random()}`);
+    }
+    if (typeof URL.revokeObjectURL !== "function") {
+      URL.revokeObjectURL = vi.fn();
+    }
+  }
 }
 
 /**
