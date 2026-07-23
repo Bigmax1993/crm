@@ -28,6 +28,18 @@ import {
 } from '@/lib/project-logistics-checklist';
 import { toast } from 'sonner';
 
+const SITE_STATUS_OPTIONS = [
+  { value: 'aktywny', label: 'Aktywny' },
+  { value: 'zakończony', label: 'Zakończony' },
+  { value: 'zawieszony', label: 'Zawieszony' },
+];
+
+function siteStatusSelectClass(status) {
+  if (status === 'aktywny') return 'border-green-300 bg-green-50 text-green-800';
+  if (status === 'zakończony') return 'border-slate-300 bg-slate-100 text-slate-800';
+  return 'border-amber-300 bg-amber-50 text-amber-900';
+}
+
 function emptyLocalMeta() {
   return {
     offer_segment: '',
@@ -226,6 +238,32 @@ export default function Construction() {
       queryClient.invalidateQueries(['site-extensions']);
     },
   });
+
+  /** Szybka zmiana statusu / obiegu z listy — bez otwierania formularza. */
+  const patchSiteFieldsMutation = useMutation({
+    mutationFn: async ({ id, patch, summary }) => {
+      await base44.entities.ConstructionSite.update(id, patch);
+      await logAuditEvent({
+        action: AUDIT_ACTIONS.PROJECT_UPDATE,
+        entity_type: 'ConstructionSite',
+        entity_id: id,
+        summary: summary || 'Zaktualizowano status projektu',
+        actor: 'użytkownik',
+      });
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries(['construction-sites']);
+      toast.success(vars?.summary || 'Zaktualizowano status projektu');
+    },
+    onError: (err) => {
+      toast.error(err?.message || 'Nie udało się zmienić statusu');
+    },
+  });
+
+  const patchSiteField = (site, patch, summary) => {
+    if (!site?.id) return;
+    patchSiteFieldsMutation.mutate({ id: site.id, patch, summary });
+  };
 
   const filteredSites = sites.filter(site => {
     const searchLower = search.toLowerCase();
@@ -468,9 +506,11 @@ export default function Construction() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="aktywny">Aktywny</SelectItem>
-                        <SelectItem value="zakończony">Zakończony</SelectItem>
-                        <SelectItem value="zawieszony">Zawieszony</SelectItem>
+                        {SITE_STATUS_OPTIONS.map((st) => (
+                          <SelectItem key={st.value} value={st.value}>
+                            {st.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -764,14 +804,14 @@ export default function Construction() {
                     <TableHead>Segment oferty</TableHead>
                     <TableHead>Logistyka</TableHead>
                     <TableHead>Kod pocztowy</TableHead>
-                    <TableHead>Obieg</TableHead>
+                    <TableHead title="Etap obiegu: zaplanowany → … → zapłacono">Obieg</TableHead>
                     <TableHead>Data plan.</TableHead>
                     <TableHead>Okres</TableHead>
                     <TableHead>Ilość faktur</TableHead>
                     <TableHead>Numery faktur</TableHead>
                     <TableHead>Uwagi</TableHead>
                     <TableHead>Dokumentacja fotograficzna</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead title="Aktywny / zakończony / zawieszony">Status</TableHead>
                     <TableHead>Akcje</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -829,8 +869,29 @@ export default function Construction() {
                           })()}
                         </TableCell>
                         <TableCell>{site.postal_code || '-'}</TableCell>
-                        <TableCell className="text-sm whitespace-nowrap">
-                          {constructionWorkflowLabel(site.workflow_status)}
+                        <TableCell className="min-w-[150px]">
+                          <Select
+                            value={site.workflow_status || 'realizacja'}
+                            onValueChange={(v) =>
+                              patchSiteField(
+                                site,
+                                { workflow_status: v },
+                                `Obieg: ${constructionWorkflowLabel(v)} — ${site.object_name || site.city || ''}`
+                              )
+                            }
+                            disabled={patchSiteFieldsMutation.isPending}
+                          >
+                            <SelectTrigger className="h-8 text-xs w-[140px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {CONSTRUCTION_WORKFLOW_STATUSES.map((st) => (
+                                <SelectItem key={st.value} value={st.value}>
+                                  {st.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell className="text-sm whitespace-nowrap">
                           {site.planned_date ? String(site.planned_date).slice(0, 10) : '-'}
@@ -859,14 +920,29 @@ export default function Construction() {
                              <span className="text-slate-400">-</span>
                            )}
                          </TableCell>
-                         <TableCell>
-                          <Badge className={
-                            site.status === 'aktywny' ? 'bg-green-100 text-green-800' :
-                            site.status === 'zakończony' ? 'bg-gray-100 text-gray-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }>
-                            {site.status}
-                          </Badge>
+                         <TableCell className="min-w-[140px]">
+                          <Select
+                            value={site.status || 'aktywny'}
+                            onValueChange={(v) =>
+                              patchSiteField(
+                                site,
+                                { status: v },
+                                `Status: ${SITE_STATUS_OPTIONS.find((o) => o.value === v)?.label || v} — ${site.object_name || site.city || ''}`
+                              )
+                            }
+                            disabled={patchSiteFieldsMutation.isPending}
+                          >
+                            <SelectTrigger className={`h-8 text-xs w-[130px] ${siteStatusSelectClass(site.status)}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SITE_STATUS_OPTIONS.map((st) => (
+                                <SelectItem key={st.value} value={st.value}>
+                                  {st.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell>
                            <div className="flex gap-2">
