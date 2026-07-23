@@ -22,7 +22,6 @@ import { getUploadFilePublicUrl } from '@/lib/upload-file-url';
 import { resolveSiteGeocode, siteHasCoords } from '@/lib/site-geocode';
 import { CONSTRUCTION_WORKFLOW_STATUSES, constructionWorkflowLabel, isActiveConstructionProject } from '@/lib/construction-workflow';
 import {
-  createLogisticsChecklistFromTemplate,
   logisticsChecklistProgress,
   normalizeLogisticsChecklist,
 } from '@/lib/project-logistics-checklist';
