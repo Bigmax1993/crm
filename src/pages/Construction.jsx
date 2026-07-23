@@ -66,7 +66,8 @@ function emptyLocalMeta() {
     norms_note: '',
     certifications: [],
     subsidy: { program: '', stage: '', deadline: '', amount_pln: '', notes: '' },
-    logistics_checklist: createLogisticsChecklistFromTemplate(),
+    // Nowy obiekt: bez pełnej checklisty — wstawisz szablon przyciskiem (krótszy formularz).
+    logistics_checklist: null,
   };
 }
 
@@ -226,7 +227,16 @@ export default function Construction() {
     onSuccess: () => {
       queryClient.invalidateQueries(['construction-sites']);
       queryClient.invalidateQueries(['site-extensions']);
+      toast.success('Dodano obiekt');
       dismissForm();
+    },
+    onError: (err) => {
+      const msg = err?.message || String(err);
+      if (/quota|miejsca w pamięci|localStorage/i.test(msg)) {
+        toast.error('Brak miejsca w pamięci przeglądarki. Odśwież (Ctrl+F5) lub Ustawienia → reset bazy.');
+      } else {
+        toast.error(msg || 'Nie udało się dodać obiektu');
+      }
     },
   });
 
@@ -245,7 +255,16 @@ export default function Construction() {
     onSuccess: () => {
       queryClient.invalidateQueries(['construction-sites']);
       queryClient.invalidateQueries(['site-extensions']);
+      toast.success('Zaktualizowano obiekt');
       dismissForm();
+    },
+    onError: (err) => {
+      const msg = err?.message || String(err);
+      if (/quota|miejsca w pamięci|localStorage/i.test(msg)) {
+        toast.error('Brak miejsca w pamięci przeglądarki. Odśwież (Ctrl+F5) lub Ustawienia → reset bazy.');
+      } else {
+        toast.error(msg || 'Nie udało się zaktualizować obiektu');
+      }
     },
   });
 
@@ -299,6 +318,12 @@ export default function Construction() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!String(formData.object_name ?? '').trim()) {
+      toast.error('Podaj nazwę obiektu (pole „Obiekt *” na górze formularza).');
+      document.getElementById('construction-object-name')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      document.getElementById('construction-object-name')?.focus();
+      return;
+    }
     setGeoSaving(true);
     try {
       let data = {
@@ -333,6 +358,13 @@ export default function Construction() {
         updateMutation.mutate({ id: editingId, data, extension: localMeta });
       } else {
         createMutation.mutate({ data, extension: localMeta });
+      }
+    } catch (err) {
+      const msg = err?.message || String(err);
+      if (/quota|miejsca w pamięci|localStorage/i.test(msg)) {
+        toast.error('Brak miejsca w pamięci przeglądarki. Odśwież (Ctrl+F5) lub Ustawienia → reset bazy.');
+      } else {
+        toast.error(msg || 'Nie udało się zapisać obiektu');
       }
     } finally {
       setGeoSaving(false);
@@ -411,6 +443,10 @@ export default function Construction() {
               setEditingId(null);
               resetForm();
               setShowForm(true);
+              requestAnimationFrame(() => {
+                document.getElementById('construction-site-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                document.getElementById('construction-object-name')?.focus();
+              });
             }}
             className="bg-blue-600 hover:bg-blue-700"
           >
@@ -419,9 +455,14 @@ export default function Construction() {
         </div>
 
         {showForm && (
-          <Card className="bg-background shadow-lg mb-6">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>{editingId ? 'Edytuj obiekt budowlany' : 'Nowy obiekt budowlany'}</CardTitle>
+          <Card id="construction-site-form" className="bg-background shadow-lg mb-6 scroll-mt-4">
+            <CardHeader className="flex flex-row items-center justify-between sticky top-0 z-10 bg-background/95 backdrop-blur border-b">
+              <div>
+                <CardTitle>{editingId ? 'Edytuj obiekt budowlany' : 'Nowy obiekt budowlany'}</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Wymagane: <span className="font-medium text-foreground">Obiekt</span> (pole wyżej). Zdjęcie jest opcjonalne — na dole formularza.
+                </p>
+              </div>
               <Button variant="ghost" size="icon" onClick={dismissForm}>
                 <X className="h-4 w-4" />
               </Button>
@@ -440,11 +481,14 @@ export default function Construction() {
                     />
                   </div>
                   <div>
-                    <Label>Obiekt *</Label>
+                    <Label htmlFor="construction-object-name">Obiekt *</Label>
                     <Input
+                      id="construction-object-name"
                       value={formData.object_name}
                       onChange={(e) => setFormData({ ...formData, object_name: e.target.value })}
+                      placeholder="np. Netto, Edeka…"
                       required
+                      autoFocus={!editingId}
                     />
                   </div>
                   <div>
