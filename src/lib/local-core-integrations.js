@@ -9,19 +9,38 @@ import {
 } from "@/lib/openai-crm";
 
 /**
- * Lokalny odpowiednik Core.UploadFile — publiczny URL w tej samej sesji (blob:).
- * Obsługuje File, Blob oraz wynik FileReader (data URL) jak w Construction.jsx.
+ * Lokalny odpowiednik Core.UploadFile — trwały data URL (przeżywa odświeżenie / SQLite).
+ * Obsługuje File, Blob, ArrayBuffer oraz data URL.
  */
 export async function localUploadFile({ file }) {
-  if (file instanceof File || file instanceof Blob) {
-    return { url: URL.createObjectURL(file) };
-  }
   if (typeof file === "string" && file.startsWith("data:")) {
-    const res = await fetch(file);
-    const blob = await res.blob();
-    return { url: URL.createObjectURL(blob) };
+    return { url: file };
   }
-  throw new Error("UploadFile (lokalny): oczekiwano File, Blob lub data URL.");
+
+  let blob = null;
+  if (file instanceof File || file instanceof Blob) {
+    blob = file;
+  } else if (file instanceof ArrayBuffer) {
+    blob = new Blob([file]);
+  } else if (ArrayBuffer.isView(file)) {
+    blob = new Blob([file.buffer]);
+  }
+
+  if (!blob) {
+    throw new Error("UploadFile (lokalny): oczekiwano File, Blob, ArrayBuffer lub data URL.");
+  }
+
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Nie udało się odczytać pliku do wgrania."));
+    reader.readAsDataURL(blob);
+  });
+
+  if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) {
+    throw new Error("UploadFile (lokalny): nie udało się zbudować data URL.");
+  }
+  return { url: dataUrl };
 }
 
 /**

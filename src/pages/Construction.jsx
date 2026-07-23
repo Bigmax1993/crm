@@ -306,13 +306,22 @@ export default function Construction() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const uploadRes = await base44.integrations.Core.UploadFile({ file: reader.result });
+    try {
+      if (!file.type?.startsWith("image/")) {
+        toast.error("Wybierz plik obrazu (JPG, PNG, WebP…).");
+        return;
+      }
+      const uploadRes = await base44.integrations.Core.UploadFile({ file });
       const url = getUploadFilePublicUrl(uploadRes);
-      if (url) setFormData({ ...formData, photo_documentation: url });
-    };
-    reader.readAsArrayBuffer(file);
+      if (!url) throw new Error("Brak adresu pliku po wgraniu.");
+      setFormData((prev) => ({ ...prev, photo_documentation: url }));
+      toast.success("Zdjęcie wgrane — kliknij „Aktualizuj obiekt”, aby zapisać.");
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.message || "Nie udało się wgrać zdjęcia.");
+    } finally {
+      e.target.value = "";
+    }
   };
 
   return (
@@ -757,6 +766,7 @@ export default function Construction() {
                     <TableHead>Kod pocztowy</TableHead>
                     <TableHead>Obieg</TableHead>
                     <TableHead>Data plan.</TableHead>
+                    <TableHead>Okres</TableHead>
                     <TableHead>Ilość faktur</TableHead>
                     <TableHead>Numery faktur</TableHead>
                     <TableHead>Uwagi</TableHead>
@@ -768,11 +778,11 @@ export default function Construction() {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={14} className="text-center py-8">Ładowanie...</TableCell>
+                      <TableCell colSpan={15} className="text-center py-8">Ładowanie...</TableCell>
                     </TableRow>
                   ) : filteredSites.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={14} className="text-center py-8 text-slate-500">
+                      <TableCell colSpan={15} className="text-center py-8 text-slate-500">
                         <Building className="h-8 w-8 mx-auto mb-2 text-slate-300" />
                         Brak obiektów budowlanych
                       </TableCell>
