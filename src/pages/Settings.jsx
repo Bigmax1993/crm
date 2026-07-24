@@ -101,7 +101,6 @@ export default function Settings() {
     { value: 'Contractors', label: 'Kontrahenci' },
     { value: 'Transfers', label: 'Przelewy' },
     { value: 'Reports', label: 'Raporty' },
-    { value: 'Construction', label: 'Projekty / budowa' },
     { value: 'Employees', label: 'Pracownicy' },
     { value: 'Hotels', label: 'Hotele' },
     { value: 'Upload', label: 'Import faktur' },

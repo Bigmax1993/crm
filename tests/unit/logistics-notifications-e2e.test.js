@@ -28,7 +28,7 @@ describe("logistyka — powiadomienia end-to-end (unit)", () => {
     const logistics = notes.find((n) => n.id === "logistics-p1");
     expect(logistics).toBeTruthy();
     expect(logistics.body).toMatch(/15 do załatwienia/);
-    expect(logistics.href).toContain("Construction?site=p1");
+    expect(logistics.href).toBe("/ProjectsMap");
   });
 
   it("gdy wszystko done/N/D — brak alertu logistyki", () => {

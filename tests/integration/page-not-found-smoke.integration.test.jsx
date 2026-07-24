@@ -36,6 +36,12 @@ describe("PageNotFound — nieistniejące trasy", () => {
     expect(screen.getByText(/„Security”/)).toBeInTheDocument();
   });
 
+  it("/Construction (usunięta strona) — komunikat 404", async () => {
+    render404("/Construction");
+    expect(await screen.findByRole("heading", { name: /nie znaleziono strony/i })).toBeInTheDocument();
+    expect(screen.getByText(/„Construction”/)).toBeInTheDocument();
+  });
+
   it("nieznana ścieżka — nazwa segmentu w treści", async () => {
     render404("/NieIstnieje");
     expect(await screen.findByText(/„NieIstnieje”/)).toBeInTheDocument();

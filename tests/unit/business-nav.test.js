@@ -64,9 +64,11 @@ describe("business-nav — NAV_GROUP_ORDER", () => {
     expect(PAGE_TITLES.SettingsAI).toBe("Ustawienia AI");
   });
 
-  it("Security nie występuje w nawigacji ani w tytułach", () => {
+  it("Security i Construction nie występują w nawigacji ani w tytułach", () => {
     const navPages = NAV_GROUP_ORDER.flatMap((g) => g.pages);
     expect(navPages).not.toContain("Security");
+    expect(navPages).not.toContain("Construction");
     expect(PAGE_TITLES.Security).toBeUndefined();
+    expect(PAGE_TITLES.Construction).toBeUndefined();
   });
 });

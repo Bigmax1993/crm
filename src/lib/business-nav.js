@@ -38,8 +38,6 @@ export const PAGE_TITLES = {
 
   Employees: "Pracownicy",
 
-  Construction: "Projekty / budowa",
-
   Upload: "Import faktur",
 
   UploadWZ: "Import WZ",
@@ -153,8 +151,6 @@ export const NAV_GROUP_ORDER = [
       "Contractors",
 
       "Employees",
-
-      "Construction",
 
       "Invoices",
 

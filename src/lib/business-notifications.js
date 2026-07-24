@@ -120,7 +120,7 @@ export function buildBusinessNotifications({
       severity: "warning",
       title: `Logistyka: ${name}`,
       body: `${row.openItems.length} do załatwienia: ${preview}${more}`,
-      href: `/Construction?site=${encodeURIComponent(row.project.id)}`,
+      href: "/ProjectsMap",
     });
   }
 
@@ -130,7 +130,7 @@ export function buildBusinessNotifications({
       severity: "info",
       title: "Brak aktywnych projektów",
       body: "Wszystkie obiekty są zaplanowane, zawieszone lub zakończone.",
-      href: "/Construction",
+      href: "/ProjectsMap",
     });
   }
 

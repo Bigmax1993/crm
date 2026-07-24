@@ -14,6 +14,6 @@ describe("utils — createAbsolutePageHref przy base jak na GitHub Pages", () =>
     const { createAbsolutePageHref, constructionSitePageUrl } = await import("@/utils/index.ts");
     expect(createAbsolutePageHref("Settings")).toBe("/crm/Settings");
     expect(createAbsolutePageHref("CEODashboard")).toBe("/crm/CEODashboard");
-    expect(constructionSitePageUrl("abc-123")).toBe("/Construction?site=abc-123");
+    expect(constructionSitePageUrl("abc-123")).toBe("/ProjectsMap");
   });
 });

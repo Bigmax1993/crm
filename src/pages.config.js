@@ -49,7 +49,6 @@
  */
 import CashFlow from './pages/CashFlow';
 import CEODashboard from './pages/CEODashboard';
-import Construction from './pages/Construction';
 import ContractorDetails from './pages/ContractorDetails';
 import Contractors from './pages/Contractors';
 import Dashboard from './pages/Dashboard';
@@ -86,7 +85,6 @@ import __Layout from './Layout.jsx';
 export const PAGES = {
     "CashFlow": CashFlow,
     "CEODashboard": CEODashboard,
-    "Construction": Construction,
     "ContractorDetails": ContractorDetails,
     "Contractors": Contractors,
     "Dashboard": Dashboard,

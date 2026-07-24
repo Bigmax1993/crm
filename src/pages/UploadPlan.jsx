@@ -108,7 +108,7 @@ export default function UploadPlan() {
   const processFiles = async () => {
     if (!files.length) return;
     if (!projects.length) {
-      toast.warning("Brak projektów w module Budowa — Claude nie będzie mógł dopasować planu automatycznie.");
+      toast.warning("Brak projektów — Claude nie będzie mógł dopasować planu automatycznie.");
     }
     setProcessing(true);
     setStep("processing");

@@ -14,7 +14,8 @@ export function createAbsolutePageHref(pageName: string) {
   return `/${base}/${rest}`.replace(/\/+/g, "/");
 }
 
-/** Link do edycji obiektu budowlanego (moduł Budowa). */
+/** Link do obiektu — moduł Budowa wyłączony; mapa obiektów. */
 export function constructionSitePageUrl(siteId: string) {
-  return `${createPageUrl("Construction")}?site=${encodeURIComponent(siteId)}`;
+  void siteId;
+  return createPageUrl("ProjectsMap");
 }

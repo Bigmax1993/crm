@@ -30,9 +30,11 @@ describe("pages.config ↔ business-nav — spójność routingu i nawigacji", (
     }
   });
 
-  it("Security nie jest trasą ani pozycją menu (usunięte z aplikacji)", () => {
+  it("Security i Construction nie są trasą ani pozycją menu (usunięte z aplikacji)", () => {
     expect(appPageKeys).not.toContain("Security");
+    expect(appPageKeys).not.toContain("Construction");
     const navPages = NAV_GROUP_ORDER.flatMap((g) => g.pages);
     expect(navPages).not.toContain("Security");
+    expect(navPages).not.toContain("Construction");
   });
 });

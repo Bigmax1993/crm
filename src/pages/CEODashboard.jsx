@@ -825,7 +825,7 @@ export default function CEODashboard() {
           </CardHeader>
           <CardContent className="h-80">
             {!selectedProjectId ? (
-              <p className="text-muted-foreground text-sm">Dodaj projekt w module Budowa, aby zobaczyć wydatki.</p>
+              <p className="text-muted-foreground text-sm">Brak projektów — dodaj obiekty, aby zobaczyć wydatki.</p>
             ) : projectExpenseChart.length === 0 ? (
               <div className="text-muted-foreground text-sm space-y-2">
                 <p>

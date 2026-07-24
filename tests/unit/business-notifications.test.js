@@ -46,6 +46,6 @@ describe("business-notifications", () => {
     expect(logistics).toBeTruthy();
     expect(logistics.title).toContain("REWE Dresden");
     expect(logistics.body).toMatch(/14 do załatwienia/);
-    expect(logistics.href).toContain("Construction?site=p1");
+    expect(logistics.href).toBe("/ProjectsMap");
   });
 });

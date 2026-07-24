@@ -115,7 +115,7 @@ export default function ProjectsMap() {
           <div>
             <h1 className="text-3xl md:text-4xl font-bold">Mapa obiektów</h1>
             <p className="text-muted-foreground mt-1 max-w-xl text-sm">
-              Projekty z zapisanym GPS (szer. / dł. geogr. w module Budowa). Rentowność w dymku:{" "}
+              Projekty z zapisanym GPS (szer. / dł. geogr.). Rentowność w dymku:{" "}
               {financeMetricSummary("projectProfitabilityMixedPln")}
             </p>
           </div>
